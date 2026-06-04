@@ -1,6 +1,7 @@
-# verifier-core _(@digitalcredentials/verifier-core)_
+# verifier-core _(@interop/verifier-core)_
 
-[![Build status](https://img.shields.io/github/actions/workflow/status/digitalcredentials/verifier-core/ci.yml?branch=main)](https://github.com/digitalcredentials/verifier-core/actions?query=workflow%3ACI)
+[![Build status](https://img.shields.io/github/actions/workflow/status/interop-alliance/verifier-core/ci.yml?branch=main)](https://github.com/interop-alliance/verifier-core/actions?query=workflow%3ACI)
+[![NPM Version](https://img.shields.io/npm/v/@digitalcredentials/verifier-core.svg)](https://npm.im/@digitalcredentials/verifier-core)
 
 > Verifies W3C Verifiable Credentials in the browser, Node.js, and React Native.
 
@@ -53,7 +54,7 @@ and per-call args, used for
 [two-pass verification](#credential-recognition--two-pass-verification).
 
 Open Badges 3.0 verification lives in the opt-in submodule
-[`@digitalcredentials/verifier-core/openbadges`](#open-badges-30-verification-opt-in-submodule)
+[`@interop/verifier-core/openbadges`](#open-badges-30-verification-opt-in-submodule)
 and is not part of the default suite list.
 
 The result doesn't make a single "valid/invalid" judgment. It returns the
@@ -93,7 +94,7 @@ const result = await verifyCredential({ credential, registries });
 ### verifyCredential
 
 ```typescript
-import { verifyCredential } from '@digitalcredentials/verifier-core';
+import { verifyCredential } from '@interop/verifier-core';
 
 const result = await verifyCredential({
   credential, // The VC to verify (any version, passed as unknown)
@@ -306,7 +307,7 @@ map for type-safe checks:
 import {
   ProblemTypes,
   type ProblemType
-} from '@digitalcredentials/verifier-core';
+} from '@interop/verifier-core';
 
 switch (problem.type as ProblemType) {
   case ProblemTypes.INVALID_SIGNATURE:
@@ -332,7 +333,7 @@ published.
 ### verifyPresentation
 
 ```typescript
-import { verifyPresentation } from '@digitalcredentials/verifier-core';
+import { verifyPresentation } from '@interop/verifier-core';
 
 const result = await verifyPresentation({
   presentation, // The VP to verify
@@ -406,7 +407,7 @@ When you want a single iterable view of every check that ran across the
 presentation and its embedded credentials, use `flattenPresentationResults`:
 
 ```typescript
-import { flattenPresentationResults } from '@digitalcredentials/verifier-core';
+import { flattenPresentationResults } from '@interop/verifier-core';
 
 const result = await verifyPresentation({ presentation });
 for (const entry of flattenPresentationResults(result)) {
@@ -438,7 +439,7 @@ verifiers, construct one cache adapter and pass it to each
 `createVerifier({ cacheService })`.
 
 ```typescript
-import { createVerifier } from '@digitalcredentials/verifier-core';
+import { createVerifier } from '@interop/verifier-core';
 
 const verifier = createVerifier({ registries });
 
@@ -463,7 +464,7 @@ Extend the default pipeline with custom verification logic:
 import {
   verifyCredential,
   VerificationSuite
-} from '@digitalcredentials/verifier-core';
+} from '@interop/verifier-core';
 
 const myCustomSuite: VerificationSuite = {
   id: 'custom.expiry-policy',
@@ -552,7 +553,7 @@ clock-skew windows, key rotation, and status-list freshness — see
 ## Open Badges 3.0 verification (opt-in submodule)
 
 Open Badges 3.0 verification ships in
-`@digitalcredentials/verifier-core/openbadges` as an opt-in submodule. It is not
+`@interop/verifier-core/openbadges` as an opt-in submodule. It is not
 part of the default suite list; consumers that want OB checks pass
 `openBadgesSuite` (or one of the bundled variants) via `additionalSuites` on a
 verify call.
@@ -564,8 +565,8 @@ verify call.
 ### Enabling OB verification
 
 ```ts
-import { createVerifier } from '@digitalcredentials/verifier-core';
-import { openBadgesSuite } from '@digitalcredentials/verifier-core/openbadges';
+import { createVerifier } from '@interop/verifier-core';
+import { openBadgesSuite } from '@interop/verifier-core/openbadges';
 
 const verifier = createVerifier();
 const result = await verifier.verifyCredential({
@@ -597,7 +598,7 @@ import {
   openBadgesSuite,
   OpenBadgesProblemTypes,
   type OpenBadgesProblemType
-} from '@digitalcredentials/verifier-core/openbadges';
+} from '@interop/verifier-core/openbadges';
 
 // In a result-handling callback...
 switch (problem.type as OpenBadgesProblemType) {
@@ -634,7 +635,7 @@ check that adds those tokens to the accepted set:
 import {
   openBadgesSemanticSuite,
   createObv3UnknownAchievementTypeCheck
-} from '@digitalcredentials/verifier-core/openbadges';
+} from '@interop/verifier-core/openbadges';
 
 const customCheck = createObv3UnknownAchievementTypeCheck({
   additionalKnownTypes: ['MyOrgInternalAchievementType']
@@ -671,13 +672,13 @@ re-parsing.
 ### End-to-end Open Badges wiring
 
 ```ts
-import { createVerifier } from '@digitalcredentials/verifier-core';
+import { createVerifier } from '@interop/verifier-core';
 import {
   obv3p0Recognizer,
   obv3p0EndorsementRecognizer,
   openBadgesSuite
-} from '@digitalcredentials/verifier-core/openbadges';
-import type { Obv3p0OpenBadgeCredential } from '@digitalcredentials/verifier-core/openbadges';
+} from '@interop/verifier-core/openbadges';
+import type { Obv3p0OpenBadgeCredential } from '@interop/verifier-core/openbadges';
 
 const verifier = createVerifier({
   recognizers: [obv3p0Recognizer, obv3p0EndorsementRecognizer]
@@ -785,7 +786,7 @@ This release tightens the public API surface. The following changes may require
 small migrations:
 
 - **Demoted from `index.ts`** — these symbols remain reachable via their module
-  paths (`@digitalcredentials/verifier-core/dist/...`) but are no longer part of
+  paths (`@interop/verifier-core/dist/...`) but are no longer part of
   the published 1.0 surface: `runSuites`, `createRegistryLookup`,
   `DEFAULT_TTL_MS`, `parseCacheControlMaxAge`, `resolveTtl`,
   `ttlFromValidUntil`, `documentLoaderFromHttpGet`, `fetchJsonFromHttpGet`,
@@ -834,7 +835,7 @@ Node.js 24+ is required.
 ### NPM
 
 ```
-npm install @digitalcredentials/verifier-core
+npm install @interop/verifier-core
 ```
 
 ### Development
@@ -842,7 +843,7 @@ npm install @digitalcredentials/verifier-core
 This repo uses [pnpm](https://pnpm.io/).
 
 ```
-git clone https://github.com/digitalcredentials/verifier-core.git
+git clone https://github.com/interop-alliance/verifier-core.git
 cd verifier-core
 pnpm install
 pnpm test            # lint + node tests (vitest)

@@ -44,7 +44,7 @@ anywhere and instrumentation has zero overhead.
 **Constructor flag.** Apply to every call on the verifier:
 
 ```ts
-import { createVerifier } from '@digitalcredentials/verifier-core';
+import { createVerifier } from '@interop/verifier-core';
 
 const verifier = createVerifier({ timing: true });
 const result = await verifier.verifyCredential({ credential });
@@ -240,7 +240,7 @@ Override via `VerifierConfig.timeService`:
 import {
   createVerifier,
   FakeTimeService,
-} from '@digitalcredentials/verifier-core';
+} from '@interop/verifier-core';
 
 const verifier = createVerifier({
   timing: true,
@@ -268,12 +268,12 @@ status-list freshness, etc. Read it from
 > Drop this section verbatim into an LLM prompt for client-side
 > instrumentation code-gen.
 
-`@digitalcredentials/verifier-core` v2 emits optional
+`@interop/verifier-core` v2 emits optional
 `TaskTiming` data on every result when constructed with
 `timing: true`:
 
 ```ts
-import { createVerifier } from '@digitalcredentials/verifier-core';
+import { createVerifier } from '@interop/verifier-core';
 const verifier = createVerifier({ timing: true });
 const result = await verifier.verifyPresentation({ presentation });
 ```

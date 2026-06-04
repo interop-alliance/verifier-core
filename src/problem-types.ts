@@ -33,7 +33,7 @@
  * verification submodules live in their own catalogs and are not
  * mirrored here. For example, OpenBadges types live in
  * `src/openbadges/problem-types.ts` and are exported via the
- * `@digitalcredentials/verifier-core/openbadges` submodule barrel as
+ * `@interop/verifier-core/openbadges` submodule barrel as
  * `OpenBadgesProblemTypes`.
  */
 

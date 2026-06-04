@@ -303,7 +303,7 @@ import type {
   CredentialVerificationResult,
   PresentationVerificationResult,
   SuiteSummary,
-} from '@digitalcredentials/verifier-core';
+} from '@interop/verifier-core';
 
 const PHASE_ORDER: SuiteSummary['phase'][] = [
   'cryptographic',
@@ -424,7 +424,7 @@ dcc-transaction-service UI implementation.
 >
 > The result is the return value of
 > `verifier.verifyPresentation({ presentation })` from
-> `@digitalcredentials/verifier-core` (v2.0.0+). The folded result
+> `@interop/verifier-core` (v2.0.0+). The folded result
 > shape is the default; `results[]` carries only failures and
 > explicit `<suite>.applies` skips. Pass `verbose: true` to get
 > every check.

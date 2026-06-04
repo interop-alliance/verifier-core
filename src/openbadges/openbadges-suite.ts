@@ -21,8 +21,8 @@
  *
  * @example
  * ```ts
- * import { createVerifier } from '@digitalcredentials/verifier-core';
- * import { openBadgesSuite } from '@digitalcredentials/verifier-core/openbadges';
+ * import { createVerifier } from '@interop/verifier-core';
+ * import { openBadgesSuite } from '@interop/verifier-core/openbadges';
  *
  * const verifier = createVerifier();
  * await verifier.verifyCredential({

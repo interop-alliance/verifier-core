@@ -1,9 +1,10 @@
-# @digitalcredentials/verifier-core CHANGELOG
+# @interop/verifier-core CHANGELOG
 
 ## 3.0.0 -
 
 ### Changed
 
+- **BREAKING**: Fork from https://github.com/skybridgeskills/dcc-verifier-core (v2 below)
 - **Tooling / packaging** (infrastructure aligned with
   `isomorphic-lib-template`, no library behavior change): build is a single-pass
   `tsc` under `moduleResolution: Bundler`; tests run on **vitest** (Node) +

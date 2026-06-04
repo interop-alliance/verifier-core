@@ -77,7 +77,7 @@ export interface VerifierConfig {
    * normalized form is produced. The `verifier-core` package stays
    * profile-agnostic by default; consumers wire OB recognition by
    * importing `obv3p0Recognizer` from
-   * `@digitalcredentials/verifier-core/openbadges` and passing it
+   * `@interop/verifier-core/openbadges` and passing it
    * here.
    */
   recognizers?: RecognizerSpec[];
@@ -137,7 +137,7 @@ export interface VerifierConfig {
    * Pluggable wall-clock + monotonic clock. Defaults to
    * {@link RealTimeService}. Override with
    * {@link FakeTimeService} from
-   * `@digitalcredentials/verifier-core` in tests for
+   * `@interop/verifier-core` in tests for
    * deterministic timing assertions, or with any other
    * {@link TimeService} when injecting a controlled clock for
    * future features (credential expiration, signature clock-
