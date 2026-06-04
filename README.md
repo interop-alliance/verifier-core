@@ -1,7 +1,7 @@
 # verifier-core _(@interop/verifier-core)_
 
 [![Build status](https://img.shields.io/github/actions/workflow/status/interop-alliance/verifier-core/ci.yml?branch=main)](https://github.com/interop-alliance/verifier-core/actions?query=workflow%3ACI)
-[![NPM Version](https://img.shields.io/npm/v/@digitalcredentials/verifier-core.svg)](https://npm.im/@digitalcredentials/verifier-core)
+[![NPM Version](https://img.shields.io/npm/v/@interop/verifier-core.svg)](https://npm.im/@interop/verifier-core)
 
 > Verifies W3C Verifiable Credentials in the browser, Node.js, and React Native.
 

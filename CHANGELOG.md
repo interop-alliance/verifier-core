@@ -1,6 +1,6 @@
 # @interop/verifier-core CHANGELOG
 
-## 3.0.0 - 2026-06-04
+## 3.0.0-3.0.1 - 2026-06-04
 
 ### Changed
 
