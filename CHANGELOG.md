@@ -9,8 +9,8 @@
   `tsc` under `moduleResolution: Bundler`; tests run on **vitest** (Node) +
   **playwright** (browser, replacing karma); lint/format on eslint flat config +
   prettier 3; package manager is **pnpm**. `engines.node` raised to `>=24`.
-  `exports` now declare `react-native` / `import` conditions for `.` and
-  `./openbadges`, and the package is marked `sideEffects: false`.
+  `exports` now declare `react-native` / `import` / `default` conditions for
+  `.` and `./openbadges`, and the package is marked `sideEffects: false`.
 - **Dependencies**: switched `@digitalcredentials/security-document-loader`
   (`^8.0.0`) to the `@interop/security-document-loader` fork (`^9.2.1`). The
   `securityLoader` export and document-loader behavior are unchanged; the fork

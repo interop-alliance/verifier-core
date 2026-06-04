@@ -26,12 +26,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "react-native": "./dist/index.js",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./openbadges": {
       "types": "./dist/openbadges/index.d.ts",
       "react-native": "./dist/openbadges/index.js",
-      "import": "./dist/openbadges/index.js"
+      "import": "./dist/openbadges/index.js",
+      "default": "./dist/openbadges/index.js"
     }
   },
   "files": [
