@@ -618,11 +618,12 @@ their own URIs without requiring an entry in any catalog.
 |------------------------------------------------------|---------------------------------------------------------------------|
 | `@digitalcredentials/vc`                             | Core VC/VP signature verification (used inside `DataIntegrityCryptoService`) |
 | `@digitalcredentials/jsonld-signatures`              | Linked Data Proof verification and proof purposes                    |
-| `@digitalcredentials/ed25519-signature-2020`         | Ed25519Signature2020 crypto suite                                    |
-| `@digitalcredentials/eddsa-rdfc-2022-cryptosuite`    | EdDSA/RDFC 2022 Data Integrity crypto suite                          |
-| `@digitalcredentials/data-integrity`                 | DataIntegrityProof wrapper                                           |
-| `@digitalcredentials/security-document-loader`       | Bundled JSON-LD context resolution + `CachedResolver`                |
-| `@digitalcredentials/did-method-key`, `did-method-web` | DID resolution drivers used by the document loader                  |
+| `@interop/ed25519-signature`                         | Ed25519Signature2020 crypto suite + `eddsaRdfc2022` cryptosuite      |
+| `@interop/data-integrity-proof`                      | DataIntegrityProof wrapper                                           |
+| `@interop/ed25519-verification-key`                  | Ed25519 key deserialization (`from`) for the document loader         |
+| `@interop/security-document-loader`                  | Bundled JSON-LD context resolution + `CachedResolver`                |
+| `@digitalcredentials/did-method-key`                 | did:key resolution driver used by the document loader               |
+| `@interop/did-web-resolver`                          | did:web resolution driver used by the document loader               |
 | `@digitalcredentials/vc-bitstring-status-list`       | BitstringStatusList status checking                                   |
 | `zod`                                                | Input parsing and structural validation                              |
 | `ajv` / `ajv-formats`                                | JSON Schema validation for OBv3 schema checks                        |

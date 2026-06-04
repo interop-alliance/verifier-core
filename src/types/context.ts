@@ -22,7 +22,7 @@ import type { RecognizerSpec } from './recognition.js';
  * Resolves a URL to a JSON-LD document (or other linked resource).
  *
  * This is a port interface — the default implementation uses
- * `@digitalcredentials/security-document-loader` with cached contexts,
+ * `@interop/security-document-loader` with cached contexts,
  * but callers can inject any loader (e.g. one that reads from a fixture map
  * in tests).
  */
