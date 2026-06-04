@@ -1,13 +1,17 @@
 /**
  * Default {@link CryptoService} for Linked Data Proofs and Data Integrity proofs
- * via `@digitalcredentials/vc`.
+ * via `@interop/vc`.
  */
 
 import {
   verifyCredential as vcVerifyCredential,
   verify as vcVerifyPresentation
-} from '@digitalcredentials/vc';
-import jsonLdSignatures from '@digitalcredentials/jsonld-signatures';
+} from '@interop/vc';
+import jsonLdSignatures from '@interop/jsonld-signatures';
+import type {
+  IVerifiableCredential,
+  IVerifiablePresentation
+} from '@interop/data-integrity-core';
 import type {
   CryptoResult,
   CryptoService,
@@ -19,7 +23,7 @@ import type { VerificationSubject } from '../types/subject.js';
 import { ProblemTypes } from '../problem-types.js';
 
 /**
- * No-op `checkStatus` passed to `@digitalcredentials/vc` so its
+ * No-op `checkStatus` passed to `@interop/vc` so its
  * `_verifyCredential` doesn't throw `TypeError` when a VC carries
  * `credentialStatus`. The library requires a callable `checkStatus`
  * for any VC with `credentialStatus`; this no-op satisfies that
@@ -167,6 +171,9 @@ function getPresentationPurpose(
 
   if (useAuthenticationPurpose) {
     return new purposes.AuthenticationProofPurpose({
+      // `term` defaults to `'authentication'` at runtime; the published types
+      // mark it required, so pass the same default explicitly.
+      term: 'authentication',
       challenge: challenge ?? 'meaningless'
     });
   }
@@ -195,7 +202,7 @@ export interface DataIntegrityCryptoConfig {
 }
 
 /**
- * Builds a {@link CryptoService} that verifies via `@digitalcredentials/vc` using the
+ * Builds a {@link CryptoService} that verifies via `@interop/vc` using the
  * given proof suites (e.g. Ed25519Signature2020 + DataIntegrityProof).
  *
  * Signature verification only — credential status is the responsibility
@@ -228,10 +235,11 @@ export function DataIntegrityCryptoService(
     ): Promise<CryptoResult> => {
       try {
         const result = await vcVerifyCredential({
-          credential,
+          // Untrusted input crossing into the typed `@interop/vc` API; `canVerify`
+          // has already confirmed a proof is present.
+          credential: credential as IVerifiableCredential,
           suite: suites,
           documentLoader: options.documentLoader,
-          verifyMatchingIssuers: false,
           checkStatus: noopCheckStatus
         });
 
@@ -278,13 +286,14 @@ export function DataIntegrityCryptoService(
         );
 
         const result = await vcVerifyPresentation({
-          presentation,
+          // Untrusted input crossing into the typed `@interop/vc` API; `canVerify`
+          // has already confirmed a proof is present.
+          presentation: presentation as IVerifiablePresentation,
           presentationPurpose: purpose,
           suite: suites,
           documentLoader: options.documentLoader,
           unsignedPresentation: options.unsignedPresentation ?? false,
           challenge: options.challenge ?? 'meaningless',
-          verifyMatchingIssuers: false,
           checkStatus: noopCheckStatus
         });
 

@@ -8,6 +8,11 @@
  * `getNode` (suite context map aligned with that package).
  */
 import { DidWebResolver, urlFromDid } from '@interop/did-web-resolver';
+import type {
+  IDID,
+  IDidDocument,
+  IPublicKey
+} from '@interop/data-integrity-core';
 import { klona } from 'klona';
 import type { HttpGetService } from '../services/http-get-service/http-get-service.js';
 
@@ -96,64 +101,56 @@ function getNodeFromDidDocument(
   };
 }
 
-export interface DidWebDriverLike {
-  method: 'web';
-  use: DidWebResolver['use'];
-  get: (opts?: {
-    did?: string;
-    url?: string;
-    fetchOptions?: object;
-  }) => Promise<unknown>;
-}
-
 /**
- * did-io driver: same surface as {@link DidWebResolver} for `get` / `use`, but
- * `get` loads documents via `httpGetService`.
+ * did-io driver for did:web that loads documents via `httpGetService`.
+ *
+ * Returns a {@link DidWebResolver} instance (which implements `did-io`'s
+ * `DidMethodDriver`, so it can be registered via `CachedResolver.use(...)`, and
+ * exposes `use(...)` for registering key suites) with only `get` overridden to
+ * route fetches through the caller's `httpGetService`. The generation/key
+ * methods (`generate`, `fromKeyPair`, etc.) are inherited unchanged; a verifier
+ * never calls them.
  */
 export function didWebDriverWithHttpGet(
   httpGetService: HttpGetService,
   options?: ConstructorParameters<typeof DidWebResolver>[0]
-): DidWebDriverLike {
-  const inner = new DidWebResolver(options);
-  return {
-    method: 'web',
-    use: inner.use.bind(inner),
-    async get({
-      did,
-      url,
-      fetchOptions: _fetchOptions = {}
-    }: {
-      did?: string;
-      url?: string;
-      fetchOptions?: object;
-    } = {}) {
-      const didOrUrl = did || url;
-      if (!didOrUrl) {
-        throw new TypeError('A DID or URL is required.');
-      }
-      const resolvedUrl = new URL(
-        didOrUrl.startsWith('did:')
-          ? urlFromDid({ did: didOrUrl })
-          : didOrUrl
-      );
-      const fragment = resolvedUrl.hash;
-      resolvedUrl.hash = '';
-      const baseUrl = resolvedUrl.toString();
-      assertDomainAllowList(inner.allowList, baseUrl);
-      const { body, status } = await httpGetService.get(baseUrl);
-      if (status < 200 || status >= 300) {
-        throw new Error(`Failed to fetch DID document: HTTP ${status}`);
-      }
-      const data = body as Record<string, unknown> | null;
-      const [didAuth] = didOrUrl.split(/(?=[?#])/);
-      if (data?.id !== didAuth) {
-        throw new Error(`DID document for DID "${didOrUrl}" not found.`);
-      }
-      if (fragment) {
-        const id = `${String(data.id)}${fragment}`;
-        return getNodeFromDidDocument(data, id);
-      }
-      return data;
+): DidWebResolver {
+  const driver = new DidWebResolver(options);
+  driver.get = async ({
+    did,
+    url
+  }: {
+    did?: IDID | string;
+    url?: string;
+    [key: string]: unknown;
+  } = {}): Promise<IDidDocument | IPublicKey> => {
+    const didOrUrl = did || url;
+    if (!didOrUrl) {
+      throw new TypeError('A DID or URL is required.');
     }
+    const resolvedUrl = new URL(
+      didOrUrl.startsWith('did:') ? urlFromDid({ did: didOrUrl }) : didOrUrl
+    );
+    const fragment = resolvedUrl.hash;
+    resolvedUrl.hash = '';
+    const baseUrl = resolvedUrl.toString();
+    assertDomainAllowList(driver.allowList, baseUrl);
+    const { body, status } = await httpGetService.get(baseUrl);
+    if (status < 200 || status >= 300) {
+      throw new Error(`Failed to fetch DID document: HTTP ${status}`);
+    }
+    const data = body as Record<string, unknown> | null;
+    const [didAuth] = didOrUrl.split(/(?=[?#])/);
+    if (data?.id !== didAuth) {
+      throw new Error(`DID document for DID "${didOrUrl}" not found.`);
+    }
+    // The fetched body is untrusted JSON; assert it into the typed DID-document /
+    // verification-method node shapes at this boundary.
+    if (fragment) {
+      const id = `${String(data.id)}${fragment}`;
+      return getNodeFromDidDocument(data, id) as unknown as IPublicKey;
+    }
+    return data as unknown as IDidDocument;
   };
+  return driver;
 }

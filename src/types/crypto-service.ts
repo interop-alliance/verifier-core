@@ -1,7 +1,7 @@
 /**
  * Cryptographic verification port — hexagonal adapter boundary for proof verification.
  *
- * Implementations wrap concrete libraries (e.g. `@digitalcredentials/vc` for Data
+ * Implementations wrap concrete libraries (e.g. `@interop/vc` for Data
  * Integrity). The proof suite dispatches to `CryptoService` instances from
  * `VerificationContext` (phase 2).
  */

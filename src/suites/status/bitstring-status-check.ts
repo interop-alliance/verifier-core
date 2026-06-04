@@ -1,4 +1,4 @@
-import { checkStatus } from '@digitalcredentials/vc-bitstring-status-list';
+import { checkStatus } from '@interop/vc-bitstring-status-list';
 import { VerificationCheck, CheckOutcome } from '../../types/check.js';
 import { ProblemDetail } from '../../types/problem-detail.js';
 import { VerificationSubject } from '../../types/subject.js';
@@ -233,14 +233,14 @@ export const bitstringStatusCheck: VerificationCheck = {
     try {
       const verifySl = context.verifyBitstringStatusListCredential ?? true;
 
-      const statusResult = (await checkStatus({
+      const statusResult = await checkStatus({
         credential,
         documentLoader: context.documentLoader,
         suite: context.cryptoSuites,
         verifyBitstringStatusListCredential: verifySl,
         // Hosted status lists may use a different issuer than the VC (see DataIntegrityCryptoService).
         verifyMatchingIssuers: false
-      })) as { verified?: boolean; error?: unknown };
+      });
 
       if (statusResult.error !== undefined) {
         return {
@@ -249,7 +249,15 @@ export const bitstringStatusCheck: VerificationCheck = {
         };
       }
 
-      if (statusResult.verified === true) {
+      // `@interop/vc-bitstring-status-list` reports `verified: true` once the
+      // status was *successfully checked*; the revoked/suspended bit itself
+      // lives in each per-status `results[].status`. Treat any set bit as a
+      // failed status check.
+      const revokedOrSuspended = (statusResult.results ?? []).some(result =>
+        Boolean(result?.status)
+      );
+
+      if (statusResult.verified === true && !revokedOrSuspended) {
         return {
           status: 'success',
           message: 'Credential status is valid (not revoked or suspended).'

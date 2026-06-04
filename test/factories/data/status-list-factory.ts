@@ -1,7 +1,7 @@
 import {
   createCredential,
   createList
-} from '@digitalcredentials/vc-bitstring-status-list';
+} from '@interop/vc-bitstring-status-list';
 import {
   DEFAULT_TEST_ISSUER_DID,
   PlaceholderProof
@@ -48,7 +48,7 @@ export async function StatusListCredentialFactory(
     id,
     list,
     statusPurpose
-  })) as Record<string, unknown>;
+  })) as unknown as Record<string, unknown>;
 
   return deepMerge(
     deepMerge(cred, {

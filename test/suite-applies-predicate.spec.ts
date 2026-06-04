@@ -9,7 +9,7 @@ import type { VerificationContext } from '../src/types/context.js';
 import type { VerificationSubject } from '../src/types/subject.js';
 
 const ctx: VerificationContext = {
-  documentLoader: async () => ({}),
+  documentLoader: async () => ({ document: {} }),
   fetchJson: async () => ({}),
   cryptoSuites: [],
   cryptoServices: [],

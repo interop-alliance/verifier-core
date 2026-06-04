@@ -54,12 +54,7 @@ export type {
   CryptoResult,
   CryptoVerifyOptions
 } from './types/crypto-service.js';
-export type {
-  CryptoSuite,
-  LinkedDataSuite,
-  DataIntegritySuite,
-  ProofPurpose
-} from './types/crypto-suite.js';
+export type { CryptoSuite, ProofPurpose } from './types/crypto-suite.js';
 export type { VerificationSubject } from './types/subject.js';
 export type { RecognizerSpec, RecognitionResult } from './types/recognition.js';
 
