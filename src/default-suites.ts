@@ -20,15 +20,15 @@
  *
  * OpenBadges 3.0 verification (semantic checks and JSON Schema
  * validation) is opt-in and lives in the
- * `@digitalcredentials/verifier-core/openbadges` submodule. Add it
+ * `@interop/verifier-core/openbadges` submodule. Add it
  * via `additionalSuites`:
  *
  * ```ts
- * import { createVerifier } from '@digitalcredentials/verifier-core';
+ * import { createVerifier } from '@interop/verifier-core';
  * import {
  *   obv3p0Recognizer,
  *   openBadgesSuite,
- * } from '@digitalcredentials/verifier-core/openbadges';
+ * } from '@interop/verifier-core/openbadges';
  *
  * const verifier = createVerifier({ recognizers: [obv3p0Recognizer] });
  * await verifier.verifyCredential({

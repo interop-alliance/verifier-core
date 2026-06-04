@@ -4,7 +4,7 @@
  * Pins three contracts that no per-check unit spec covers:
  *
  * 1. **The `package.json#exports` entry resolves at runtime.** A
- *    dynamic `import('@digitalcredentials/verifier-core/openbadges')`
+ *    dynamic `import('@interop/verifier-core/openbadges')`
  *    catches typos in `exports` and missing re-exports in
  *    `src/openbadges/index.ts`.
  * 2. **Default-path invariant (Q2).** A vanilla
@@ -74,13 +74,13 @@ const fakeVerified = {
   verbose: true
 };
 
-describe('@digitalcredentials/verifier-core/openbadges (integration)', () => {
+describe('@interop/verifier-core/openbadges (integration)', () => {
   it('resolves the ./openbadges entry via package.json#exports', async () => {
     // Dynamic import via variable so the TS resolver (configured for
     // legacy `node` moduleResolution that pre-dates package `exports`
     // support) doesn't try to resolve the path at compile time. Node's
     // ESM resolver handles it at runtime via package self-reference.
-    const submodulePath = '@digitalcredentials/verifier-core/openbadges';
+    const submodulePath = '@interop/verifier-core/openbadges';
     const mod = (await import(submodulePath)) as Record<string, unknown>;
     expect(mod.openBadgesSuite, 'openBadgesSuite').toBeDefined();
     expect(

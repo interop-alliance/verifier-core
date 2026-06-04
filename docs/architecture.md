@@ -5,7 +5,7 @@
 
 ## Library overview
 
-`@digitalcredentials/verifier-core` verifies [W3C Verifiable Credentials](https://www.w3.org/TR/vc-data-model-2.0/)
+`@interop/verifier-core` verifies [W3C Verifiable Credentials](https://www.w3.org/TR/vc-data-model-2.0/)
 (v1, v1.1, and v2) across Node.js, browsers, and React Native. It checks structure, cryptographic
 signatures, revocation/suspension status, issuer trust, and schema conformance — then returns a
 structured report that lets consumers decide what "valid" means for their use case.
@@ -58,7 +58,7 @@ src/
 │   ├── status/                      BitstringStatusList revocation/suspension
 │   ├── registry/                    Issuer DID lookup via context.lookupIssuers
 │   └── schema/obv3/                 AJV-backed OBv3 JSON Schema check; consumed by the openBadgesSchemaSuite bundle in the /openbadges submodule
-├── openbadges/                      Opt-in submodule (published as `@digitalcredentials/verifier-core/openbadges`)
+├── openbadges/                      Opt-in submodule (published as `@interop/verifier-core/openbadges`)
 │   ├── index.ts                     Curated barrel — suites, individual checks, factory, recognition helpers, problem-type catalog, vocabulary
 │   ├── openbadges-suite.ts          Three suite bundles: openBadgesSuite, openBadgesSemanticSuite, openBadgesSchemaSuite (all phase: 'semantic')
 │   ├── openbadges-zod.ts            Internal tolerant Zod shapes (CredentialSubject / Achievement / Result / ResultDescription)
@@ -244,7 +244,7 @@ wrappers (which build a fresh verifier per call) reuse the same
 loader for the default service via this map.
 
 ```ts
-import { createVerifier } from '@digitalcredentials/verifier-core';
+import { createVerifier } from '@interop/verifier-core';
 
 const verifier = createVerifier({ registries: myRegistries });
 for (const credential of batch) {
@@ -422,7 +422,7 @@ malformed-envelope problems are also pinpointed to the failing field.
 ### Adding a custom suite
 
 ```typescript
-import { createVerifier, VerificationSuite } from '@digitalcredentials/verifier-core';
+import { createVerifier, VerificationSuite } from '@interop/verifier-core';
 
 const myCustomSuite: VerificationSuite = {
   id: 'custom',
@@ -451,7 +451,7 @@ Some verification logic only matters to a subset of credential consumers. Rather
 than ship that logic in the default suite list — and pay its cost on every
 verification — the library exposes it as an **opt-in submodule** under a
 dedicated `package.json#exports` subpath. The first such submodule is
-`@digitalcredentials/verifier-core/openbadges`.
+`@interop/verifier-core/openbadges`.
 
 A vertical submodule has three properties:
 
@@ -599,7 +599,7 @@ re-exported from that vertical's submodule barrel — they are **not** mirrored
 into the core `ProblemTypes` map. The first such catalog is
 `OpenBadgesProblemTypes` (also exported as `Obv3ProblemTypes`) in
 `src/openbadges/problem-types.ts`, surfaced via
-`@digitalcredentials/verifier-core/openbadges`. Current OB entries:
+`@interop/verifier-core/openbadges`. Current OB entries:
 `OB_INVALID_RESULT_REFERENCE`, `OB_INVALID_ACHIEVED_LEVEL`,
 `OB_MISSING_RESULT_STATUS`, `OB_UNKNOWN_ACHIEVEMENT_TYPE`. The wire URIs use the
 `…#OB_*` shape so they remain stable across OB version updates. Failure-outcome

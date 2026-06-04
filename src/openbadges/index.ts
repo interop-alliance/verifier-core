@@ -1,5 +1,5 @@
 /**
- * Public submodule entry point: `@digitalcredentials/verifier-core/openbadges`.
+ * Public submodule entry point: `@interop/verifier-core/openbadges`.
  *
  * Curated re-exports for OpenBadges 3.0 verification. Importing this
  * submodule does **not** affect the default verifier behavior — every
