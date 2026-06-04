@@ -69,7 +69,10 @@ export interface DataIntegritySuite {
     verificationMethod: Record<string, unknown>;
   }) => Promise<{
     algorithm: string;
-    verify: (options: { data: Uint8Array; signature: Uint8Array }) => Promise<boolean>;
+    verify: (options: {
+      data: Uint8Array;
+      signature: Uint8Array;
+    }) => Promise<boolean>;
   }>;
   matchProof: (options: MatchProofOptions) => Promise<boolean>;
   verifyProof: (options: VerifyProofOptions) => Promise<VerifyProofResult>;
@@ -118,7 +121,7 @@ export interface ProofPurpose {
   /** Does this purpose apply to the given proof? */
   match: (
     proof: Record<string, unknown>,
-    options: PurposeMatchOptions,
+    options: PurposeMatchOptions
   ) => Promise<boolean>;
 
   /**
@@ -127,6 +130,6 @@ export interface ProofPurpose {
    */
   validate: (
     proof: Record<string, unknown>,
-    options: PurposeValidateOptions,
+    options: PurposeValidateOptions
   ) => Promise<{ valid: boolean; error?: unknown }>;
 }

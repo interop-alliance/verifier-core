@@ -6,13 +6,17 @@ import { VerificationContext } from '../../types/context.js';
 import { ProblemTypes } from '../../problem-types.js';
 
 // Legacy status types that are skipped
-const LEGACY_STATUS_TYPES: string[] = ['StatusList2021Entry', '1EdTechRevocationList'];
+const LEGACY_STATUS_TYPES: string[] = [
+  'StatusList2021Entry',
+  '1EdTechRevocationList'
+];
 
 // Error patterns from constants/external.ts
 const NOT_FOUND_ERROR = 'NotFoundError';
 const EXPIRED_ERROR = 'is after "validUntil"';
 const STATUS_SIGNATURE_ERROR = 'Verification error';
-const STATUS_TYPE_ERROR = 'Status list credential type must include "BitstringStatusListCredential".';
+const STATUS_TYPE_ERROR =
+  'Status list credential type must include "BitstringStatusListCredential".';
 const STATUS_NOT_YET_VALID_ERROR = 'is before "validFrom"';
 
 function statusTypeString(type: unknown): string | undefined {
@@ -29,14 +33,19 @@ function statusTypeString(type: unknown): string | undefined {
  * Check if the credential has a valid status type that we can check.
  */
 function hasBitstringStatusList(credential: Record<string, unknown>): boolean {
-  const credentialStatus = credential.credentialStatus as Record<string, unknown> | Array<Record<string, unknown>> | undefined;
+  const credentialStatus = credential.credentialStatus as
+    | Record<string, unknown>
+    | Array<Record<string, unknown>>
+    | undefined;
 
   if (!credentialStatus) {
     return false;
   }
 
   // Normalize to array
-  const statuses = Array.isArray(credentialStatus) ? credentialStatus : [credentialStatus];
+  const statuses = Array.isArray(credentialStatus)
+    ? credentialStatus
+    : [credentialStatus];
 
   if (statuses.length === 0) {
     return false;
@@ -51,14 +60,21 @@ function hasBitstringStatusList(credential: Record<string, unknown>): boolean {
 /**
  * Get the status type for skip reason messages.
  */
-function getStatusType(credential: Record<string, unknown>): string | undefined {
-  const credentialStatus = credential.credentialStatus as Record<string, unknown> | Array<Record<string, unknown>> | undefined;
+function getStatusType(
+  credential: Record<string, unknown>
+): string | undefined {
+  const credentialStatus = credential.credentialStatus as
+    | Record<string, unknown>
+    | Array<Record<string, unknown>>
+    | undefined;
 
   if (!credentialStatus) {
     return undefined;
   }
 
-  const statuses = Array.isArray(credentialStatus) ? credentialStatus : [credentialStatus];
+  const statuses = Array.isArray(credentialStatus)
+    ? credentialStatus
+    : [credentialStatus];
   if (statuses.length === 0) {
     return undefined;
   }
@@ -70,61 +86,84 @@ function getStatusType(credential: Record<string, unknown>): string | undefined 
  * Classify status check error into ProblemDetail.
  */
 function classifyStatusError(error: unknown): ProblemDetail[] {
-  const err = error as { message?: string; cause?: { message?: string }; name?: string };
+  const err = error as {
+    message?: string;
+    cause?: { message?: string };
+    name?: string;
+  };
   const errorMessage = err?.message || String(error);
   const causeMessage = err?.cause?.message || '';
 
   // Not found error
-  if (err?.name === NOT_FOUND_ERROR || causeMessage.startsWith(NOT_FOUND_ERROR)) {
-    return [{
-      type: ProblemTypes.STATUS_LIST_NOT_FOUND,
-      title: 'Status List Not Found',
-      detail: errorMessage,
-    }];
+  if (
+    err?.name === NOT_FOUND_ERROR ||
+    causeMessage.startsWith(NOT_FOUND_ERROR)
+  ) {
+    return [
+      {
+        type: ProblemTypes.STATUS_LIST_NOT_FOUND,
+        title: 'Status List Not Found',
+        detail: errorMessage
+      }
+    ];
   }
 
   // Expired error
-  if (causeMessage.includes(EXPIRED_ERROR) || errorMessage.includes(EXPIRED_ERROR.toLowerCase())) {
-    return [{
-      type: ProblemTypes.STATUS_LIST_EXPIRED,
-      title: 'Status List Expired',
-      detail: 'The status list credential has expired.',
-    }];
+  if (
+    causeMessage.includes(EXPIRED_ERROR) ||
+    errorMessage.includes(EXPIRED_ERROR.toLowerCase())
+  ) {
+    return [
+      {
+        type: ProblemTypes.STATUS_LIST_EXPIRED,
+        title: 'Status List Expired',
+        detail: 'The status list credential has expired.'
+      }
+    ];
   }
 
   // Signature verification error
   if (causeMessage.startsWith(STATUS_SIGNATURE_ERROR)) {
-    return [{
-      type: ProblemTypes.STATUS_LIST_SIGNATURE_ERROR,
-      title: 'Status List Signature Error',
-      detail: 'The status list credential signature could not be verified.',
-    }];
+    return [
+      {
+        type: ProblemTypes.STATUS_LIST_SIGNATURE_ERROR,
+        title: 'Status List Signature Error',
+        detail: 'The status list credential signature could not be verified.'
+      }
+    ];
   }
 
   // Type error
   if (causeMessage.startsWith(STATUS_TYPE_ERROR)) {
-    return [{
-      type: ProblemTypes.STATUS_LIST_TYPE_ERROR,
-      title: 'Status List Type Error',
-      detail: STATUS_TYPE_ERROR,
-    }];
+    return [
+      {
+        type: ProblemTypes.STATUS_LIST_TYPE_ERROR,
+        title: 'Status List Type Error',
+        detail: STATUS_TYPE_ERROR
+      }
+    ];
   }
 
   // Not yet valid error
   if (causeMessage.includes(STATUS_NOT_YET_VALID_ERROR)) {
-    return [{
-      type: ProblemTypes.STATUS_LIST_NOT_YET_VALID,
-      title: 'Status List Not Yet Valid',
-      detail: 'The status list credential is not yet valid.',
-    }];
+    return [
+      {
+        type: ProblemTypes.STATUS_LIST_NOT_YET_VALID,
+        title: 'Status List Not Yet Valid',
+        detail: 'The status list credential is not yet valid.'
+      }
+    ];
   }
 
   // Generic status error
-  return [{
-    type: ProblemTypes.STATUS_LIST_ERROR,
-    title: 'Status List Error',
-    detail: errorMessage || 'An error occurred while checking credential status.',
-  }];
+  return [
+    {
+      type: ProblemTypes.STATUS_LIST_ERROR,
+      title: 'Status List Error',
+      detail:
+        errorMessage || 'An error occurred while checking credential status.'
+    }
+  ];
 }
 
 /**
@@ -147,19 +186,22 @@ function classifyStatusError(error: unknown): ProblemDetail[] {
 export const bitstringStatusCheck: VerificationCheck = {
   id: 'status.bitstring',
   name: 'Bitstring Status Check',
-  description: 'Checks revocation and suspension status via BitstringStatusList.',
+  description:
+    'Checks revocation and suspension status via BitstringStatusList.',
   fatal: true,
   appliesTo: ['verifiableCredential'],
   execute: async (
     subject: VerificationSubject,
     context: VerificationContext
   ): Promise<CheckOutcome> => {
-    const credential = subject.verifiableCredential as Record<string, unknown> | undefined;
+    const credential = subject.verifiableCredential as
+      | Record<string, unknown>
+      | undefined;
 
     if (!credential) {
       return {
         status: 'skipped',
-        reason: 'No verifiable credential found in subject.',
+        reason: 'No verifiable credential found in subject.'
       };
     }
 
@@ -167,7 +209,7 @@ export const bitstringStatusCheck: VerificationCheck = {
     if (!credential.credentialStatus) {
       return {
         status: 'skipped',
-        reason: 'Credential has no credentialStatus.',
+        reason: 'Credential has no credentialStatus.'
       };
     }
 
@@ -176,7 +218,7 @@ export const bitstringStatusCheck: VerificationCheck = {
     if (statusType && LEGACY_STATUS_TYPES.includes(statusType)) {
       return {
         status: 'skipped',
-        reason: `Legacy status type "${statusType}" is not checked.`,
+        reason: `Legacy status type "${statusType}" is not checked.`
       };
     }
 
@@ -184,13 +226,12 @@ export const bitstringStatusCheck: VerificationCheck = {
     if (!hasBitstringStatusList(credential)) {
       return {
         status: 'skipped',
-        reason: `Status type "${String(statusType)}" is not BitstringStatusListEntry.`,
+        reason: `Status type "${String(statusType)}" is not BitstringStatusListEntry.`
       };
     }
 
     try {
-      const verifySl =
-        context.verifyBitstringStatusListCredential ?? true;
+      const verifySl = context.verifyBitstringStatusListCredential ?? true;
 
       const statusResult = (await checkStatus({
         credential,
@@ -198,37 +239,40 @@ export const bitstringStatusCheck: VerificationCheck = {
         suite: context.cryptoSuites,
         verifyBitstringStatusListCredential: verifySl,
         // Hosted status lists may use a different issuer than the VC (see DataIntegrityCryptoService).
-        verifyMatchingIssuers: false,
+        verifyMatchingIssuers: false
       })) as { verified?: boolean; error?: unknown };
 
       if (statusResult.error !== undefined) {
         return {
           status: 'failure',
-          problems: classifyStatusError(statusResult.error),
+          problems: classifyStatusError(statusResult.error)
         };
       }
 
       if (statusResult.verified === true) {
         return {
           status: 'success',
-          message: 'Credential status is valid (not revoked or suspended).',
+          message: 'Credential status is valid (not revoked or suspended).'
         };
       }
 
       return {
         status: 'failure',
-        problems: [{
-          type: ProblemTypes.CREDENTIAL_REVOKED_OR_SUSPENDED,
-          title: 'Credential Revoked or Suspended',
-          detail: 'The credential has been revoked or suspended according to the status list.',
-        }],
+        problems: [
+          {
+            type: ProblemTypes.CREDENTIAL_REVOKED_OR_SUSPENDED,
+            title: 'Credential Revoked or Suspended',
+            detail:
+              'The credential has been revoked or suspended according to the status list.'
+          }
+        ]
       };
     } catch (error) {
       const problems = classifyStatusError(error);
       return {
         status: 'failure',
-        problems,
+        problems
       };
     }
-  },
+  }
 };

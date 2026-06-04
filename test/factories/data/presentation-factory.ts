@@ -1,11 +1,15 @@
-import { DEFAULT_TEST_ISSUER_DID, CredentialFactory, PlaceholderProof } from './credential-factory.js';
+import {
+  DEFAULT_TEST_ISSUER_DID,
+  CredentialFactory,
+  PlaceholderProof
+} from './credential-factory.js';
 import { deepMerge } from './merge-deep.js';
 
 /**
  * Verifiable presentation with one factory credential by default.
  */
 export function PresentationFactory(
-  overrides: Record<string, unknown> = {},
+  overrides: Record<string, unknown> = {}
 ): Record<string, unknown> {
   const base: Record<string, unknown> = {
     '@context': ['https://www.w3.org/ns/credentials/v2'],
@@ -14,8 +18,8 @@ export function PresentationFactory(
     verifiableCredential: [CredentialFactory()],
     proof: PlaceholderProof({
       proofPurpose: 'authentication',
-      challenge: 'factory-challenge',
-    }),
+      challenge: 'factory-challenge'
+    })
   };
   return deepMerge(base, overrides);
 }

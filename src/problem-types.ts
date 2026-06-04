@@ -44,42 +44,53 @@ export const ProblemTypes = {
   /** Synthesized — cryptographic signature did not verify. */
   INVALID_SIGNATURE: 'https://www.w3.org/TR/vc-data-model#INVALID_SIGNATURE',
   /** Synthesized — proof verification raised an error before reaching a verdict. */
-  PROOF_VERIFICATION_ERROR: 'https://www.w3.org/TR/vc-data-model#PROOF_VERIFICATION_ERROR',
+  PROOF_VERIFICATION_ERROR:
+    'https://www.w3.org/TR/vc-data-model#PROOF_VERIFICATION_ERROR',
   /** Synthesized — a `did:web` document could not be fetched. */
   DID_WEB_UNRESOLVED: 'https://www.w3.org/TR/vc-data-model#DID_WEB_UNRESOLVED',
   /** Synthesized — HTTP error during signature/issuer resolution. */
   HTTP_ERROR: 'https://www.w3.org/TR/vc-data-model#HTTP_ERROR',
   /** Synthesized — credential `id` is missing or malformed. */
-  INVALID_CREDENTIAL_ID: 'https://www.w3.org/TR/vc-data-model#INVALID_CREDENTIAL_ID',
+  INVALID_CREDENTIAL_ID:
+    'https://www.w3.org/TR/vc-data-model#INVALID_CREDENTIAL_ID',
 
   /** Synthesized — issuer DID was not found in any consulted registry. */
   ISSUER_NOT_FOUND: 'https://www.w3.org/TR/vc-data-model#ISSUER_NOT_FOUND',
   /** Synthesized — issuer DID was found but is not registered. */
-  ISSUER_NOT_REGISTERED: 'https://www.w3.org/TR/vc-data-model#ISSUER_NOT_REGISTERED',
+  ISSUER_NOT_REGISTERED:
+    'https://www.w3.org/TR/vc-data-model#ISSUER_NOT_REGISTERED',
   /** Synthesized — one or more registries could not be checked. */
   REGISTRY_UNCHECKED: 'https://www.w3.org/TR/vc-data-model#REGISTRY_UNCHECKED',
   /** Synthesized — registry lookup raised an error. */
   REGISTRY_ERROR: 'https://www.w3.org/TR/vc-data-model#REGISTRY_ERROR',
 
   /** Synthesized — schema validation failed. */
-  SCHEMA_VALIDATION_FAILED: 'https://www.w3.org/TR/vc-data-model#SCHEMA_VALIDATION_FAILED',
+  SCHEMA_VALIDATION_FAILED:
+    'https://www.w3.org/TR/vc-data-model#SCHEMA_VALIDATION_FAILED',
   /** Synthesized — schema check raised an error before reaching a verdict. */
-  SCHEMA_VALIDATION_ERROR: 'https://www.w3.org/TR/vc-data-model#SCHEMA_VALIDATION_ERROR',
+  SCHEMA_VALIDATION_ERROR:
+    'https://www.w3.org/TR/vc-data-model#SCHEMA_VALIDATION_ERROR',
 
   /** Synthesized — referenced status list could not be fetched. */
-  STATUS_LIST_NOT_FOUND: 'https://www.w3.org/TR/vc-data-model#STATUS_LIST_NOT_FOUND',
+  STATUS_LIST_NOT_FOUND:
+    'https://www.w3.org/TR/vc-data-model#STATUS_LIST_NOT_FOUND',
   /** Synthesized — referenced status list has expired. */
-  STATUS_LIST_EXPIRED: 'https://www.w3.org/TR/vc-data-model#STATUS_LIST_EXPIRED',
+  STATUS_LIST_EXPIRED:
+    'https://www.w3.org/TR/vc-data-model#STATUS_LIST_EXPIRED',
   /** Synthesized — status list VC signature did not verify. */
-  STATUS_LIST_SIGNATURE_ERROR: 'https://www.w3.org/TR/vc-data-model#STATUS_LIST_SIGNATURE_ERROR',
+  STATUS_LIST_SIGNATURE_ERROR:
+    'https://www.w3.org/TR/vc-data-model#STATUS_LIST_SIGNATURE_ERROR',
   /** Synthesized — status list VC type is unrecognized. */
-  STATUS_LIST_TYPE_ERROR: 'https://www.w3.org/TR/vc-data-model#STATUS_LIST_TYPE_ERROR',
+  STATUS_LIST_TYPE_ERROR:
+    'https://www.w3.org/TR/vc-data-model#STATUS_LIST_TYPE_ERROR',
   /** Synthesized — status list VC `validFrom` is in the future. */
-  STATUS_LIST_NOT_YET_VALID: 'https://www.w3.org/TR/vc-data-model#STATUS_LIST_NOT_YET_VALID',
+  STATUS_LIST_NOT_YET_VALID:
+    'https://www.w3.org/TR/vc-data-model#STATUS_LIST_NOT_YET_VALID',
   /** Synthesized — status list check raised an error before reaching a verdict. */
   STATUS_LIST_ERROR: 'https://www.w3.org/TR/vc-data-model#STATUS_LIST_ERROR',
   /** Synthesized — status list bit indicates revocation or suspension. */
-  CREDENTIAL_REVOKED_OR_SUSPENDED: 'https://www.w3.org/TR/vc-data-model#CREDENTIAL_REVOKED_OR_SUSPENDED',
+  CREDENTIAL_REVOKED_OR_SUSPENDED:
+    'https://www.w3.org/TR/vc-data-model#CREDENTIAL_REVOKED_OR_SUSPENDED'
 } as const;
 
-export type ProblemType = typeof ProblemTypes[keyof typeof ProblemTypes];
+export type ProblemType = (typeof ProblemTypes)[keyof typeof ProblemTypes];

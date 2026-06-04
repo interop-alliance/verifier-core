@@ -16,7 +16,7 @@ export function FakeCacheService(): CacheService {
 
     async set(key: string, value: unknown) {
       map.set(key, value);
-    },
+    }
   };
 }
 

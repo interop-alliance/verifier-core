@@ -1,9 +1,9 @@
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { runSuites } from '../src/run-suites.js';
 import type {
   CheckOutcome,
   VerificationCheck,
-  VerificationSuite,
+  VerificationSuite
 } from '../src/types/check.js';
 import type { VerificationContext } from '../src/types/context.js';
 import type { VerificationSubject } from '../src/types/subject.js';
@@ -14,7 +14,7 @@ const ctx: VerificationContext = {
   cryptoSuites: [],
   cryptoServices: [],
   challenge: null,
-  unsignedPresentation: false,
+  unsignedPresentation: false
 };
 
 function alwaysSuccess(id: string): VerificationCheck {
@@ -24,8 +24,8 @@ function alwaysSuccess(id: string): VerificationCheck {
     fatal: false,
     execute: async (): Promise<CheckOutcome> => ({
       status: 'success',
-      message: `${id} ran`,
-    }),
+      message: `${id} ran`
+    })
   };
 }
 
@@ -37,12 +37,12 @@ describe('VerificationSuite.applies predicate', () => {
       id: 'gated',
       name: 'Gated',
       applies: () => true,
-      checks: [alwaysSuccess('a'), alwaysSuccess('b')],
+      checks: [alwaysSuccess('a'), alwaysSuccess('b')]
     };
 
     const results = await runSuites([suite], subject, ctx);
 
-    expect(results.map(r => r.check)).to.deep.equal(['a', 'b']);
+    expect(results.map(r => r.check)).toEqual(['a', 'b']);
   });
 
   it('silently skips an unapplied suite when not in explicitSuiteIds', async () => {
@@ -50,17 +50,17 @@ describe('VerificationSuite.applies predicate', () => {
       id: 'skip-me',
       name: 'Skip Me',
       applies: () => false,
-      checks: [alwaysSuccess('x')],
+      checks: [alwaysSuccess('x')]
     };
     const ran: VerificationSuite = {
       id: 'ran',
       name: 'Ran',
-      checks: [alwaysSuccess('y')],
+      checks: [alwaysSuccess('y')]
     };
 
     const results = await runSuites([skipped, ran], subject, ctx);
 
-    expect(results.map(r => r.check)).to.deep.equal(['y']);
+    expect(results.map(r => r.check)).toEqual(['y']);
   });
 
   it('emits a synthetic <suite-id>.applies skipped result when in explicitSuiteIds', async () => {
@@ -68,24 +68,27 @@ describe('VerificationSuite.applies predicate', () => {
       id: 'explicit-skip',
       name: 'Explicit Skip',
       applies: () => false,
-      checks: [alwaysSuccess('inner')],
+      checks: [alwaysSuccess('inner')]
     };
 
     const results = await runSuites([suite], subject, ctx, {
-      explicitSuiteIds: new Set(['explicit-skip']),
+      explicitSuiteIds: new Set(['explicit-skip'])
     });
 
-    expect(results).to.have.lengthOf(1);
-    expect(results[0].suite).to.equal('explicit-skip');
-    expect(results[0].check).to.equal('explicit-skip.applies');
-    expect(results[0].outcome.status).to.equal('skipped');
+    expect(results).toHaveLength(1);
+    expect(results[0].suite).toBe('explicit-skip');
+    expect(results[0].check).toBe('explicit-skip.applies');
+    expect(results[0].outcome.status).toBe('skipped');
     if (results[0].outcome.status === 'skipped') {
-      expect(results[0].outcome.reason).to.match(/predicate/i);
+      expect(results[0].outcome.reason).toMatch(/predicate/i);
     }
   });
 
   it('passes the subject and context to applies()', async () => {
-    let received: { subject: VerificationSubject; context: VerificationContext } | null = null;
+    let received: {
+      subject: VerificationSubject;
+      context: VerificationContext;
+    } | null = null;
     const suite: VerificationSuite = {
       id: 'inspect',
       name: 'Inspect',
@@ -93,26 +96,26 @@ describe('VerificationSuite.applies predicate', () => {
         received = { subject: s, context: c };
         return false;
       },
-      checks: [alwaysSuccess('inner')],
+      checks: [alwaysSuccess('inner')]
     };
 
     await runSuites([suite], subject, ctx);
 
-    expect(received).to.not.be.null;
-    expect(received!.subject).to.equal(subject);
-    expect(received!.context).to.equal(ctx);
+    expect(received).not.toBeNull();
+    expect(received!.subject).toBe(subject);
+    expect(received!.context).toBe(ctx);
   });
 
   it('does not affect suites without an applies predicate', async () => {
     const suite: VerificationSuite = {
       id: 'no-predicate',
       name: 'No Predicate',
-      checks: [alwaysSuccess('z')],
+      checks: [alwaysSuccess('z')]
     };
 
     const results = await runSuites([suite], subject, ctx);
 
-    expect(results).to.have.lengthOf(1);
-    expect(results[0].check).to.equal('z');
+    expect(results).toHaveLength(1);
+    expect(results[0].check).toBe('z');
   });
 });

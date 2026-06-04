@@ -28,14 +28,14 @@
 export const sampleAchievementCredential: Record<string, unknown> = {
   '@context': [
     'https://www.w3.org/ns/credentials/v2',
-    'https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json',
+    'https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json'
   ],
   id: 'urn:uuid:integration-test-credential',
   type: ['VerifiableCredential', 'OpenBadgeCredential'],
   issuer: {
     id: 'did:example:issuer',
     type: ['Profile'],
-    name: 'Integration Test Issuer',
+    name: 'Integration Test Issuer'
   },
   validFrom: '2024-01-01T00:00:00Z',
   credentialSubject: {
@@ -58,24 +58,24 @@ export const sampleAchievementCredential: Record<string, unknown> = {
             {
               id: 'urn:lvl:A',
               type: ['RubricCriterionLevel'],
-              name: 'Excellent',
+              name: 'Excellent'
             },
             {
               id: 'urn:lvl:B',
               type: ['RubricCriterionLevel'],
-              name: 'Good',
-            },
-          ],
-        },
-      ],
+              name: 'Good'
+            }
+          ]
+        }
+      ]
     },
     result: [
       {
         type: ['Result'],
         resultDescription: 'urn:rd:1',
-        achievedLevel: 'urn:lvl:A',
-      },
-    ],
+        achievedLevel: 'urn:lvl:A'
+      }
+    ]
   },
   proof: {
     type: 'Ed25519Signature2020',
@@ -83,6 +83,6 @@ export const sampleAchievementCredential: Record<string, unknown> = {
     verificationMethod: 'did:example:issuer#z6MkPlaceholder',
     proofPurpose: 'assertionMethod',
     proofValue:
-      'z000000000000000000000000000000000000000000000000000000000000000000',
-  },
+      'z000000000000000000000000000000000000000000000000000000000000000000'
+  }
 };

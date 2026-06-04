@@ -15,11 +15,11 @@
  * consume this normalized form via `recognizedProfile`.
  */
 
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import {
   Obv3p0ResultDescriptionSchema,
   Obv3p0ResultSchema,
-  Obv3p0RubricCriterionLevelSchema,
+  Obv3p0RubricCriterionLevelSchema
 } from '../../../src/openbadges/schemas/classes-v3p0.js';
 import { parseObv3p0OpenBadgeCredential } from '../../../src/openbadges/schemas/openbadge-credential-v3p0.js';
 import type { RecognitionResult } from '../../../src/types/recognition.js';
@@ -31,37 +31,38 @@ function clone<T>(v: T): T {
 
 function assertMalformedAt(
   result: RecognitionResult,
-  expectedInstance: string,
+  expectedInstance: string
 ): void {
-  expect(result.status).to.equal('malformed');
+  expect(result.status).toBe('malformed');
   if (result.status === 'malformed') {
     const matched = result.problems.find(p => p.instance === expectedInstance);
     expect(
       matched,
       `expected a problem at ${expectedInstance}, got ${JSON.stringify(
-        result.problems.map(p => p.instance),
-      )}`,
-    ).to.exist;
+        result.problems.map(p => p.instance)
+      )}`
+    ).toBeDefined();
   }
 }
 
 const minimalRubricLevel = {
   id: 'urn:example:rcl/pass',
   type: ['RubricCriterionLevel'],
-  name: 'Pass',
+  name: 'Pass'
 };
 
 const minimalResultDescription = {
   id: 'urn:example:rd/score',
   type: ['ResultDescription'],
   name: 'Score',
-  resultType: 'LetterGrade',
+  resultType: 'LetterGrade'
 };
 
 describe('Obv3p0RubricCriterionLevelSchema', () => {
   it('parses a minimal-required level', () => {
-    const parsed = Obv3p0RubricCriterionLevelSchema.safeParse(minimalRubricLevel);
-    expect(parsed.success).to.be.true;
+    const parsed =
+      Obv3p0RubricCriterionLevelSchema.safeParse(minimalRubricLevel);
+    expect(parsed.success).toBe(true);
   });
 
   it('round-trips a level with all in-scope optionals', () => {
@@ -74,34 +75,34 @@ describe('Obv3p0RubricCriterionLevelSchema', () => {
         {
           type: ['Alignment'],
           targetName: 'Skill A',
-          targetUrl: 'https://example.test/a',
-        },
-      ],
+          targetUrl: 'https://example.test/a'
+        }
+      ]
     });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
   });
 
   it('rejects a level missing name', () => {
     const { name: _drop, ...rest } = minimalRubricLevel;
     const parsed = Obv3p0RubricCriterionLevelSchema.safeParse(rest);
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
   });
 
   it('rejects a non-URL id', () => {
     const parsed = Obv3p0RubricCriterionLevelSchema.safeParse({
       ...minimalRubricLevel,
-      id: 'not-a-url',
+      id: 'not-a-url'
     });
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
   });
 });
 
 describe('Obv3p0ResultDescriptionSchema', () => {
   it('parses a minimal-required description', () => {
     const parsed = Obv3p0ResultDescriptionSchema.safeParse(
-      minimalResultDescription,
+      minimalResultDescription
     );
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
   });
 
   it('round-trips with rubricCriterionLevel[] and allowedValue[]', () => {
@@ -109,27 +110,27 @@ describe('Obv3p0ResultDescriptionSchema', () => {
       ...minimalResultDescription,
       rubricCriterionLevel: [
         minimalRubricLevel,
-        { ...minimalRubricLevel, id: 'urn:example:rcl/fail', name: 'Fail' },
+        { ...minimalRubricLevel, id: 'urn:example:rcl/fail', name: 'Fail' }
       ],
       allowedValue: ['A', 'B', 'C', 'D', 'F'],
       requiredLevel: minimalRubricLevel.id,
       requiredValue: 'C',
       valueMin: 'F',
-      valueMax: 'A',
+      valueMax: 'A'
     });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
   });
 
   it('rejects a description missing resultType', () => {
     const { resultType: _drop, ...rest } = minimalResultDescription;
     const parsed = Obv3p0ResultDescriptionSchema.safeParse(rest);
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
   });
 
   it('rejects a description missing name', () => {
     const { name: _drop, ...rest } = minimalResultDescription;
     const parsed = Obv3p0ResultDescriptionSchema.safeParse(rest);
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
   });
 
   it('reports per-entry path for malformed rubricCriterionLevel[1]', () => {
@@ -137,20 +138,20 @@ describe('Obv3p0ResultDescriptionSchema', () => {
       ...minimalResultDescription,
       rubricCriterionLevel: [
         minimalRubricLevel,
-        { id: 'urn:example:rcl/missing-name', type: ['RubricCriterionLevel'] },
-      ],
+        { id: 'urn:example:rcl/missing-name', type: ['RubricCriterionLevel'] }
+      ]
     });
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
     if (!parsed.success) {
       const issue = parsed.error.issues.find(
-        i => i.path.join('.') === 'rubricCriterionLevel.1.name',
+        i => i.path.join('.') === 'rubricCriterionLevel.1.name'
       );
       expect(
         issue,
         `expected an issue at rubricCriterionLevel.1.name, got ${JSON.stringify(
-          parsed.error.issues.map(i => i.path),
-        )}`,
-      ).to.exist;
+          parsed.error.issues.map(i => i.path)
+        )}`
+      ).toBeDefined();
     }
   });
 });
@@ -158,7 +159,7 @@ describe('Obv3p0ResultDescriptionSchema', () => {
 describe('Obv3p0ResultSchema', () => {
   it('parses a minimal-required result', () => {
     const parsed = Obv3p0ResultSchema.safeParse({ type: ['Result'] });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
   });
 
   it('round-trips a result with achievedLevel and resultDescription ref', () => {
@@ -167,38 +168,41 @@ describe('Obv3p0ResultSchema', () => {
       achievedLevel: 'urn:example:rcl/pass',
       resultDescription: 'urn:example:rd/score',
       status: 'Completed',
-      value: 'A',
+      value: 'A'
     });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.achievedLevel).to.equal('urn:example:rcl/pass');
-      expect(parsed.data.value).to.equal('A');
+      expect(parsed.data.achievedLevel).toBe('urn:example:rcl/pass');
+      expect(parsed.data.value).toBe('A');
     }
   });
 
   it('rejects a result whose resultDescription is not a URL', () => {
     const parsed = Obv3p0ResultSchema.safeParse({
       type: ['Result'],
-      resultDescription: 'not-a-url',
+      resultDescription: 'not-a-url'
     });
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
   });
 
   it('rejects a result missing type', () => {
     const parsed = Obv3p0ResultSchema.safeParse({ value: 'A' });
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
   });
 });
 
 describe('Result + ResultDescription backfilled into envelope', () => {
-  function credentialWith(achievementOverlay: object, resultEntries: unknown[]) {
+  function credentialWith(
+    achievementOverlay: object,
+    resultEntries: unknown[]
+  ) {
     const cred = clone(obv3p0OpenBadgeSpecConforming);
     const subject = cred.credentialSubject as Record<string, unknown>;
     const achievement = subject.achievement as Record<string, unknown>;
     cred.credentialSubject = {
       ...subject,
       result: resultEntries,
-      achievement: { ...achievement, ...achievementOverlay },
+      achievement: { ...achievement, ...achievementOverlay }
     };
     return cred;
   }
@@ -209,40 +213,37 @@ describe('Result + ResultDescription backfilled into envelope', () => {
         resultDescription: [
           {
             ...minimalResultDescription,
-            rubricCriterionLevel: [minimalRubricLevel],
-          },
-        ],
+            rubricCriterionLevel: [minimalRubricLevel]
+          }
+        ]
       },
       [
         {
           type: ['Result'],
           resultDescription: minimalResultDescription.id,
           achievedLevel: minimalRubricLevel.id,
-          value: 'A',
-        },
-      ],
+          value: 'A'
+        }
+      ]
     );
 
     const result = parseObv3p0OpenBadgeCredential(cred);
-    expect(result.status).to.equal('recognized');
+    expect(result.status).toBe('recognized');
     if (result.status === 'recognized') {
       const normalized = result.normalized as {
         credentialSubject: { result: Array<{ value: string }> };
       };
-      expect(normalized.credentialSubject.result[0].value).to.equal('A');
+      expect(normalized.credentialSubject.result[0].value).toBe('A');
     }
   });
 
   it('attributes a malformed Result.resultDescription deep at /credentialSubject/result/0/resultDescription', () => {
     const cred = credentialWith({}, [
-      { type: ['Result'], resultDescription: 'not-a-url' },
+      { type: ['Result'], resultDescription: 'not-a-url' }
     ]);
 
     const result = parseObv3p0OpenBadgeCredential(cred);
-    assertMalformedAt(
-      result,
-      '/credentialSubject/result/0/resultDescription',
-    );
+    assertMalformedAt(result, '/credentialSubject/result/0/resultDescription');
   });
 
   it('attributes a malformed nested rubric level deep at /credentialSubject/achievement/resultDescription/0/rubricCriterionLevel/1/name', () => {
@@ -255,26 +256,26 @@ describe('Result + ResultDescription backfilled into envelope', () => {
               minimalRubricLevel,
               {
                 id: 'urn:example:rcl/missing-name',
-                type: ['RubricCriterionLevel'],
-              },
-            ],
-          },
-        ],
+                type: ['RubricCriterionLevel']
+              }
+            ]
+          }
+        ]
       },
-      [],
+      []
     );
 
     const result = parseObv3p0OpenBadgeCredential(cred);
     assertMalformedAt(
       result,
-      '/credentialSubject/achievement/resultDescription/0/rubricCriterionLevel/1/name',
+      '/credentialSubject/achievement/resultDescription/0/rubricCriterionLevel/1/name'
     );
   });
 
   it('still parses the spec-conforming fixture (no result data) cleanly', () => {
     const result = parseObv3p0OpenBadgeCredential(
-      obv3p0OpenBadgeSpecConforming,
+      obv3p0OpenBadgeSpecConforming
     );
-    expect(result.status).to.equal('recognized');
+    expect(result.status).toBe('recognized');
   });
 });

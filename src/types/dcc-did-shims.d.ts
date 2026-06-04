@@ -21,9 +21,10 @@ declare module '@digitalcredentials/did-method-web' {
     fragment: string;
   };
 
-  export function driver(
-    opts?: { fetchOptions?: object; allowList?: string[] }
-  ): DidWebDriver;
+  export function driver(opts?: {
+    fetchOptions?: object;
+    allowList?: string[];
+  }): DidWebDriver;
 }
 
 declare module '@digitalcredentials/did-method-key' {

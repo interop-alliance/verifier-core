@@ -7,7 +7,7 @@ const KEY_FRAGMENT = 'z6MknNQD1WHLGGraFi6zcbGevuAgkVfdyCdtZnQTGWVVvR5Q';
  * Minimal did:key-style DID document for tests.
  */
 export function DidDocumentFactory(
-  overrides: Record<string, unknown> = {},
+  overrides: Record<string, unknown> = {}
 ): Record<string, unknown> {
   const id =
     typeof overrides.id === 'string' ? overrides.id : DEFAULT_TEST_ISSUER_DID;
@@ -21,11 +21,11 @@ export function DidDocumentFactory(
         id: vmId,
         type: 'Ed25519VerificationKey2020',
         controller: id,
-        publicKeyMultibase: 'z6MknNQD1WHLGGraFi6zcbGevuAgkVfdyCdtZnQTGWVVvR5Q',
-      },
+        publicKeyMultibase: 'z6MknNQD1WHLGGraFi6zcbGevuAgkVfdyCdtZnQTGWVVvR5Q'
+      }
     ],
     authentication: [vmId],
-    assertionMethod: [vmId],
+    assertionMethod: [vmId]
   };
   return deepMerge(base, overrides);
 }

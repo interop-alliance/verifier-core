@@ -13,23 +13,28 @@ const VC_CONTEXT_V2 = 'https://www.w3.org/ns/credentials/v2';
 export const vcContextCheck: VerificationCheck = {
   id: 'core.vc-context',
   name: 'VC Context Present',
-  description: 'Verifies that the credential @context includes a valid Verifiable Credentials context URI.',
+  description:
+    'Verifies that the credential @context includes a valid Verifiable Credentials context URI.',
   fatal: true,
   appliesTo: ['verifiableCredential'],
   execute: async (
     subject: VerificationSubject,
     _context: VerificationContext
   ): Promise<CheckOutcome> => {
-    const credential = subject.verifiableCredential as Record<string, unknown> | undefined;
+    const credential = subject.verifiableCredential as
+      | Record<string, unknown>
+      | undefined;
 
     if (!credential) {
       return {
         status: 'failure',
-        problems: [{
-          type: ProblemTypes.PARSING_ERROR,
-          title: 'No VC Context',
-          detail: 'No verifiable credential found in subject.',
-        }],
+        problems: [
+          {
+            type: ProblemTypes.PARSING_ERROR,
+            title: 'No VC Context',
+            detail: 'No verifiable credential found in subject.'
+          }
+        ]
       };
     }
 
@@ -55,17 +60,19 @@ export const vcContextCheck: VerificationCheck = {
     if (!hasVcContext) {
       return {
         status: 'failure',
-        problems: [{
-          type: ProblemTypes.PARSING_ERROR,
-          title: 'No VC Context',
-          detail: `Credential @context does not include required VC context URI (${VC_CONTEXT_V1} or ${VC_CONTEXT_V2}).`,
-        }],
+        problems: [
+          {
+            type: ProblemTypes.PARSING_ERROR,
+            title: 'No VC Context',
+            detail: `Credential @context does not include required VC context URI (${VC_CONTEXT_V1} or ${VC_CONTEXT_V2}).`
+          }
+        ]
       };
     }
 
     return {
       status: 'success',
-      message: 'Credential @context includes a valid VC context URI.',
+      message: 'Credential @context includes a valid VC context URI.'
     };
-  },
+  }
 };

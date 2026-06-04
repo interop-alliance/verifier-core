@@ -17,5 +17,5 @@ export const proofSuite: VerificationSuite = {
   name: 'Proof Verification',
   description: 'Cryptographic signature verification.',
   phase: 'cryptographic',
-  checks: [signatureCheck],
+  checks: [signatureCheck]
 };

@@ -26,7 +26,7 @@
 /**
  * `AchievementType` vocabulary as defined in OB 3.0 §B.1.28.
  * Source: https://www.imsglobal.org/spec/ob/v3p0/#achievementtype-enumeration
- * 
+ *
  * Snapshot taken 2026-04-18. Verify against the current published spec when
  * editing.
  */
@@ -62,8 +62,8 @@ export const OB_3_0_ACHIEVEMENT_TYPES: ReadonlySet<string> = Object.freeze(
     'MasterDegree',
     'MicroCredential',
     'ResearchDoctorate',
-    'SecondarySchoolDiploma',
-  ]),
+    'SecondarySchoolDiploma'
+  ])
 );
 
 /**
@@ -76,7 +76,8 @@ export const OB_3_0_ACHIEVEMENT_TYPES: ReadonlySet<string> = Object.freeze(
  * Callers that require version-pinned behavior should reference
  * the version-scoped constant directly.
  */
-export const KNOWN_ACHIEVEMENT_TYPES: ReadonlySet<string> = OB_3_0_ACHIEVEMENT_TYPES;
+export const KNOWN_ACHIEVEMENT_TYPES: ReadonlySet<string> =
+  OB_3_0_ACHIEVEMENT_TYPES;
 
 /**
  * Reserved prefix the OB spec recognizes for issuer-defined

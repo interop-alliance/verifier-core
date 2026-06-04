@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { RealTimeService } from '../../../src/services/time-service/real-time-service.js';
 import { FakeTimeService } from '../../../src/services/time-service/fake-time-service.js';
 
@@ -9,22 +9,22 @@ describe('TimeService', () => {
       const before = Date.now();
       const sample = svc.dateNowMs();
       const after = Date.now();
-      expect(sample).to.be.at.least(before);
-      expect(sample).to.be.at.most(after);
+      expect(sample).toBeGreaterThanOrEqual(before);
+      expect(sample).toBeLessThanOrEqual(after);
     });
 
     it('performanceNowMs returns a finite, non-negative number', () => {
       const svc = RealTimeService();
       const sample = svc.performanceNowMs();
-      expect(Number.isFinite(sample)).to.equal(true);
-      expect(sample).to.be.at.least(0);
+      expect(Number.isFinite(sample)).toBe(true);
+      expect(sample).toBeGreaterThanOrEqual(0);
     });
 
     it('performanceNowMs is non-decreasing across consecutive calls', () => {
       const svc = RealTimeService();
       const a = svc.performanceNowMs();
       const b = svc.performanceNowMs();
-      expect(b).to.be.at.least(a);
+      expect(b).toBeGreaterThanOrEqual(a);
     });
   });
 
@@ -33,16 +33,16 @@ describe('TimeService', () => {
       it('returns base + N where N is the per-call counter', () => {
         const base = new Date('2026-01-01T00:00:00Z').getTime();
         const svc = FakeTimeService();
-        expect(svc.dateNowMs()).to.equal(base + 1);
-        expect(svc.dateNowMs()).to.equal(base + 2);
-        expect(svc.dateNowMs()).to.equal(base + 3);
+        expect(svc.dateNowMs()).toBe(base + 1);
+        expect(svc.dateNowMs()).toBe(base + 2);
+        expect(svc.dateNowMs()).toBe(base + 3);
       });
 
       it('honors a custom baseDateMs seed', () => {
         const base = new Date('2030-06-15T12:00:00Z').getTime();
         const svc = FakeTimeService({ baseDateMs: base });
-        expect(svc.dateNowMs()).to.equal(base + 1);
-        expect(svc.dateNowMs()).to.equal(base + 2);
+        expect(svc.dateNowMs()).toBe(base + 1);
+        expect(svc.dateNowMs()).toBe(base + 2);
       });
 
       it('strictly increases across consecutive calls', () => {
@@ -51,10 +51,10 @@ describe('TimeService', () => {
           svc.dateNowMs(),
           svc.dateNowMs(),
           svc.dateNowMs(),
-          svc.dateNowMs(),
+          svc.dateNowMs()
         ];
         for (let i = 1; i < samples.length; i++) {
-          expect(samples[i]).to.be.greaterThan(samples[i - 1]);
+          expect(samples[i]).toBeGreaterThan(samples[i - 1]);
         }
       });
     });
@@ -62,16 +62,16 @@ describe('TimeService', () => {
     describe('performanceNowMs', () => {
       it('returns 0, tick, 2*tick, ... with the default tick', () => {
         const svc = FakeTimeService();
-        expect(svc.performanceNowMs()).to.equal(0);
-        expect(svc.performanceNowMs()).to.equal(1);
-        expect(svc.performanceNowMs()).to.equal(2);
+        expect(svc.performanceNowMs()).toBe(0);
+        expect(svc.performanceNowMs()).toBe(1);
+        expect(svc.performanceNowMs()).toBe(2);
       });
 
       it('honors a custom performanceTickMs', () => {
         const svc = FakeTimeService({ performanceTickMs: 5 });
-        expect(svc.performanceNowMs()).to.equal(0);
-        expect(svc.performanceNowMs()).to.equal(5);
-        expect(svc.performanceNowMs()).to.equal(10);
+        expect(svc.performanceNowMs()).toBe(0);
+        expect(svc.performanceNowMs()).toBe(5);
+        expect(svc.performanceNowMs()).toBe(10);
       });
     });
 
@@ -79,12 +79,12 @@ describe('TimeService', () => {
       it('interleaved date/perf reads produce per-channel sequences as if isolated', () => {
         const base = new Date('2026-01-01T00:00:00Z').getTime();
         const svc = FakeTimeService();
-        expect(svc.dateNowMs()).to.equal(base + 1);
-        expect(svc.performanceNowMs()).to.equal(0);
-        expect(svc.dateNowMs()).to.equal(base + 2);
-        expect(svc.performanceNowMs()).to.equal(1);
-        expect(svc.performanceNowMs()).to.equal(2);
-        expect(svc.dateNowMs()).to.equal(base + 3);
+        expect(svc.dateNowMs()).toBe(base + 1);
+        expect(svc.performanceNowMs()).toBe(0);
+        expect(svc.dateNowMs()).toBe(base + 2);
+        expect(svc.performanceNowMs()).toBe(1);
+        expect(svc.performanceNowMs()).toBe(2);
+        expect(svc.dateNowMs()).toBe(base + 3);
       });
     });
 
@@ -96,8 +96,8 @@ describe('TimeService', () => {
         a.dateNowMs();
         a.performanceNowMs();
         const base = new Date('2026-01-01T00:00:00Z').getTime();
-        expect(b.dateNowMs()).to.equal(base + 1);
-        expect(b.performanceNowMs()).to.equal(0);
+        expect(b.dateNowMs()).toBe(base + 1);
+        expect(b.performanceNowMs()).toBe(0);
       });
     });
   });

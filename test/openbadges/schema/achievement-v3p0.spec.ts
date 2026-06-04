@@ -9,11 +9,11 @@
  * JSON Pointers when run through Zod.
  */
 
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import {
   Obv3p0AchievementSchema,
-  Obv3p0AlignmentSchema,
+  Obv3p0AlignmentSchema
 } from '../../../src/openbadges/schemas/classes-v3p0.js';
 
 function pathOf(error: z.ZodError): string[] {
@@ -24,12 +24,12 @@ describe('Obv3p0AlignmentSchema', () => {
   const minimalAlignment = {
     type: ['Alignment'],
     targetName: 'Frontend Developer',
-    targetUrl: 'https://example.test/framework/frontend-dev',
+    targetUrl: 'https://example.test/framework/frontend-dev'
   };
 
   it('parses an alignment with only required fields', () => {
     const parsed = Obv3p0AlignmentSchema.safeParse(minimalAlignment);
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
   });
 
   it('round-trips an alignment with all in-scope optionals', () => {
@@ -38,50 +38,50 @@ describe('Obv3p0AlignmentSchema', () => {
       targetCode: 'FE-100',
       targetDescription: 'Frontend dev competency',
       targetFramework: 'Example Skills Framework',
-      targetType: 'ceasn:Competency',
+      targetType: 'ceasn:Competency'
     });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.targetCode).to.equal('FE-100');
-      expect(parsed.data.targetType).to.equal('ceasn:Competency');
+      expect(parsed.data.targetCode).toBe('FE-100');
+      expect(parsed.data.targetType).toBe('ceasn:Competency');
     }
   });
 
   it('rejects an alignment missing targetName', () => {
     const { targetName: _drop, ...rest } = minimalAlignment;
     const parsed = Obv3p0AlignmentSchema.safeParse(rest);
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
     if (!parsed.success) {
-      expect(pathOf(parsed.error)).to.include('targetName');
+      expect(pathOf(parsed.error)).toContain('targetName');
     }
   });
 
   it('rejects an alignment missing targetUrl', () => {
     const { targetUrl: _drop, ...rest } = minimalAlignment;
     const parsed = Obv3p0AlignmentSchema.safeParse(rest);
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
     if (!parsed.success) {
-      expect(pathOf(parsed.error)).to.include('targetUrl');
+      expect(pathOf(parsed.error)).toContain('targetUrl');
     }
   });
 
   it('rejects an alignment whose targetUrl is not a URL', () => {
     const parsed = Obv3p0AlignmentSchema.safeParse({
       ...minimalAlignment,
-      targetUrl: 'not-a-url',
+      targetUrl: 'not-a-url'
     });
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
     if (!parsed.success) {
-      expect(pathOf(parsed.error)).to.include('targetUrl');
+      expect(pathOf(parsed.error)).toContain('targetUrl');
     }
   });
 
   it("rejects an alignment whose type doesn't include 'Alignment'", () => {
     const parsed = Obv3p0AlignmentSchema.safeParse({
       ...minimalAlignment,
-      type: ['SomethingElse'],
+      type: ['SomethingElse']
     });
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
   });
 });
 
@@ -90,62 +90,62 @@ describe('Obv3p0AchievementSchema', () => {
     id: 'https://example.test/achievements/1',
     type: ['Achievement'],
     criteria: {
-      narrative: 'Completed all required modules.',
+      narrative: 'Completed all required modules.'
     },
     description: 'Achievement description.',
-    name: 'Example Achievement',
+    name: 'Example Achievement'
   };
 
   it('parses an achievement with only required fields', () => {
     const parsed = Obv3p0AchievementSchema.safeParse(minimalAchievement);
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
   });
 
   it('accepts an empty criteria object (both id and narrative optional)', () => {
     const parsed = Obv3p0AchievementSchema.safeParse({
       ...minimalAchievement,
-      criteria: {},
+      criteria: {}
     });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
   });
 
   it('rejects an achievement missing criteria', () => {
     const { criteria: _drop, ...rest } = minimalAchievement;
     const parsed = Obv3p0AchievementSchema.safeParse(rest);
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
     if (!parsed.success) {
-      expect(pathOf(parsed.error)).to.include('criteria');
+      expect(pathOf(parsed.error)).toContain('criteria');
     }
   });
 
   it('rejects an achievement missing description', () => {
     const { description: _drop, ...rest } = minimalAchievement;
     const parsed = Obv3p0AchievementSchema.safeParse(rest);
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
     if (!parsed.success) {
-      expect(pathOf(parsed.error)).to.include('description');
+      expect(pathOf(parsed.error)).toContain('description');
     }
   });
 
   it('rejects an achievement missing name', () => {
     const { name: _drop, ...rest } = minimalAchievement;
     const parsed = Obv3p0AchievementSchema.safeParse(rest);
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
     if (!parsed.success) {
-      expect(pathOf(parsed.error)).to.include('name');
+      expect(pathOf(parsed.error)).toContain('name');
     }
   });
 
   it('normalizes a string-form creator to { id, type: ["Profile"] }', () => {
     const parsed = Obv3p0AchievementSchema.safeParse({
       ...minimalAchievement,
-      creator: 'did:example:creator',
+      creator: 'did:example:creator'
     });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.creator).to.deep.equal({
+      expect(parsed.data.creator).toEqual({
         id: 'did:example:creator',
-        type: ['Profile'],
+        type: ['Profile']
       });
     }
   });
@@ -156,14 +156,14 @@ describe('Obv3p0AchievementSchema', () => {
       creator: {
         id: 'did:example:creator',
         type: ['Profile'],
-        name: 'Achievement Creator',
-      },
+        name: 'Achievement Creator'
+      }
     });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.creator).to.deep.include({
+      expect(parsed.data.creator).toMatchObject({
         id: 'did:example:creator',
-        name: 'Achievement Creator',
+        name: 'Achievement Creator'
       });
     }
   });
@@ -171,13 +171,13 @@ describe('Obv3p0AchievementSchema', () => {
   it('normalizes a string-form image', () => {
     const parsed = Obv3p0AchievementSchema.safeParse({
       ...minimalAchievement,
-      image: 'https://example.test/badge.png',
+      image: 'https://example.test/badge.png'
     });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.image).to.deep.equal({
+      expect(parsed.data.image).toEqual({
         id: 'https://example.test/badge.png',
-        type: ['Image'],
+        type: ['Image']
       });
     }
   });
@@ -186,27 +186,27 @@ describe('Obv3p0AchievementSchema', () => {
     const goodAlignment = {
       type: ['Alignment'],
       targetName: 'Skill A',
-      targetUrl: 'https://example.test/a',
+      targetUrl: 'https://example.test/a'
     };
     const badAlignment = {
       type: ['Alignment'],
-      targetName: 'Skill B',
+      targetName: 'Skill B'
     };
     const parsed = Obv3p0AchievementSchema.safeParse({
       ...minimalAchievement,
-      alignment: [goodAlignment, badAlignment],
+      alignment: [goodAlignment, badAlignment]
     });
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
     if (!parsed.success) {
       const targetUrlIssue = parsed.error.issues.find(
-        i => i.path.join('.') === 'alignment.1.targetUrl',
+        i => i.path.join('.') === 'alignment.1.targetUrl'
       );
       expect(
         targetUrlIssue,
         `expected an issue at alignment.1.targetUrl, got ${JSON.stringify(
-          pathOf(parsed.error),
-        )}`,
-      ).to.exist;
+          pathOf(parsed.error)
+        )}`
+      ).toBeDefined();
     }
   });
 
@@ -216,23 +216,23 @@ describe('Obv3p0AchievementSchema', () => {
       type: ['ResultDescription'],
       name: 'Score',
       resultType: 'LetterGrade',
-      arbitraryFutureField: { foo: 1 },
+      arbitraryFutureField: { foo: 1 }
     };
     const parsed = Obv3p0AchievementSchema.safeParse({
       ...minimalAchievement,
-      resultDescription: [validResultDescription],
+      resultDescription: [validResultDescription]
     });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.resultDescription?.[0]).to.deep.include({
+      expect(parsed.data.resultDescription?.[0]).toMatchObject({
         id: 'urn:result-desc:1',
         name: 'Score',
-        resultType: 'LetterGrade',
+        resultType: 'LetterGrade'
       });
       const entry = parsed.data.resultDescription?.[0] as unknown as {
         arbitraryFutureField: { foo: number };
       };
-      expect(entry.arbitraryFutureField.foo).to.equal(1);
+      expect(entry.arbitraryFutureField.foo).toBe(1);
     }
   });
 });

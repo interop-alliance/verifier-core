@@ -18,7 +18,8 @@ import { proofExistsCheck } from './proof-exists-check.js';
 export const coreSuite: VerificationSuite = {
   id: 'core',
   name: 'Core Structure',
-  description: 'Validates basic credential structure before cryptographic verification.',
+  description:
+    'Validates basic credential structure before cryptographic verification.',
   phase: 'cryptographic',
-  checks: [contextCheck, vcContextCheck, credentialIdCheck, proofExistsCheck],
+  checks: [contextCheck, vcContextCheck, credentialIdCheck, proofExistsCheck]
 };

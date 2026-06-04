@@ -36,7 +36,7 @@
 export {
   openBadgesSuite,
   openBadgesSemanticSuite,
-  openBadgesSchemaSuite,
+  openBadgesSchemaSuite
 } from './openbadges-suite.js';
 
 export { obv3ResultRefCheck } from './result-ref-check.js';
@@ -44,36 +44,33 @@ export { obv3AchievedLevelCheck } from './achieved-level-check.js';
 export { obv3MissingResultStatusCheck } from './missing-result-status-check.js';
 export {
   obv3UnknownAchievementTypeCheck,
-  createObv3UnknownAchievementTypeCheck,
+  createObv3UnknownAchievementTypeCheck
 } from './unknown-achievement-type-check.js';
 export type { CreateObv3UnknownAchievementTypeCheckOptions } from './unknown-achievement-type-check.js';
 
 export { obv3SchemaCheck } from '../suites/schema/obv3/obv3-schema-check.js';
 
-export {
-  isOpenBadgeCredential,
-  isEndorsementCredential,
-} from './recognize.js';
+export { isOpenBadgeCredential, isEndorsementCredential } from './recognize.js';
 
 export {
   obv3p0Recognizer,
-  obv3p0EndorsementRecognizer,
+  obv3p0EndorsementRecognizer
 } from './recognizers.js';
 
 export {
   Obv3p0OpenBadgeCredentialSchema,
-  parseObv3p0OpenBadgeCredential,
+  parseObv3p0OpenBadgeCredential
 } from './schemas/openbadge-credential-v3p0.js';
 export type { Obv3p0OpenBadgeCredential } from './schemas/openbadge-credential-v3p0.js';
 
 export {
   Obv3p0EndorsementCredentialSchema,
   Obv3p0EndorsementSubjectSchema,
-  parseObv3p0EndorsementCredential,
+  parseObv3p0EndorsementCredential
 } from './schemas/endorsement-credential-v3p0.js';
 export type {
   Obv3p0EndorsementCredential,
-  Obv3p0EndorsementSubject,
+  Obv3p0EndorsementSubject
 } from './schemas/endorsement-credential-v3p0.js';
 
 export {
@@ -86,7 +83,7 @@ export {
   Obv3p0AchievementSubjectSchema,
   Obv3p0RubricCriterionLevelSchema,
   Obv3p0ResultDescriptionSchema,
-  Obv3p0ResultSchema,
+  Obv3p0ResultSchema
 } from './schemas/classes-v3p0.js';
 export type {
   Obv3p0Image,
@@ -96,20 +93,20 @@ export type {
   Obv3p0AchievementSubject,
   Obv3p0RubricCriterionLevel,
   Obv3p0ResultDescription,
-  Obv3p0Result,
+  Obv3p0Result
 } from './schemas/classes-v3p0.js';
 
 export {
   Obv3ProblemTypes as OpenBadgesProblemTypes,
-  Obv3ProblemTypes,
+  Obv3ProblemTypes
 } from './problem-types.js';
 export type {
   Obv3ProblemType as OpenBadgesProblemType,
-  Obv3ProblemType,
+  Obv3ProblemType
 } from './problem-types.js';
 
 export {
   KNOWN_ACHIEVEMENT_TYPES,
   OB_3_0_ACHIEVEMENT_TYPES,
-  ACHIEVEMENT_TYPE_EXT_PREFIX,
+  ACHIEVEMENT_TYPE_EXT_PREFIX
 } from './known-achievement-types.js';

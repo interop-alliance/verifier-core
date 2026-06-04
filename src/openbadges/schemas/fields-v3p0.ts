@@ -48,8 +48,6 @@ export const IriString = z
   .string()
   .regex(/^[a-zA-Z][a-zA-Z0-9+.-]*:.+/, 'Expected an IRI (scheme:rest)');
 
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
-
 /**
  * JSON-LD `type` field. Accepts `string | string[]`, normalizes to
  * `string[]`, and refines that every value in `requiredTypes` is
@@ -65,14 +63,12 @@ export function JsonLdTypeField(requiredTypes: readonly string[]) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: `type must include '${required}'`,
-            path: [],
+            path: []
           });
         }
       }
     });
 }
-
-/* eslint-enable @typescript-eslint/explicit-function-return-type */
 
 /**
  * VCDM-anchored `@context` array shared by every OB 3.0 envelope
@@ -83,14 +79,12 @@ export function JsonLdTypeField(requiredTypes: readonly string[]) {
 export const Obv3p0ContextArray = z
   .array(z.string())
   .min(1, '@context must be a non-empty array')
-  .refine(
-    arr => arr[0] === VCDM_V1_CONTEXT || arr[0] === VCDM_V2_CONTEXT,
-    { message: '@context[0] must be a VCDM context (v1 or v2)' },
-  )
-  .refine(
-    arr => arr.some(c => c.startsWith(OB_3_0_CONTEXT_PREFIX)),
-    { message: `@context must include the OB 3.0 context (${OB_3_0_CONTEXT_PREFIX}*)` },
-  );
+  .refine(arr => arr[0] === VCDM_V1_CONTEXT || arr[0] === VCDM_V2_CONTEXT, {
+    message: '@context[0] must be a VCDM context (v1 or v2)'
+  })
+  .refine(arr => arr.some(c => c.startsWith(OB_3_0_CONTEXT_PREFIX)), {
+    message: `@context must include the OB 3.0 context (${OB_3_0_CONTEXT_PREFIX}*)`
+  });
 
 const OB_MALFORMED_ENVELOPE_TYPE =
   'urn:dcc-verifier:openbadges:malformed-envelope';
@@ -112,7 +106,7 @@ export function zodErrorToProblems(error: z.ZodError): ProblemDetail[] {
     const detail: ProblemDetail = {
       type: OB_MALFORMED_ENVELOPE_TYPE,
       title: 'Malformed Open Badges 3.0 Envelope',
-      detail: issue.message,
+      detail: issue.message
     };
     if (issue.path.length > 0) {
       detail.instance = formatJsonPointer(issue.path);

@@ -10,23 +10,28 @@ import { ProblemTypes } from '../../problem-types.js';
 export const contextCheck: VerificationCheck = {
   id: 'core.context-exists',
   name: 'Context Exists',
-  description: 'Verifies that the credential has a non-empty @context property.',
+  description:
+    'Verifies that the credential has a non-empty @context property.',
   fatal: true,
   appliesTo: ['verifiableCredential'],
   execute: async (
     subject: VerificationSubject,
     _context: VerificationContext
   ): Promise<CheckOutcome> => {
-    const credential = subject.verifiableCredential as Record<string, unknown> | undefined;
+    const credential = subject.verifiableCredential as
+      | Record<string, unknown>
+      | undefined;
 
     if (!credential) {
       return {
         status: 'failure',
-        problems: [{
-          type: ProblemTypes.PARSING_ERROR,
-          title: 'Invalid JSON-LD',
-          detail: 'No verifiable credential found in subject.',
-        }],
+        problems: [
+          {
+            type: ProblemTypes.PARSING_ERROR,
+            title: 'Invalid JSON-LD',
+            detail: 'No verifiable credential found in subject.'
+          }
+        ]
       };
     }
 
@@ -35,11 +40,13 @@ export const contextCheck: VerificationCheck = {
     if (!context) {
       return {
         status: 'failure',
-        problems: [{
-          type: ProblemTypes.PARSING_ERROR,
-          title: 'Invalid JSON-LD',
-          detail: 'Credential is missing required @context property.',
-        }],
+        problems: [
+          {
+            type: ProblemTypes.PARSING_ERROR,
+            title: 'Invalid JSON-LD',
+            detail: 'Credential is missing required @context property.'
+          }
+        ]
       };
     }
 
@@ -50,17 +57,19 @@ export const contextCheck: VerificationCheck = {
     if (!isValidArray && !isValidString) {
       return {
         status: 'failure',
-        problems: [{
-          type: ProblemTypes.PARSING_ERROR,
-          title: 'Invalid JSON-LD',
-          detail: 'Credential @context property is empty.',
-        }],
+        problems: [
+          {
+            type: ProblemTypes.PARSING_ERROR,
+            title: 'Invalid JSON-LD',
+            detail: 'Credential @context property is empty.'
+          }
+        ]
       };
     }
 
     return {
       status: 'success',
-      message: 'Credential has a valid @context property.',
+      message: 'Credential has a valid @context property.'
     };
-  },
+  }
 };

@@ -17,19 +17,19 @@ export type FlattenedCheckResult =
   | { source: 'credential'; credentialIndex: number; result: CheckResult };
 
 export function flattenPresentationResults(
-  result: PresentationVerificationResult,
+  result: PresentationVerificationResult
 ): FlattenedCheckResult[] {
   return [
     ...result.presentationResults.map(r => ({
       source: 'presentation' as const,
-      result: r,
+      result: r
     })),
     ...result.credentialResults.flatMap((cr, credentialIndex) =>
       cr.results.map(r => ({
         source: 'credential' as const,
         credentialIndex,
-        result: r,
-      })),
-    ),
+        result: r
+      }))
+    )
   ];
 }

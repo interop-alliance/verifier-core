@@ -17,16 +17,20 @@ export const proofExistsCheck: VerificationCheck = {
     subject: VerificationSubject,
     _context: VerificationContext
   ): Promise<CheckOutcome> => {
-    const credential = subject.verifiableCredential as Record<string, unknown> | undefined;
+    const credential = subject.verifiableCredential as
+      | Record<string, unknown>
+      | undefined;
 
     if (!credential) {
       return {
         status: 'failure',
-        problems: [{
-          type: ProblemTypes.PROOF_VERIFICATION_ERROR,
-          title: 'No Proof',
-          detail: 'No verifiable credential found in subject.',
-        }],
+        problems: [
+          {
+            type: ProblemTypes.PROOF_VERIFICATION_ERROR,
+            title: 'No Proof',
+            detail: 'No verifiable credential found in subject.'
+          }
+        ]
       };
     }
 
@@ -35,11 +39,13 @@ export const proofExistsCheck: VerificationCheck = {
     if (!proof) {
       return {
         status: 'failure',
-        problems: [{
-          type: ProblemTypes.PROOF_VERIFICATION_ERROR,
-          title: 'No Proof',
-          detail: 'Credential is missing required proof property.',
-        }],
+        problems: [
+          {
+            type: ProblemTypes.PROOF_VERIFICATION_ERROR,
+            title: 'No Proof',
+            detail: 'Credential is missing required proof property.'
+          }
+        ]
       };
     }
 
@@ -54,17 +60,19 @@ export const proofExistsCheck: VerificationCheck = {
     if (!isValidProofObject && !isValidProofArray) {
       return {
         status: 'failure',
-        problems: [{
-          type: ProblemTypes.PROOF_VERIFICATION_ERROR,
-          title: 'No Proof',
-          detail: 'Credential proof property is invalid.',
-        }],
+        problems: [
+          {
+            type: ProblemTypes.PROOF_VERIFICATION_ERROR,
+            title: 'No Proof',
+            detail: 'Credential proof property is invalid.'
+          }
+        ]
       };
     }
 
     return {
       status: 'success',
-      message: 'Credential has a valid proof property.',
+      message: 'Credential has a valid proof property.'
     };
-  },
+  }
 };

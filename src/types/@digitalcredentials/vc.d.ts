@@ -71,7 +71,7 @@ export interface VerifyCredentialOptions {
   purpose?: ProofPurpose;
   documentLoader?: AnyDocumentLoader;
   // TODO: undefined is preferred over null as it matches the JSDoc types
-  checkStatus?: CheckStatusFunction | null | undefined; 
+  checkStatus?: CheckStatusFunction | null | undefined;
   now?: string | Date;
   verifyMatchingIssuers?: boolean;
 }
@@ -113,11 +113,21 @@ export class CredentialIssuancePurpose {
 // Main API Functions
 export function issue(options: IssueOptions): Promise<AnyCredential>;
 export function derive(options: DeriveOptions): Promise<AnyCredential>;
-export function verify(options: VerifyOptions): Promise<VerifyPresentationResult>;
-export function verifyPresentation(options: VerifyOptions): Promise<VerifyPresentationResult>;
-export function verifyCredential(options: VerifyCredentialOptions): Promise<VerifyCredentialResult>;
-export function createPresentation(options?: CreatePresentationOptions): AnyPresentation;
-export function signPresentation(options: SignPresentationOptions): Promise<AnyPresentation>;
+export function verify(
+  options: VerifyOptions
+): Promise<VerifyPresentationResult>;
+export function verifyPresentation(
+  options: VerifyOptions
+): Promise<VerifyPresentationResult>;
+export function verifyCredential(
+  options: VerifyCredentialOptions
+): Promise<VerifyCredentialResult>;
+export function createPresentation(
+  options?: CreatePresentationOptions
+): AnyPresentation;
+export function signPresentation(
+  options: SignPresentationOptions
+): Promise<AnyPresentation>;
 
 // Internal/Helper Functions
 export function _checkPresentation(presentation: AnyPresentation): void;

@@ -18,7 +18,7 @@ export type FakeHttpGetServiceOptions = {
  */
 export function FakeHttpGetService(
   urlMap: Record<string, HttpGetResult>,
-  options: FakeHttpGetServiceOptions = {},
+  options: FakeHttpGetServiceOptions = {}
 ): HttpGetService & {
   /** Number of times `get(url)` was invoked for the given URL. */
   callsTo: (url: string) => number;
@@ -44,7 +44,7 @@ export function FakeHttpGetService(
     },
     allCalls(): string[] {
       return [...calls];
-    },
+    }
   };
 }
 
@@ -59,7 +59,7 @@ export function okJsonBody(body: unknown): HttpGetResult {
 export function httpGetResult(
   status: number,
   body: unknown,
-  headers: Headers = new Headers(),
+  headers: Headers = new Headers()
 ): HttpGetResult {
   return { body, headers, status };
 }

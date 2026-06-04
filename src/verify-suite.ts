@@ -11,26 +11,26 @@
 import { createVerifier } from './verifier.js';
 import type {
   VerifyCredentialOptions,
-  VerifyPresentationOptions,
+  VerifyPresentationOptions
 } from './types/options.js';
 import type {
   CredentialVerificationResult,
-  PresentationVerificationResult,
+  PresentationVerificationResult
 } from './types/result.js';
 
 export async function verifyCredential(
-  opts: VerifyCredentialOptions,
+  opts: VerifyCredentialOptions
 ): Promise<CredentialVerificationResult> {
   const { credential, additionalSuites, registries, ...config } = opts;
   return createVerifier(config).verifyCredential({
     credential,
     additionalSuites,
-    registries,
+    registries
   });
 }
 
 export async function verifyPresentation(
-  opts: VerifyPresentationOptions,
+  opts: VerifyPresentationOptions
 ): Promise<PresentationVerificationResult> {
   const {
     presentation,
@@ -45,6 +45,6 @@ export async function verifyPresentation(
     challenge,
     unsignedPresentation,
     additionalSuites,
-    registries,
+    registries
   });
 }

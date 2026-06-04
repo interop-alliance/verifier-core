@@ -3,7 +3,11 @@ import type { CacheService } from '../cache-service/cache-service.js';
 import type { HttpGetService } from '../http-get-service/http-get-service.js';
 import { parseCacheControlMaxAge, resolveTtl } from './cache-ttl.js';
 import { jwtDecodePayload } from './jwt-payload-decode.js';
-import type { HandlerResult, RegistryHandler, RegistryHandlerContext } from './types.js';
+import type {
+  HandlerResult,
+  RegistryHandler,
+  RegistryHandlerContext
+} from './types.js';
 
 /**
  * OIDF trust-anchor lookup: entity configuration JWT, then federation fetch
@@ -19,9 +23,13 @@ export const lookupOidf: RegistryHandler = async (did, registry, ctx) => {
 async function lookupOidfForRegistry(
   did: string,
   registry: OidfEntityIdentityRegistry,
-  { httpGetService, cacheService }: RegistryHandlerContext,
+  { httpGetService, cacheService }: RegistryHandlerContext
 ): Promise<HandlerResult> {
-  const ecJwt = await getOrLoadEntityConfigJwt(registry.trustAnchorEC, httpGetService, cacheService);
+  const ecJwt = await getOrLoadEntityConfigJwt(
+    registry.trustAnchorEC,
+    httpGetService,
+    cacheService
+  );
   if (!ecJwt) {
     return { status: 'unchecked', registryName: registry.name };
   }
@@ -41,7 +49,9 @@ async function lookupOidfForRegistry(
   const lookupUrl = `${fetchEndpoint}?sub=${encodeURIComponent(did)}`;
   const lookupKey = cacheKeyForOidfLookup(lookupUrl);
 
-  const cachedIssuerJwt = (await cacheService.get(lookupKey)) as string | undefined;
+  const cachedIssuerJwt = (await cacheService.get(lookupKey)) as
+    | string
+    | undefined;
   if (cachedIssuerJwt) {
     return issuerJwtToResult(cachedIssuerJwt, registry.name);
   }
@@ -79,7 +89,7 @@ async function lookupOidfForRegistry(
 async function getOrLoadEntityConfigJwt(
   trustAnchorEcUrl: string,
   httpGetService: HttpGetService,
-  cacheService: CacheService,
+  cacheService: CacheService
 ): Promise<string | null> {
   const key = cacheKeyForOidfEntityConfig(trustAnchorEcUrl);
   const cached = (await cacheService.get(key)) as string | undefined;
@@ -97,7 +107,8 @@ async function getOrLoadEntityConfigJwt(
     return null;
   }
 
-  const jwt = typeof result.body === 'string' ? result.body : String(result.body ?? '');
+  const jwt =
+    typeof result.body === 'string' ? result.body : String(result.body ?? '');
   if (!jwt) {
     return null;
   }
@@ -116,7 +127,10 @@ async function getOrLoadEntityConfigJwt(
   return jwt;
 }
 
-function issuerJwtToResult(issuerJwt: string, registryName: string): HandlerResult {
+function issuerJwtToResult(
+  issuerJwt: string,
+  registryName: string
+): HandlerResult {
   try {
     const decoded = jwtDecodePayload(issuerJwt);
     if (!hasIssuerMetadata(decoded)) {
@@ -134,7 +148,9 @@ function getFederationFetchEndpoint(decoded: unknown): string | undefined {
       metadata?: { federation_entity?: { federation_fetch_endpoint?: string } };
     }
   )?.metadata?.federation_entity?.federation_fetch_endpoint;
-  return typeof endpoint === 'string' && endpoint.length > 0 ? endpoint : undefined;
+  return typeof endpoint === 'string' && endpoint.length > 0
+    ? endpoint
+    : undefined;
 }
 
 function hasIssuerMetadata(decoded: unknown): boolean {

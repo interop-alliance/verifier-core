@@ -3,7 +3,7 @@ import type { VerifiableCredential } from '../../../src/schemas/credential.js';
 import type { VerifiablePresentation } from '../../../src/schemas/presentation.js';
 import type {
   CredentialVerificationResult,
-  PresentationVerificationResult,
+  PresentationVerificationResult
 } from '../../../src/types/result.js';
 
 export interface FakeVerifierOptions {
@@ -20,7 +20,7 @@ export interface FakeVerifierOptions {
 export function FakeVerifier(options: FakeVerifierOptions = {}): Verifier {
   return {
     verifyCredential: options.verifyCredential ?? defaultVerifyCredential,
-    verifyPresentation: options.verifyPresentation ?? defaultVerifyPresentation,
+    verifyPresentation: options.verifyPresentation ?? defaultVerifyPresentation
   };
 }
 
@@ -29,7 +29,7 @@ const defaultVerifyCredential: Verifier['verifyCredential'] = async () =>
     verified: true,
     verifiableCredential: {} as VerifiableCredential,
     results: [],
-    summary: [],
+    summary: []
   }) satisfies CredentialVerificationResult;
 
 const defaultVerifyPresentation: Verifier['verifyPresentation'] = async () =>
@@ -38,5 +38,5 @@ const defaultVerifyPresentation: Verifier['verifyPresentation'] = async () =>
     verifiablePresentation: {} as VerifiablePresentation,
     presentationResults: [],
     credentialResults: [],
-    summary: [],
+    summary: []
   }) satisfies PresentationVerificationResult;

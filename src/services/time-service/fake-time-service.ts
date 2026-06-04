@@ -28,16 +28,18 @@ import type { TimeService } from './time-service.js';
  * for the deterministic exact-value assertions consumers
  * actually want when verifying timing rollup math.
  */
-export function FakeTimeService(opts: {
-  baseDateMs?: number;
-  performanceTickMs?: number;
-} = {}): TimeService {
+export function FakeTimeService(
+  opts: {
+    baseDateMs?: number;
+    performanceTickMs?: number;
+  } = {}
+): TimeService {
   const base = opts.baseDateMs ?? new Date('2026-01-01T00:00:00Z').getTime();
   const tick = opts.performanceTickMs ?? 1;
   let dateCalls = 0;
   let perfCalls = 0;
   return {
     dateNowMs: () => base + ++dateCalls,
-    performanceNowMs: () => perfCalls++ * tick,
+    performanceNowMs: () => perfCalls++ * tick
   };
 }

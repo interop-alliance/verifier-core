@@ -1,6 +1,6 @@
 export {
   FakeCryptoService,
-  hasDataIntegrityProof,
+  hasDataIntegrityProof
 } from './fake-crypto-service.js';
 export type { FakeCryptoServiceOptions } from './fake-crypto-service.js';
 export { FakeDocumentLoader } from './fake-document-loader.js';

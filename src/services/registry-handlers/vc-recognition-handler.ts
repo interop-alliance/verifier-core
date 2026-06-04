@@ -1,7 +1,11 @@
 import type { VcRecognitionEntityIdentityRegistry } from '../../types/registry.js';
 import type { HttpGetService } from '../http-get-service/http-get-service.js';
 import { resolveTtl, ttlFromValidUntil } from './cache-ttl.js';
-import type { HandlerResult, RegistryHandler, RegistryHandlerContext } from './types.js';
+import type {
+  HandlerResult,
+  RegistryHandler,
+  RegistryHandlerContext
+} from './types.js';
 
 /**
  * VerifiableRecognitionCredential registry: fetch the recognition VC,
@@ -16,7 +20,11 @@ import type { HandlerResult, RegistryHandler, RegistryHandlerContext } from './t
  *
  * @see https://w3c.github.io/vc-recognition/
  */
-export const lookupVcRecognition: RegistryHandler = async (did, registry, ctx) => {
+export const lookupVcRecognition: RegistryHandler = async (
+  did,
+  registry,
+  ctx
+) => {
   if (registry.type !== 'vc-recognition') {
     return { status: 'unchecked', registryName: registry.name };
   }
@@ -26,14 +34,19 @@ export const lookupVcRecognition: RegistryHandler = async (did, registry, ctx) =
 async function lookupVcRecognitionForRegistry(
   did: string,
   registry: VcRecognitionEntityIdentityRegistry,
-  ctx: RegistryHandlerContext,
+  ctx: RegistryHandlerContext
 ): Promise<HandlerResult> {
   const { httpGetService, cacheService, verifier } = ctx;
   const key = cacheKeyForVcRecognitionUrl(registry.url);
-  let credential = (await cacheService.get(key)) as Record<string, unknown> | undefined;
+  let credential = (await cacheService.get(key)) as
+    | Record<string, unknown>
+    | undefined;
 
   if (!credential) {
-    const loaded = await fetchRecognitionCredentialJson(registry.url, httpGetService);
+    const loaded = await fetchRecognitionCredentialJson(
+      registry.url,
+      httpGetService
+    );
     if (!loaded) {
       return { status: 'unchecked', registryName: registry.name };
     }
@@ -45,14 +58,15 @@ async function lookupVcRecognitionForRegistry(
 
     const verification = await verifier.verifyCredential({
       credential: loaded,
-      registries: [],
+      registries: []
     });
 
     if (!verification.verified) {
       return { status: 'unchecked', registryName: registry.name };
     }
 
-    const validUntil = typeof loaded.validUntil === 'string' ? loaded.validUntil : undefined;
+    const validUntil =
+      typeof loaded.validUntil === 'string' ? loaded.validUntil : undefined;
     const ttlMs = resolveTtl(ttlFromValidUntil(validUntil ?? ''));
     await cacheService.set(key, loaded, ttlMs);
     credential = loaded;
@@ -70,7 +84,7 @@ function cacheKeyForVcRecognitionUrl(url: string): string {
 
 async function fetchRecognitionCredentialJson(
   url: string,
-  httpGetService: HttpGetService,
+  httpGetService: HttpGetService
 ): Promise<Record<string, unknown> | null> {
   let result;
   try {
@@ -100,7 +114,10 @@ function getIssuerId(credential: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
-function subjectContainsDid(credential: Record<string, unknown>, did: string): boolean {
+function subjectContainsDid(
+  credential: Record<string, unknown>,
+  did: string
+): boolean {
   const subject = credential.credentialSubject;
   if (subject === undefined || subject === null) {
     return false;
@@ -110,7 +127,7 @@ function subjectContainsDid(credential: Record<string, unknown>, did: string): b
       entry =>
         entry !== null &&
         typeof entry === 'object' &&
-        (entry as { id?: unknown }).id === did,
+        (entry as { id?: unknown }).id === did
     );
   }
   if (typeof subject === 'object') {

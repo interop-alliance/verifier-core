@@ -7,7 +7,7 @@
  * `docs/plans/2026-04-18-openbadges-recognizer-and-subchecks/04-profile-and-profileref.md`.
  */
 
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { Obv3p0ProfileSchema } from '../../../src/openbadges/schemas/classes-v3p0.js';
 import { parseObv3p0OpenBadgeCredential } from '../../../src/openbadges/schemas/openbadge-credential-v3p0.js';
 import type { RecognitionResult } from '../../../src/types/recognition.js';
@@ -19,17 +19,17 @@ function clone<T>(v: T): T {
 
 function assertMalformedAt(
   result: RecognitionResult,
-  expectedInstance: string,
+  expectedInstance: string
 ): void {
-  expect(result.status).to.equal('malformed');
+  expect(result.status).toBe('malformed');
   if (result.status === 'malformed') {
     const matched = result.problems.find(p => p.instance === expectedInstance);
     expect(
       matched,
       `expected a problem at ${expectedInstance}, got ${JSON.stringify(
-        result.problems.map(p => p.instance),
-      )}`,
-    ).to.exist;
+        result.problems.map(p => p.instance)
+      )}`
+    ).toBeDefined();
   }
 }
 
@@ -42,43 +42,43 @@ describe('Obv3p0ProfileSchema (standalone)', () => {
       url: 'https://example.test/about',
       description: 'A trustworthy badge issuer.',
       image: 'https://example.test/logo.png',
-      email: 'issuer@example.test',
+      email: 'issuer@example.test'
     });
 
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.name).to.equal('Example Issuer');
-      expect(parsed.data.email).to.equal('issuer@example.test');
-      expect(parsed.data.image).to.deep.include({
-        id: 'https://example.test/logo.png',
+      expect(parsed.data.name).toBe('Example Issuer');
+      expect(parsed.data.email).toBe('issuer@example.test');
+      expect(parsed.data.image).toMatchObject({
+        id: 'https://example.test/logo.png'
       });
     }
   });
 
   it('rejects a Profile missing id', () => {
     const parsed = Obv3p0ProfileSchema.safeParse({ type: ['Profile'] });
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
   });
 
   it('rejects a Profile missing type', () => {
     const parsed = Obv3p0ProfileSchema.safeParse({
-      id: 'did:example:issuer',
+      id: 'did:example:issuer'
     });
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
   });
 
   it("rejects an email that doesn't contain '@'", () => {
     const parsed = Obv3p0ProfileSchema.safeParse({
       id: 'did:example:issuer',
       type: ['Profile'],
-      email: 'not-an-email',
+      email: 'not-an-email'
     });
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
     if (!parsed.success) {
       const emailIssue = parsed.error.issues.find(
-        i => i.path.join('.') === 'email',
+        i => i.path.join('.') === 'email'
       );
-      expect(emailIssue?.message).to.match(/@/);
+      expect(emailIssue?.message).toMatch(/@/);
     }
   });
 
@@ -87,43 +87,43 @@ describe('Obv3p0ProfileSchema (standalone)', () => {
       id: 'did:example:issuer',
       type: ['Profile'],
       parentOrg: 'https://example.test/parent',
-      arbitraryExtension: { foo: 1 },
+      arbitraryExtension: { foo: 1 }
     });
 
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
     if (parsed.success) {
       const data = parsed.data as unknown as {
         parentOrg: string;
         arbitraryExtension: { foo: number };
       };
-      expect(data.parentOrg).to.equal('https://example.test/parent');
-      expect(data.arbitraryExtension.foo).to.equal(1);
+      expect(data.parentOrg).toBe('https://example.test/parent');
+      expect(data.arbitraryExtension.foo).toBe(1);
     }
   });
 
   it('accepts a did: id (rejects only non-IRI strings)', () => {
     const parsed = Obv3p0ProfileSchema.safeParse({
       id: 'did:web:issuer.example.test',
-      type: ['Profile'],
+      type: ['Profile']
     });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
   });
 });
 
 describe('credential.issuer (backfilled ProfileRefField)', () => {
   it('round-trips an object-form issuer on the spec-conforming fixture', () => {
     const result = parseObv3p0OpenBadgeCredential(
-      obv3p0OpenBadgeSpecConforming,
+      obv3p0OpenBadgeSpecConforming
     );
 
-    expect(result.status).to.equal('recognized');
+    expect(result.status).toBe('recognized');
     if (result.status === 'recognized') {
       const normalized = result.normalized as {
         issuer: { id: string; type: string[]; name?: string };
       };
-      expect(normalized.issuer.id).to.equal('did:example:issuer');
-      expect(normalized.issuer.type).to.deep.equal(['Profile']);
-      expect(normalized.issuer.name).to.equal('Spec-Conforming Issuer');
+      expect(normalized.issuer.id).toBe('did:example:issuer');
+      expect(normalized.issuer.type).toEqual(['Profile']);
+      expect(normalized.issuer.name).toBe('Spec-Conforming Issuer');
     }
   });
 
@@ -133,14 +133,14 @@ describe('credential.issuer (backfilled ProfileRefField)', () => {
 
     const result = parseObv3p0OpenBadgeCredential(cred);
 
-    expect(result.status).to.equal('recognized');
+    expect(result.status).toBe('recognized');
     if (result.status === 'recognized') {
       const normalized = result.normalized as {
         issuer: { id: string; type: string[] };
       };
-      expect(normalized.issuer).to.deep.equal({
+      expect(normalized.issuer).toEqual({
         id: 'did:example:string-issuer',
-        type: ['Profile'],
+        type: ['Profile']
       });
     }
   });
@@ -163,7 +163,7 @@ describe('credential.issuer (backfilled ProfileRefField)', () => {
     cred.issuer = {
       id: 'did:example:issuer',
       type: ['Profile'],
-      email: 'no-at-symbol',
+      email: 'no-at-symbol'
     };
 
     const result = parseObv3p0OpenBadgeCredential(cred);
@@ -175,18 +175,16 @@ describe('credential.issuer (backfilled ProfileRefField)', () => {
     cred.issuer = {
       id: 'did:example:issuer',
       type: ['Profile'],
-      parentOrg: 'https://example.test/parent',
+      parentOrg: 'https://example.test/parent'
     };
 
     const result = parseObv3p0OpenBadgeCredential(cred);
-    expect(result.status).to.equal('recognized');
+    expect(result.status).toBe('recognized');
     if (result.status === 'recognized') {
       const normalized = result.normalized as {
         issuer: { parentOrg: string };
       };
-      expect(normalized.issuer.parentOrg).to.equal(
-        'https://example.test/parent',
-      );
+      expect(normalized.issuer.parentOrg).toBe('https://example.test/parent');
     }
   });
 });

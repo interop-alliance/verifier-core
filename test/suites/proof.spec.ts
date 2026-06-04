@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { runSuites } from '../../src/run-suites.js';
 import { defaultCryptoServices } from '../../src/default-services.js';
 import { proofSuite } from '../../src/suites/proof/index.js';
@@ -20,33 +20,41 @@ function subjectHasLinkedDataProof(subject: VerificationSubject): boolean {
     return false;
   }
   if (Array.isArray(proof)) {
-    return proof.length > 0 && typeof proof[0] === 'object' && proof[0] !== null;
+    return (
+      proof.length > 0 && typeof proof[0] === 'object' && proof[0] !== null
+    );
   }
   return typeof proof === 'object';
 }
 
 describe('Proof Verification Suite', () => {
-  const createCredentialSubject = (credential: unknown): VerificationSubject => ({
-    verifiableCredential: credential,
+  const createCredentialSubject = (
+    credential: unknown
+  ): VerificationSubject => ({
+    verifiableCredential: credential
   });
 
-  const createPresentationSubject = (presentation: unknown): VerificationSubject => ({
-    verifiablePresentation: presentation,
+  const createPresentationSubject = (
+    presentation: unknown
+  ): VerificationSubject => ({
+    verifiablePresentation: presentation
   });
 
   describe('FakeCryptoService — credential', () => {
     it('returns success when service verifies', async () => {
       const context = buildTestContext({
-        cryptoServices: [FakeCryptoService({ verified: true })],
+        cryptoServices: [FakeCryptoService({ verified: true })]
       });
-      const subject = createCredentialSubject(CredentialFactory({ version: 'v2', credential: {} }));
+      const subject = createCredentialSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
       const results = await runSuites([proofSuite], subject, context);
 
-      expect(results).to.have.lengthOf(1);
-      expect(results[0].check).to.equal('proof.signature');
-      expect(results[0].outcome.status).to.equal('success');
+      expect(results).toHaveLength(1);
+      expect(results[0].check).toBe('proof.signature');
+      expect(results[0].outcome.status).toBe('success');
       if (results[0].outcome.status === 'success') {
-        expect(results[0].outcome.message).to.equal('Fake verification passed.');
+        expect(results[0].outcome.message).toBe('Fake verification passed.');
       }
     });
 
@@ -55,49 +63,61 @@ describe('Proof Verification Suite', () => {
         {
           type: 'https://www.w3.org/TR/vc-data-model#INVALID_SIGNATURE',
           title: 'Invalid Signature',
-          detail: 'Tampered payload',
-        },
+          detail: 'Tampered payload'
+        }
       ];
       const context = buildTestContext({
-        cryptoServices: [FakeCryptoService({ verified: false, problems })],
+        cryptoServices: [FakeCryptoService({ verified: false, problems })]
       });
-      const subject = createCredentialSubject(CredentialFactory({ version: 'v2', credential: {} }));
+      const subject = createCredentialSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
       const results = await runSuites([proofSuite], subject, context);
 
-      expect(results[0].outcome.status).to.equal('failure');
+      expect(results[0].outcome.status).toBe('failure');
       if (results[0].outcome.status === 'failure') {
-        expect(results[0].outcome.problems).to.deep.equal(problems);
+        expect(results[0].outcome.problems).toEqual(problems);
       }
     });
 
     it('fails when no crypto service matches canVerify', async () => {
       const context = buildTestContext({
-        cryptoServices: [FakeCryptoService({ canVerify: () => false, verified: true })],
+        cryptoServices: [
+          FakeCryptoService({ canVerify: () => false, verified: true })
+        ]
       });
-      const subject = createCredentialSubject(CredentialFactory({ version: 'v2', credential: {} }));
+      const subject = createCredentialSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
       const results = await runSuites([proofSuite], subject, context);
 
-      expect(results[0].outcome.status).to.equal('failure');
+      expect(results[0].outcome.status).toBe('failure');
       if (results[0].outcome.status === 'failure') {
-        expect(results[0].outcome.problems[0].title).to.equal('No Applicable Crypto Service');
+        expect(results[0].outcome.problems[0].title).toBe(
+          'No Applicable Crypto Service'
+        );
       }
     });
 
     it('maps thrown errors to PROOF_VERIFICATION_ERROR', async () => {
       const context = buildTestContext({
         cryptoServices: [
-          FakeCryptoService({ throwInVerify: new Error('Crypto adapter exploded') }),
-        ],
+          FakeCryptoService({
+            throwInVerify: new Error('Crypto adapter exploded')
+          })
+        ]
       });
-      const subject = createCredentialSubject(CredentialFactory({ version: 'v2', credential: {} }));
+      const subject = createCredentialSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
       const results = await runSuites([proofSuite], subject, context);
 
-      expect(results[0].outcome.status).to.equal('failure');
+      expect(results[0].outcome.status).toBe('failure');
       if (results[0].outcome.status === 'failure') {
-        expect(results[0].outcome.problems[0].type).to.equal(
-          'https://www.w3.org/TR/vc-data-model#PROOF_VERIFICATION_ERROR',
+        expect(results[0].outcome.problems[0].type).toBe(
+          'https://www.w3.org/TR/vc-data-model#PROOF_VERIFICATION_ERROR'
         );
-        expect(results[0].outcome.problems[0].detail).to.include('exploded');
+        expect(results[0].outcome.problems[0].detail).toContain('exploded');
       }
     });
   });
@@ -106,21 +126,21 @@ describe('Proof Verification Suite', () => {
     it('verifies presentation when service returns success', async () => {
       const context = buildTestContext({
         cryptoServices: [FakeCryptoService({ verified: true })],
-        challenge: 'factory-challenge',
+        challenge: 'factory-challenge'
       });
       const presentation = PresentationFactory();
       const subject = createPresentationSubject(presentation);
       const results = await runSuites([proofSuite], subject, context);
 
-      expect(results).to.have.lengthOf(1);
-      expect(results[0].check).to.equal('proof.signature');
-      expect(results[0].outcome.status).to.equal('success');
+      expect(results).toHaveLength(1);
+      expect(results[0].check).toBe('proof.signature');
+      expect(results[0].outcome.status).toBe('success');
     });
 
     it('handles unsigned presentation when context allows it', async () => {
       const context = buildTestContext({
         cryptoServices: [FakeCryptoService({ verified: true })],
-        unsignedPresentation: true,
+        unsignedPresentation: true
       });
       const presentation = PresentationFactory();
       delete (presentation as { proof?: unknown }).proof;
@@ -128,7 +148,7 @@ describe('Proof Verification Suite', () => {
       const subject = createPresentationSubject(presentation);
       const results = await runSuites([proofSuite], subject, context);
 
-      expect(results[0].outcome.status).to.equal('success');
+      expect(results[0].outcome.status).toBe('success');
     });
   });
 
@@ -138,23 +158,28 @@ describe('Proof Verification Suite', () => {
         {
           type: 'https://www.w3.org/TR/vc-data-model#HTTP_ERROR',
           title: 'HTTP Error',
-          detail: 'did:web resolution failed',
-        },
+          detail: 'did:web resolution failed'
+        }
       ];
       const context = buildTestContext({
-        cryptoServices: [FakeCryptoService({ verified: false, problems })],
+        cryptoServices: [FakeCryptoService({ verified: false, problems })]
       });
       const cred = CredentialFactory({
         version: 'v2',
-        credential: { issuer: { id: 'did:web:nonexistent-domain-12345.example.com', name: 'X' } },
+        credential: {
+          issuer: {
+            id: 'did:web:nonexistent-domain-12345.example.com',
+            name: 'X'
+          }
+        }
       });
       const subject = createCredentialSubject(cred);
       const results = await runSuites([proofSuite], subject, context);
 
-      expect(results[0].outcome.status).to.equal('failure');
+      expect(results[0].outcome.status).toBe('failure');
       if (results[0].outcome.status === 'failure') {
-        expect(results[0].outcome.problems[0].type).to.equal(
-          'https://www.w3.org/TR/vc-data-model#HTTP_ERROR',
+        expect(results[0].outcome.problems[0].type).toBe(
+          'https://www.w3.org/TR/vc-data-model#HTTP_ERROR'
         );
       }
     });
@@ -166,23 +191,23 @@ describe('Proof Verification Suite', () => {
         {
           type: 'https://www.w3.org/TR/vc-data-model#PARSING_ERROR',
           title: 'JSON-LD Validation Error',
-          detail: 'Invalid JSON-LD document',
-        },
+          detail: 'Invalid JSON-LD document'
+        }
       ];
       const context = buildTestContext({
-        cryptoServices: [FakeCryptoService({ verified: false, problems })],
+        cryptoServices: [FakeCryptoService({ verified: false, problems })]
       });
       const cred = CredentialFactory({
         version: 'v2',
-        credential: { '@context': 'https://www.w3.org/ns/credentials/v2' },
+        credential: { '@context': 'https://www.w3.org/ns/credentials/v2' }
       });
       const subject = createCredentialSubject(cred);
       const results = await runSuites([proofSuite], subject, context);
 
-      expect(results[0].outcome.status).to.equal('failure');
+      expect(results[0].outcome.status).toBe('failure');
       if (results[0].outcome.status === 'failure') {
-        expect(results[0].outcome.problems[0].type).to.equal(
-          'https://www.w3.org/TR/vc-data-model#PARSING_ERROR',
+        expect(results[0].outcome.problems[0].type).toBe(
+          'https://www.w3.org/TR/vc-data-model#PARSING_ERROR'
         );
       }
     });
@@ -191,19 +216,22 @@ describe('Proof Verification Suite', () => {
   describe('no subject', () => {
     it('skips check when neither credential nor presentation provided', async () => {
       const context = buildTestContext({
-        cryptoServices: [FakeCryptoService({ verified: true })],
+        cryptoServices: [FakeCryptoService({ verified: true })]
       });
       const subject: VerificationSubject = {};
       const results = await runSuites([proofSuite], subject, context);
 
-      expect(results).to.have.lengthOf(0);
+      expect(results).toHaveLength(0);
     });
 
     it('fails when credential has no proof and adapter requires one', async () => {
       const context = buildTestContext({
         cryptoServices: [
-          FakeCryptoService({ canVerify: subjectHasLinkedDataProof, verified: true }),
-        ],
+          FakeCryptoService({
+            canVerify: subjectHasLinkedDataProof,
+            verified: true
+          })
+        ]
       });
       const cred = CredentialFactory({ version: 'v2', credential: {} });
       delete (cred as { proof?: unknown }).proof;
@@ -211,24 +239,25 @@ describe('Proof Verification Suite', () => {
       const subject = createCredentialSubject(cred);
       const results = await runSuites([proofSuite], subject, context);
 
-      expect(results).to.have.lengthOf(1);
-      expect(results[0].outcome.status).to.equal('failure');
+      expect(results).toHaveLength(1);
+      expect(results[0].outcome.status).toBe('failure');
       if (results[0].outcome.status === 'failure') {
-        expect(results[0].outcome.problems[0].title).to.equal('No Applicable Crypto Service');
+        expect(results[0].outcome.problems[0].title).toBe(
+          'No Applicable Crypto Service'
+        );
       }
     });
   });
 
   describe('signatureCheck', () => {
-    it('succeeds for a VC with credentialStatus (real crypto; vc lib checkStatus requirement satisfied)', async function () {
-      this.timeout(60000);
+    it('succeeds for a VC with credentialStatus (real crypto; vc lib checkStatus requirement satisfied)', async () => {
       const ctx = buildTestContext({ cryptoServices: defaultCryptoServices() });
       const outcome = await signatureCheck.execute(
         { verifiableCredential: v2WithValidStatus },
-        ctx,
+        ctx
       );
-      expect(outcome.status).to.equal('success');
-      expect(JSON.stringify(outcome)).to.not.include('checkStatus');
+      expect(outcome.status).toBe('success');
+      expect(JSON.stringify(outcome)).not.toContain('checkStatus');
     });
   });
 });

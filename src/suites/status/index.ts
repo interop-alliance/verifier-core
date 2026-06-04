@@ -17,7 +17,8 @@ import { bitstringStatusCheck } from './bitstring-status-check.js';
 export const statusSuite: VerificationSuite = {
   id: 'status',
   name: 'Credential Status',
-  description: 'Checks revocation and suspension status via BitstringStatusList.',
+  description:
+    'Checks revocation and suspension status via BitstringStatusList.',
   phase: 'cryptographic',
-  checks: [bitstringStatusCheck],
+  checks: [bitstringStatusCheck]
 };

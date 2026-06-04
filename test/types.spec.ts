@@ -1,25 +1,25 @@
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import type { ProblemDetail } from '../src/types/problem-detail.js';
 import type {
   CheckOutcome,
   CheckResult,
   VerificationCheck,
-  VerificationSuite,
+  VerificationSuite
 } from '../src/types/check.js';
 import type { VerificationContext } from '../src/types/context.js';
 import type { VerificationSubject } from '../src/types/subject.js';
 import type {
   SuiteSummary,
-  SuiteSummaryPhase,
+  SuiteSummaryPhase
 } from '../src/types/suite-summary.js';
 import type {
   CredentialVerificationResult,
-  PresentationVerificationResult,
+  PresentationVerificationResult
 } from '../src/types/result.js';
 import type {
   VerifierConfig,
   VerifyCredentialCall,
-  VerifyPresentationCall,
+  VerifyPresentationCall
 } from '../src/types/verifier.js';
 import * as publicApi from '../src/index.js';
 
@@ -29,44 +29,52 @@ describe('Foundation types', () => {
       const pd: ProblemDetail = {
         type: 'urn:vc-verify:invalid-signature',
         title: 'Invalid Signature',
-        detail: 'The proof value does not match the credential content.',
+        detail: 'The proof value does not match the credential content.'
       };
-      expect(pd.type).to.equal('urn:vc-verify:invalid-signature');
-      expect(pd.title).to.equal('Invalid Signature');
-      expect(pd.detail).to.contain('proof value');
+      expect(pd.type).toBe('urn:vc-verify:invalid-signature');
+      expect(pd.title).toBe('Invalid Signature');
+      expect(pd.detail).toContain('proof value');
     });
   });
 
   describe('CheckOutcome', () => {
     it('narrows success variant', () => {
-      const outcome: CheckOutcome = { status: 'success', message: 'Signature verified.' };
-      expect(outcome.status).to.equal('success');
+      const outcome: CheckOutcome = {
+        status: 'success',
+        message: 'Signature verified.'
+      };
+      expect(outcome.status).toBe('success');
       if (outcome.status === 'success') {
-        expect(outcome.message).to.equal('Signature verified.');
+        expect(outcome.message).toBe('Signature verified.');
       }
     });
 
     it('narrows failure variant', () => {
       const outcome: CheckOutcome = {
         status: 'failure',
-        problems: [{
-          type: 'urn:vc-verify:no-proof',
-          title: 'No Proof',
-          detail: 'Credential is missing a proof.',
-        }],
+        problems: [
+          {
+            type: 'urn:vc-verify:no-proof',
+            title: 'No Proof',
+            detail: 'Credential is missing a proof.'
+          }
+        ]
       };
-      expect(outcome.status).to.equal('failure');
+      expect(outcome.status).toBe('failure');
       if (outcome.status === 'failure') {
-        expect(outcome.problems).to.have.length(1);
-        expect(outcome.problems[0].type).to.equal('urn:vc-verify:no-proof');
+        expect(outcome.problems).toHaveLength(1);
+        expect(outcome.problems[0].type).toBe('urn:vc-verify:no-proof');
       }
     });
 
     it('narrows skipped variant', () => {
-      const outcome: CheckOutcome = { status: 'skipped', reason: 'No credentialStatus field.' };
-      expect(outcome.status).to.equal('skipped');
+      const outcome: CheckOutcome = {
+        status: 'skipped',
+        reason: 'No credentialStatus field.'
+      };
+      expect(outcome.status).toBe('skipped');
       if (outcome.status === 'skipped') {
-        expect(outcome.reason).to.equal('No credentialStatus field.');
+        expect(outcome.reason).toBe('No credentialStatus field.');
       }
     });
   });
@@ -76,11 +84,11 @@ describe('Foundation types', () => {
       const result: CheckResult = {
         check: 'core.proof-exists',
         suite: 'core',
-        outcome: { status: 'success', message: 'Proof exists.' },
+        outcome: { status: 'success', message: 'Proof exists.' }
       };
-      expect(result.suite).to.equal('core');
-      expect(result.check).to.equal('core.proof-exists');
-      expect(result.outcome.status).to.equal('success');
+      expect(result.suite).toBe('core');
+      expect(result.check).toBe('core.proof-exists');
+      expect(result.outcome.status).toBe('success');
     });
 
     it('accepts an optional namespaced id', () => {
@@ -88,9 +96,9 @@ describe('Foundation types', () => {
         id: 'cryptographic.core.proof-exists',
         check: 'core.proof-exists',
         suite: 'core',
-        outcome: { status: 'success', message: 'Proof exists.' },
+        outcome: { status: 'success', message: 'Proof exists.' }
       };
-      expect(result.id).to.equal('cryptographic.core.proof-exists');
+      expect(result.id).toBe('cryptographic.core.proof-exists');
     });
   });
 
@@ -103,10 +111,10 @@ describe('Foundation types', () => {
         status: 'success',
         verified: true,
         message: '4 of 4 checks passed',
-        counts: { passed: 4, failed: 0, skipped: 0 },
+        counts: { passed: 4, failed: 0, skipped: 0 }
       };
-      expect(summary.status).to.equal('success');
-      expect(summary.counts.passed).to.equal(4);
+      expect(summary.status).toBe('success');
+      expect(summary.counts.passed).toBe(4);
     });
 
     it('records fatalFailureAt when the suite halted mid-run', () => {
@@ -118,9 +126,9 @@ describe('Foundation types', () => {
         verified: false,
         message: '1 of 3 checks failed (0 passed)',
         counts: { passed: 0, failed: 1, skipped: 0 },
-        fatalFailureAt: 'proof.signature',
+        fatalFailureAt: 'proof.signature'
       };
-      expect(summary.fatalFailureAt).to.equal('proof.signature');
+      expect(summary.fatalFailureAt).toBe('proof.signature');
     });
 
     it('admits unknown for untagged consumer suites', () => {
@@ -132,13 +140,13 @@ describe('Foundation types', () => {
         status: 'success',
         verified: true,
         message: '1 of 1 checks passed',
-        counts: { passed: 1, failed: 0, skipped: 0 },
+        counts: { passed: 1, failed: 0, skipped: 0 }
       };
-      expect(summary.phase).to.equal('unknown');
+      expect(summary.phase).toBe('unknown');
     });
 
     it('is exported from the public barrel', () => {
-      expect(publicApi).to.have.property('verifyCredential');
+      expect(publicApi).toHaveProperty('verifyCredential');
       // Type-only re-exports don't appear at runtime; assert the
       // type is usable instead by constructing a literal.
       const summary: SuiteSummary = {
@@ -148,9 +156,9 @@ describe('Foundation types', () => {
         status: 'skipped',
         verified: true,
         message: 'no recognizer matched',
-        counts: { passed: 0, failed: 0, skipped: 1 },
+        counts: { passed: 0, failed: 0, skipped: 1 }
       };
-      expect(summary.id).to.equal('recognition');
+      expect(summary.id).toBe('recognition');
     });
   });
 
@@ -160,9 +168,9 @@ describe('Foundation types', () => {
         verified: true,
         verifiableCredential: {} as never,
         results: [],
-        summary: [],
+        summary: []
       };
-      expect(result.summary).to.deep.equal([]);
+      expect(result.summary).toEqual([]);
     });
 
     it('PresentationVerificationResult requires summary', () => {
@@ -171,9 +179,9 @@ describe('Foundation types', () => {
         verifiablePresentation: {} as never,
         presentationResults: [],
         credentialResults: [],
-        summary: [],
+        summary: []
       };
-      expect(result.summary).to.deep.equal([]);
+      expect(result.summary).toEqual([]);
     });
   });
 
@@ -182,15 +190,15 @@ describe('Foundation types', () => {
       const config: VerifierConfig = { verbose: true };
       const credCall: VerifyCredentialCall = {
         credential: {},
-        verbose: false,
+        verbose: false
       };
       const presCall: VerifyPresentationCall = {
         presentation: {},
-        verbose: true,
+        verbose: true
       };
-      expect(config.verbose).to.be.true;
-      expect(credCall.verbose).to.be.false;
-      expect(presCall.verbose).to.be.true;
+      expect(config.verbose).toBe(true);
+      expect(credCall.verbose).toBe(false);
+      expect(presCall.verbose).toBe(true);
     });
   });
 
@@ -202,7 +210,7 @@ describe('Foundation types', () => {
         fatal: false,
         async execute() {
           return { status: 'success', message: 'Passed.' };
-        },
+        }
       };
 
       const failCheck: VerificationCheck = {
@@ -212,13 +220,15 @@ describe('Foundation types', () => {
         async execute() {
           return {
             status: 'failure',
-            problems: [{
-              type: 'urn:test:always-fails',
-              title: 'Always Fails',
-              detail: 'This check always fails.',
-            }],
+            problems: [
+              {
+                type: 'urn:test:always-fails',
+                title: 'Always Fails',
+                detail: 'This check always fails.'
+              }
+            ]
           };
-        },
+        }
       };
 
       const skipCheck: VerificationCheck = {
@@ -227,33 +237,33 @@ describe('Foundation types', () => {
         appliesTo: ['verifiablePresentation'],
         async execute() {
           return { status: 'skipped', reason: 'Not applicable.' };
-        },
+        }
       };
 
       const suite: VerificationSuite = {
         id: 'test',
         name: 'Test Suite',
         description: 'A suite for testing type construction.',
-        checks: [successCheck, failCheck, skipCheck],
+        checks: [successCheck, failCheck, skipCheck]
       };
 
-      expect(suite.id).to.equal('test');
-      expect(suite.checks).to.have.length(3);
+      expect(suite.id).toBe('test');
+      expect(suite.checks).toHaveLength(3);
 
       const subject: VerificationSubject = { verifiableCredential: {} };
       const context: VerificationContext = {
         documentLoader: async () => ({}),
         fetchJson: async () => ({}),
         cryptoSuites: [],
-        cryptoServices: [],
+        cryptoServices: []
       };
 
       const outcomes = await Promise.all(
-        suite.checks.map((c) => c.execute(subject, context))
+        suite.checks.map(c => c.execute(subject, context))
       );
-      expect(outcomes[0].status).to.equal('success');
-      expect(outcomes[1].status).to.equal('failure');
-      expect(outcomes[2].status).to.equal('skipped');
+      expect(outcomes[0].status).toBe('success');
+      expect(outcomes[1].status).toBe('failure');
+      expect(outcomes[2].status).toBe('skipped');
     });
   });
 });

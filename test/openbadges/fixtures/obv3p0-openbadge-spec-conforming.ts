@@ -15,20 +15,20 @@
 export const obv3p0OpenBadgeSpecConforming: Record<string, unknown> = {
   '@context': [
     'https://www.w3.org/ns/credentials/v2',
-    'https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json',
+    'https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json'
   ],
   id: 'urn:uuid:11111111-1111-1111-1111-111111111111',
   type: ['VerifiableCredential', 'OpenBadgeCredential'],
   issuer: {
     id: 'did:example:issuer',
     type: ['Profile'],
-    name: 'Spec-Conforming Issuer',
+    name: 'Spec-Conforming Issuer'
   },
   validFrom: '2024-01-01T00:00:00Z',
   image: {
     id: 'https://example.test/badge.png',
     type: ['Image'],
-    caption: 'Spec-conforming badge image',
+    caption: 'Spec-conforming badge image'
   },
   credentialSubject: {
     id: 'did:example:recipient',
@@ -39,7 +39,7 @@ export const obv3p0OpenBadgeSpecConforming: Record<string, unknown> = {
       achievementType: 'Course',
       name: 'Example Course',
       description: 'A short example achievement.',
-      criteria: { narrative: 'Pass the exam.' },
-    },
-  },
+      criteria: { narrative: 'Pass the exam.' }
+    }
+  }
 };

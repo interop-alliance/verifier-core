@@ -7,7 +7,7 @@ import type {
   EntityIdentityRegistry,
   LookupIssuers,
   LookupIssuersOptions,
-  RegistryLookupResult,
+  RegistryLookupResult
 } from '../types/registry.js';
 import type { Verifier } from '../types/verifier.js';
 import type { CacheService } from './cache-service/cache-service.js';
@@ -17,7 +17,7 @@ import { lookupOidf } from './registry-handlers/oidf-handler.js';
 import { lookupVcRecognition } from './registry-handlers/vc-recognition-handler.js';
 import type {
   RegistryHandlerContext,
-  RegistryHandlerMap,
+  RegistryHandlerMap
 } from './registry-handlers/types.js';
 import { registryKeyHash } from '../util/registry-key-hash.js';
 import { DEFAULT_TTL_MS } from './registry-handlers/cache-ttl.js';
@@ -25,7 +25,7 @@ import { DEFAULT_TTL_MS } from './registry-handlers/cache-ttl.js';
 const defaultHandlers: RegistryHandlerMap = {
   'dcc-legacy': lookupDccLegacy,
   oidf: lookupOidf,
-  'vc-recognition': lookupVcRecognition,
+  'vc-recognition': lookupVcRecognition
 };
 
 /**
@@ -58,17 +58,19 @@ export function createRegistryLookup(
   httpGetService: HttpGetService,
   cacheService: CacheService,
   handlers: RegistryHandlerMap = defaultHandlers,
-  getVerifier?: () => Verifier,
+  getVerifier?: () => Verifier
 ): LookupIssuers {
   return async (
     did: string,
     registries: EntityIdentityRegistry[],
-    options?: LookupIssuersOptions,
+    options?: LookupIssuersOptions
   ): Promise<RegistryLookupResult> => {
     const cacheKey = `reg-result:${did}:${registryKeyHash(registries)}`;
 
     if (!options?.fresh) {
-      const cached = (await cacheService.get(cacheKey)) as RegistryLookupResult | undefined;
+      const cached = (await cacheService.get(cacheKey)) as
+        | RegistryLookupResult
+        | undefined;
       if (cached) {
         return cached;
       }
@@ -81,11 +83,11 @@ export function createRegistryLookup(
         if (getVerifier === undefined) {
           throw new Error(
             'vc-recognition lookup invoked without a verifier in RegistryHandlerContext — ' +
-              'use createVerifier() to construct a verifier that threads itself through.',
+              'use createVerifier() to construct a verifier that threads itself through.'
           );
         }
         return getVerifier();
-      },
+      }
     };
 
     const matchingRegistries: string[] = [];
@@ -106,7 +108,7 @@ export function createRegistryLookup(
     const result: RegistryLookupResult = {
       found: matchingRegistries.length > 0,
       matchingRegistries,
-      uncheckedRegistries,
+      uncheckedRegistries
     };
 
     await cacheService.set(cacheKey, result, DEFAULT_TTL_MS);

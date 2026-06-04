@@ -1,9 +1,15 @@
-import { expect } from 'chai';
-import { JsonLdField, JsonLdFieldAllowEmpty } from '../src/schemas/jsonld-field.js';
+import { describe, it, expect } from 'vitest';
+import { JsonLdField } from '../src/schemas/jsonld-field.js';
 import { IssuerSchema } from '../src/schemas/issuer.js';
 import { ProofSchema } from '../src/schemas/proof.js';
-import { CredentialSchema, parseCredential } from '../src/schemas/credential.js';
-import { PresentationSchema, parsePresentation } from '../src/schemas/presentation.js';
+import {
+  CredentialSchema,
+  parseCredential
+} from '../src/schemas/credential.js';
+import {
+  PresentationSchema,
+  parsePresentation
+} from '../src/schemas/presentation.js';
 import { z } from 'zod';
 
 describe('Zod Envelope Schemas', () => {
@@ -11,13 +17,13 @@ describe('Zod Envelope Schemas', () => {
     it('normalizes single value to array', () => {
       const schema = JsonLdField(z.string());
       const result = schema.parse('single');
-      expect(result).to.deep.equal(['single']);
+      expect(result).toEqual(['single']);
     });
 
     it('keeps array as array', () => {
       const schema = JsonLdField(z.string());
       const result = schema.parse(['a', 'b']);
-      expect(result).to.deep.equal(['a', 'b']);
+      expect(result).toEqual(['a', 'b']);
     });
   });
 
@@ -25,16 +31,16 @@ describe('Zod Envelope Schemas', () => {
     it('accepts issuer as string', () => {
       const issuer = 'did:example:123';
       const result = IssuerSchema.parse(issuer);
-      expect(result).to.equal(issuer);
+      expect(result).toBe(issuer);
     });
 
     it('accepts issuer as object', () => {
       const issuer = {
         id: 'did:example:123',
-        name: 'Test Issuer',
+        name: 'Test Issuer'
       };
       const result = IssuerSchema.parse(issuer);
-      expect(result).to.deep.equal(issuer);
+      expect(result).toEqual(issuer);
     });
   });
 
@@ -43,11 +49,11 @@ describe('Zod Envelope Schemas', () => {
       const proof = {
         type: 'Ed25519Signature2020',
         proofPurpose: 'assertionMethod',
-        verificationMethod: 'did:example:123#key-1',
+        verificationMethod: 'did:example:123#key-1'
       };
       const result = ProofSchema.parse(proof);
-      expect(result.type).to.equal('Ed25519Signature2020');
-      expect(result.proofPurpose).to.equal('assertionMethod');
+      expect(result.type).toBe('Ed25519Signature2020');
+      expect(result.proofPurpose).toBe('assertionMethod');
     });
 
     it('parses proof with optional fields', () => {
@@ -58,11 +64,11 @@ describe('Zod Envelope Schemas', () => {
         created: '2024-01-01T00:00:00Z',
         proofValue: 'z123',
         cryptosuite: 'eddsa-rdfc-2022',
-        challenge: 'abc123',
+        challenge: 'abc123'
       };
       const result = ProofSchema.parse(proof);
-      expect(result.cryptosuite).to.equal('eddsa-rdfc-2022');
-      expect(result.challenge).to.equal('abc123');
+      expect(result.cryptosuite).toBe('eddsa-rdfc-2022');
+      expect(result.challenge).toBe('abc123');
     });
   });
 
@@ -73,12 +79,12 @@ describe('Zod Envelope Schemas', () => {
         type: ['VerifiableCredential'],
         issuer: 'did:example:123',
         issuanceDate: '2024-01-01T00:00:00Z',
-        credentialSubject: { id: 'did:example:456' },
+        credentialSubject: { id: 'did:example:456' }
       };
       const result = CredentialSchema.parse(credential);
-      expect(result).to.be.an('object');
-      expect(result.type).to.deep.equal(['VerifiableCredential']);
-      expect(result.issuer).to.equal('did:example:123');
+      expect(result).toBeTypeOf('object');
+      expect(result.type).toEqual(['VerifiableCredential']);
+      expect(result.issuer).toBe('did:example:123');
     });
 
     it('parses valid v2 credential', () => {
@@ -86,11 +92,14 @@ describe('Zod Envelope Schemas', () => {
         '@context': ['https://www.w3.org/ns/credentials/v2'],
         type: ['VerifiableCredential'],
         issuer: { id: 'did:example:123', name: 'Issuer' },
-        credentialSubject: { id: 'did:example:456' },
+        credentialSubject: { id: 'did:example:456' }
       };
       const result = CredentialSchema.parse(credential);
-      expect(result).to.be.an('object');
-      expect(result.issuer).to.deep.equal({ id: 'did:example:123', name: 'Issuer' });
+      expect(result).toBeTypeOf('object');
+      expect(result.issuer).toEqual({
+        id: 'did:example:123',
+        name: 'Issuer'
+      });
     });
 
     it('parses credential with status as object', () => {
@@ -105,11 +114,11 @@ describe('Zod Envelope Schemas', () => {
           type: 'BitstringStatusListEntry',
           statusPurpose: 'revocation',
           statusListIndex: '123',
-          statusListCredential: 'https://example.com/status',
-        },
+          statusListCredential: 'https://example.com/status'
+        }
       };
       const result = CredentialSchema.parse(credential);
-      expect(result.credentialStatus).to.be.an('object');
+      expect(result.credentialStatus).toBeTypeOf('object');
     });
 
     it('parses credential with status as array (normalized)', () => {
@@ -124,31 +133,31 @@ describe('Zod Envelope Schemas', () => {
           type: ['BitstringStatusListEntry'],
           statusPurpose: 'revocation',
           statusListIndex: '123',
-          statusListCredential: 'https://example.com/status',
-        },
+          statusListCredential: 'https://example.com/status'
+        }
       };
       const result = CredentialSchema.parse(credential);
-      expect(result.credentialStatus).to.be.an('object');
+      expect(result.credentialStatus).toBeTypeOf('object');
     });
 
     it('fails on missing @context', () => {
       const credential = {
         type: ['VerifiableCredential'],
         issuer: 'did:example:123',
-        issuanceDate: '2024-01-01T00:00:00Z',
+        issuanceDate: '2024-01-01T00:00:00Z'
       };
       const result = parseCredential(credential);
-      expect(result.success).to.be.false;
+      expect(result.success).toBe(false);
     });
 
     it('fails on missing type', () => {
       const credential = {
         '@context': ['https://www.w3.org/2018/credentials/v1'],
         issuer: 'did:example:123',
-        issuanceDate: '2024-01-01T00:00:00Z',
+        issuanceDate: '2024-01-01T00:00:00Z'
       };
       const result = parseCredential(credential);
-      expect(result.success).to.be.false;
+      expect(result.success).toBe(false);
     });
   });
 
@@ -158,12 +167,12 @@ describe('Zod Envelope Schemas', () => {
         '@context': ['https://www.w3.org/2018/credentials/v1'],
         type: ['VerifiablePresentation'],
         verifiableCredential: [],
-        holder: 'did:example:holder',
+        holder: 'did:example:holder'
       };
       const result = PresentationSchema.parse(presentation);
-      expect(result).to.be.an('object');
-      expect(result.type).to.deep.equal(['VerifiablePresentation']);
-      expect(result.holder).to.equal('did:example:holder');
+      expect(result).toBeTypeOf('object');
+      expect(result.type).toEqual(['VerifiablePresentation']);
+      expect(result.holder).toBe('did:example:holder');
     });
 
     it('parses presentation with embedded credential', () => {
@@ -175,20 +184,20 @@ describe('Zod Envelope Schemas', () => {
           type: ['VerifiableCredential'],
           issuer: 'did:example:123',
           issuanceDate: '2024-01-01T00:00:00Z',
-          credentialSubject: { id: 'did:example:456' },
-        },
+          credentialSubject: { id: 'did:example:456' }
+        }
       };
       const result = PresentationSchema.parse(presentation);
-      expect(result.verifiableCredential).to.be.an('object');
+      expect(result.verifiableCredential).toBeTypeOf('object');
     });
 
     it('returns error on parse failure', () => {
       const presentation = {
         type: ['VerifiablePresentation'], // missing @context
-        holder: 'did:example:holder',
+        holder: 'did:example:holder'
       };
       const result = parsePresentation(presentation);
-      expect(result.success).to.be.false;
+      expect(result.success).toBe(false);
     });
   });
 });

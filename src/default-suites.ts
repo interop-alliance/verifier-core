@@ -53,5 +53,5 @@ export const defaultSuites: VerificationSuite[] = [
   recognitionSuite,
   proofSuite,
   statusSuite,
-  registrySuite,
+  registrySuite
 ];

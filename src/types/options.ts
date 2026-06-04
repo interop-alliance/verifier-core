@@ -14,7 +14,7 @@
 import type {
   VerifierConfig,
   VerifyCredentialCall,
-  VerifyPresentationCall,
+  VerifyPresentationCall
 } from './verifier.js';
 
 /** Options for the standalone `verifyCredential` wrapper. */

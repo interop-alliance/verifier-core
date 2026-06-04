@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { runSuites } from '../../src/run-suites.js';
 import { obv3ResultRefCheck } from '../../src/openbadges/result-ref-check.js';
 import { VerificationSuite } from '../../src/types/check.js';
@@ -13,11 +13,11 @@ const resultRefSuite: VerificationSuite = {
   id: 'openbadges.result-ref',
   name: 'OBv3 Result Reference (test wrapper)',
   description: 'Test-only single-check suite around obv3ResultRefCheck.',
-  checks: [obv3ResultRefCheck],
+  checks: [obv3ResultRefCheck]
 };
 
 const createSubject = (credential: unknown): VerificationSubject => ({
-  verifiableCredential: credential,
+  verifiableCredential: credential
 });
 
 describe('OBv3 result-ref check', () => {
@@ -26,11 +26,11 @@ describe('OBv3 result-ref check', () => {
     const results = await runSuites(
       [resultRefSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const refCheck = results.find(r => r.check === 'schema.obv3.result-ref');
-    expect(refCheck?.outcome.status).to.equal('skipped');
+    expect(refCheck?.outcome.status).toBe('skipped');
   });
 
   it('validates correct result references', async () => {
@@ -41,41 +41,46 @@ describe('OBv3 result-ref check', () => {
           {
             type: 'Result',
             resultDescription: 'https://example.test/result-descriptions/1',
-            value: 'Pass',
-          },
+            value: 'Pass'
+          }
         ],
         resultDescriptions: [
           {
             id: 'https://example.test/result-descriptions/1',
             type: 'ResultDescription',
-            name: 'Test Score',
-          },
-        ],
-      }),
+            name: 'Test Score'
+          }
+        ]
+      })
     );
     const results = await runSuites(
       [resultRefSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const refCheck = results.find(r => r.check === 'schema.obv3.result-ref');
-    expect(refCheck?.outcome.status).to.equal('success');
+    expect(refCheck?.outcome.status).toBe('success');
     if (refCheck?.outcome.status === 'success') {
-      expect(refCheck.outcome.message).to.include('result entries reference valid');
+      expect(refCheck.outcome.message).toContain(
+        'result entries reference valid'
+      );
     }
   });
 
   it('validates compose-generated cross references', async () => {
-    const cred = compose(CredentialFactory({ version: 'v2' }), addResults({ count: 3 }));
+    const cred = compose(
+      CredentialFactory({ version: 'v2' }),
+      addResults({ count: 3 })
+    );
     const results = await runSuites(
       [resultRefSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const refCheck = results.find(r => r.check === 'schema.obv3.result-ref');
-    expect(refCheck?.outcome.status).to.equal('success');
+    expect(refCheck?.outcome.status).toBe('success');
   });
 
   it('fails for invalid result references', async () => {
@@ -86,33 +91,38 @@ describe('OBv3 result-ref check', () => {
           {
             type: 'Result',
             resultDescription: 'https://example.test/result-descriptions/999',
-            value: 'Pass',
-          },
+            value: 'Pass'
+          }
         ],
         resultDescriptions: [
           {
             id: 'https://example.test/result-descriptions/1',
             type: 'ResultDescription',
-            name: 'Test Score',
-          },
-        ],
-      }),
+            name: 'Test Score'
+          }
+        ]
+      })
     );
     const results = await runSuites(
       [resultRefSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const refCheck = results.find(r => r.check === 'schema.obv3.result-ref');
-    expect(refCheck?.outcome.status).to.equal('failure');
+    expect(refCheck?.outcome.status).toBe('failure');
     if (refCheck?.outcome.status === 'failure') {
-      expect(refCheck.outcome.problems[0].type).to.equal(
-        'https://www.w3.org/TR/vc-data-model#OB_INVALID_RESULT_REFERENCE',
+      expect(refCheck.outcome.problems[0].type).toBe(
+        'https://www.w3.org/TR/vc-data-model#OB_INVALID_RESULT_REFERENCE'
       );
-      expect(refCheck.outcome.problems[0].detail).to.include('does not exist');
-      expect(refCheck.outcome.problems[0].instance).to.equal(
-        formatJsonPointer(['credentialSubject', 'result', 0, 'resultDescription']),
+      expect(refCheck.outcome.problems[0].detail).toContain('does not exist');
+      expect(refCheck.outcome.problems[0].instance).toBe(
+        formatJsonPointer([
+          'credentialSubject',
+          'result',
+          0,
+          'resultDescription'
+        ])
       );
     }
   });
@@ -125,36 +135,41 @@ describe('OBv3 result-ref check', () => {
           {
             type: 'Result',
             resultDescription: 'https://example.test/result-descriptions/1',
-            value: 'Pass',
+            value: 'Pass'
           },
           {
             type: 'Result',
             resultDescription: 'https://example.test/result-descriptions/999',
-            value: 'Fail',
-          },
+            value: 'Fail'
+          }
         ],
         resultDescriptions: [
           {
             id: 'https://example.test/result-descriptions/1',
             type: 'ResultDescription',
-            name: 'Test Score',
-          },
-        ],
-      }),
+            name: 'Test Score'
+          }
+        ]
+      })
     );
     const results = await runSuites(
       [resultRefSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const refCheck = results.find(r => r.check === 'schema.obv3.result-ref');
-    expect(refCheck?.outcome.status).to.equal('failure');
+    expect(refCheck?.outcome.status).toBe('failure');
     if (refCheck?.outcome.status === 'failure') {
-      expect(refCheck.outcome.problems).to.have.lengthOf(1);
-      expect(refCheck.outcome.problems[0].detail).to.include('index 1');
-      expect(refCheck.outcome.problems[0].instance).to.equal(
-        formatJsonPointer(['credentialSubject', 'result', 1, 'resultDescription']),
+      expect(refCheck.outcome.problems).toHaveLength(1);
+      expect(refCheck.outcome.problems[0].detail).toContain('index 1');
+      expect(refCheck.outcome.problems[0].instance).toBe(
+        formatJsonPointer([
+          'credentialSubject',
+          'result',
+          1,
+          'resultDescription'
+        ])
       );
     }
   });
@@ -166,42 +181,54 @@ describe('OBv3 result-ref check', () => {
         results: [
           {
             type: 'Result',
-            resultDescription: 'https://example.test/result-descriptions/missing-a',
-            value: 'A',
+            resultDescription:
+              'https://example.test/result-descriptions/missing-a',
+            value: 'A'
           },
           {
             type: 'Result',
             resultDescription: 'https://example.test/result-descriptions/1',
-            value: 'B',
+            value: 'B'
           },
           {
             type: 'Result',
-            resultDescription: 'https://example.test/result-descriptions/missing-c',
-            value: 'C',
-          },
+            resultDescription:
+              'https://example.test/result-descriptions/missing-c',
+            value: 'C'
+          }
         ],
         resultDescriptions: [
           {
             id: 'https://example.test/result-descriptions/1',
             type: 'ResultDescription',
-            name: 'Test Score',
-          },
-        ],
-      }),
+            name: 'Test Score'
+          }
+        ]
+      })
     );
     const results = await runSuites(
       [resultRefSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const refCheck = results.find(r => r.check === 'schema.obv3.result-ref');
-    expect(refCheck?.outcome.status).to.equal('failure');
+    expect(refCheck?.outcome.status).toBe('failure');
     if (refCheck?.outcome.status === 'failure') {
       const instances = refCheck.outcome.problems.map(p => p.instance);
-      expect(instances).to.deep.equal([
-        formatJsonPointer(['credentialSubject', 'result', 0, 'resultDescription']),
-        formatJsonPointer(['credentialSubject', 'result', 2, 'resultDescription']),
+      expect(instances).toEqual([
+        formatJsonPointer([
+          'credentialSubject',
+          'result',
+          0,
+          'resultDescription'
+        ]),
+        formatJsonPointer([
+          'credentialSubject',
+          'result',
+          2,
+          'resultDescription'
+        ])
       ]);
     }
   });
@@ -215,19 +242,19 @@ describe('OBv3 result-ref check', () => {
           {
             id: 'https://example.test/result-descriptions/1',
             type: 'ResultDescription',
-            name: 'Test Score',
-          },
-        ],
-      }),
+            name: 'Test Score'
+          }
+        ]
+      })
     );
     const results = await runSuites(
       [resultRefSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const refCheck = results.find(r => r.check === 'schema.obv3.result-ref');
-    expect(refCheck?.outcome.status).to.equal('success');
+    expect(refCheck?.outcome.status).toBe('success');
   });
 
   it('fails when achievement has no resultDescription for referenced id', async () => {
@@ -238,11 +265,11 @@ describe('OBv3 result-ref check', () => {
           {
             type: 'Result',
             resultDescription: 'https://example.test/result-descriptions/1',
-            value: 'Pass',
-          },
+            value: 'Pass'
+          }
         ],
-        resultDescriptions: [],
-      }),
+        resultDescriptions: []
+      })
     );
     const cs = cred.credentialSubject as Record<string, unknown>;
     const achievement = cs.achievement as Record<string, unknown>;
@@ -251,14 +278,14 @@ describe('OBv3 result-ref check', () => {
     const results = await runSuites(
       [resultRefSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const refCheck = results.find(r => r.check === 'schema.obv3.result-ref');
-    expect(refCheck?.outcome.status).to.equal('failure');
+    expect(refCheck?.outcome.status).toBe('failure');
     if (refCheck?.outcome.status === 'failure') {
-      expect(refCheck.outcome.problems[0].type).to.equal(
-        'https://www.w3.org/TR/vc-data-model#OB_INVALID_RESULT_REFERENCE',
+      expect(refCheck.outcome.problems[0].type).toBe(
+        'https://www.w3.org/TR/vc-data-model#OB_INVALID_RESULT_REFERENCE'
       );
     }
   });

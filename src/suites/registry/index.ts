@@ -16,5 +16,5 @@ export const registrySuite: VerificationSuite = {
   name: 'Issuer Registry',
   description: 'Checks if the issuer DID appears in known DID registries.',
   phase: 'trust',
-  checks: [issuerRegistryCheck],
+  checks: [issuerRegistryCheck]
 };

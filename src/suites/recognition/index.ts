@@ -17,5 +17,5 @@ export const recognitionSuite: VerificationSuite = {
   description:
     'Pluggable credential recognition; produces normalized credential form for downstream consumption.',
   phase: 'recognition',
-  checks: [recognitionProfileCheck],
+  checks: [recognitionProfileCheck]
 };

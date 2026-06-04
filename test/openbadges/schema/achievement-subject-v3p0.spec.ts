@@ -10,7 +10,7 @@
  * `formatJsonPointer`.
  */
 
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { Obv3p0AchievementSubjectSchema } from '../../../src/openbadges/schemas/classes-v3p0.js';
 import { parseObv3p0OpenBadgeCredential } from '../../../src/openbadges/schemas/openbadge-credential-v3p0.js';
 import type { RecognitionResult } from '../../../src/types/recognition.js';
@@ -22,17 +22,17 @@ function clone<T>(v: T): T {
 
 function assertMalformedAt(
   result: RecognitionResult,
-  expectedInstance: string,
+  expectedInstance: string
 ): void {
-  expect(result.status).to.equal('malformed');
+  expect(result.status).toBe('malformed');
   if (result.status === 'malformed') {
     const matched = result.problems.find(p => p.instance === expectedInstance);
     expect(
       matched,
       `expected a problem at ${expectedInstance}, got ${JSON.stringify(
-        result.problems.map(p => p.instance),
-      )}`,
-    ).to.exist;
+        result.problems.map(p => p.instance)
+      )}`
+    ).toBeDefined();
   }
 }
 
@@ -41,7 +41,7 @@ const minimalAchievement = {
   type: ['Achievement'],
   name: 'Example Achievement',
   description: 'Example achievement description.',
-  criteria: { narrative: 'Pass the exam.' },
+  criteria: { narrative: 'Pass the exam.' }
 };
 
 describe('Obv3p0AchievementSubjectSchema (standalone)', () => {
@@ -49,9 +49,9 @@ describe('Obv3p0AchievementSubjectSchema (standalone)', () => {
     const parsed = Obv3p0AchievementSubjectSchema.safeParse({
       id: 'did:example:recipient',
       type: ['AchievementSubject'],
-      achievement: minimalAchievement,
+      achievement: minimalAchievement
     });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
   });
 
   it('parses a subject with identifier[] only', () => {
@@ -62,11 +62,11 @@ describe('Obv3p0AchievementSubjectSchema (standalone)', () => {
         {
           type: ['IdentityObject'],
           identityHash: 'sha256$abc',
-          identityType: 'emailAddress',
-        },
-      ],
+          identityType: 'emailAddress'
+        }
+      ]
     });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
   });
 
   it('parses a subject with both id and identifier[]', () => {
@@ -74,23 +74,23 @@ describe('Obv3p0AchievementSubjectSchema (standalone)', () => {
       id: 'did:example:recipient',
       type: ['AchievementSubject'],
       achievement: minimalAchievement,
-      identifier: [{ type: ['IdentityObject'] }],
+      identifier: [{ type: ['IdentityObject'] }]
     });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
   });
 
   it('rejects a subject with neither id nor identifier[]', () => {
     const parsed = Obv3p0AchievementSubjectSchema.safeParse({
       type: ['AchievementSubject'],
-      achievement: minimalAchievement,
+      achievement: minimalAchievement
     });
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
     if (!parsed.success) {
       const xorIssue = parsed.error.issues.find(i =>
-        i.message.includes('id or non-empty identifier[]'),
+        i.message.includes('id or non-empty identifier[]')
       );
-      expect(xorIssue, 'expected the at-least-one issue').to.exist;
-      expect(xorIssue?.path).to.deep.equal([]);
+      expect(xorIssue, 'expected the at-least-one issue').toBeDefined();
+      expect(xorIssue?.path).toEqual([]);
     }
   });
 
@@ -98,9 +98,9 @@ describe('Obv3p0AchievementSubjectSchema (standalone)', () => {
     const parsed = Obv3p0AchievementSubjectSchema.safeParse({
       type: ['AchievementSubject'],
       achievement: minimalAchievement,
-      identifier: [],
+      identifier: []
     });
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
   });
 
   it('normalizes a string-form image on the subject', () => {
@@ -108,13 +108,13 @@ describe('Obv3p0AchievementSubjectSchema (standalone)', () => {
       id: 'did:example:recipient',
       type: ['AchievementSubject'],
       achievement: minimalAchievement,
-      image: 'https://example.test/recipient.png',
+      image: 'https://example.test/recipient.png'
     });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.image).to.deep.equal({
+      expect(parsed.data.image).toEqual({
         id: 'https://example.test/recipient.png',
-        type: ['Image'],
+        type: ['Image']
       });
     }
   });
@@ -123,17 +123,17 @@ describe('Obv3p0AchievementSubjectSchema (standalone)', () => {
     const opaqueResult = {
       type: ['Result'],
       value: '95',
-      arbitraryFutureField: { foo: 1 },
+      arbitraryFutureField: { foo: 1 }
     };
     const parsed = Obv3p0AchievementSubjectSchema.safeParse({
       id: 'did:example:recipient',
       type: ['AchievementSubject'],
       achievement: minimalAchievement,
-      result: [opaqueResult],
+      result: [opaqueResult]
     });
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.result?.[0]).to.deep.equal(opaqueResult);
+      expect(parsed.data.result?.[0]).toEqual(opaqueResult);
     }
   });
 });
@@ -141,9 +141,9 @@ describe('Obv3p0AchievementSubjectSchema (standalone)', () => {
 describe('credentialSubject (backfilled into envelope)', () => {
   it('round-trips the spec-conforming fixture', () => {
     const result = parseObv3p0OpenBadgeCredential(
-      obv3p0OpenBadgeSpecConforming,
+      obv3p0OpenBadgeSpecConforming
     );
-    expect(result.status).to.equal('recognized');
+    expect(result.status).toBe('recognized');
     if (result.status === 'recognized') {
       const normalized = result.normalized as {
         credentialSubject: {
@@ -152,12 +152,10 @@ describe('credentialSubject (backfilled into envelope)', () => {
           achievement: { id: string; name: string };
         };
       };
-      expect(normalized.credentialSubject.id).to.equal('did:example:recipient');
-      expect(normalized.credentialSubject.type).to.deep.equal([
-        'AchievementSubject',
-      ]);
-      expect(normalized.credentialSubject.achievement.name).to.equal(
-        'Example Course',
+      expect(normalized.credentialSubject.id).toBe('did:example:recipient');
+      expect(normalized.credentialSubject.type).toEqual(['AchievementSubject']);
+      expect(normalized.credentialSubject.achievement.name).toBe(
+        'Example Course'
       );
     }
   });
@@ -166,16 +164,16 @@ describe('credentialSubject (backfilled into envelope)', () => {
     const cred = clone(obv3p0OpenBadgeSpecConforming);
     cred.credentialSubject = {
       type: ['AchievementSubject'],
-      achievement: minimalAchievement,
+      achievement: minimalAchievement
     };
 
     const result = parseObv3p0OpenBadgeCredential(cred);
     assertMalformedAt(result, '/credentialSubject');
     if (result.status === 'malformed') {
       const xor = result.problems.find(p =>
-        p.detail.includes('id or non-empty identifier[]'),
+        p.detail.includes('id or non-empty identifier[]')
       );
-      expect(xor).to.exist;
+      expect(xor).toBeDefined();
     }
   });
 
@@ -183,7 +181,7 @@ describe('credentialSubject (backfilled into envelope)', () => {
     const cred = clone(obv3p0OpenBadgeSpecConforming);
     cred.credentialSubject = {
       id: 'did:example:recipient',
-      achievement: minimalAchievement,
+      achievement: minimalAchievement
     };
 
     const result = parseObv3p0OpenBadgeCredential(cred);
@@ -196,7 +194,7 @@ describe('credentialSubject (backfilled into envelope)', () => {
     cred.credentialSubject = {
       id: 'did:example:recipient',
       type: ['AchievementSubject'],
-      achievement: achievementWithoutName,
+      achievement: achievementWithoutName
     };
 
     const result = parseObv3p0OpenBadgeCredential(cred);
@@ -214,20 +212,20 @@ describe('credentialSubject (backfilled into envelope)', () => {
           {
             type: ['Alignment'],
             targetName: 'Skill A',
-            targetUrl: 'https://example.test/a',
+            targetUrl: 'https://example.test/a'
           },
           {
             type: ['Alignment'],
-            targetName: 'Skill B',
-          },
-        ],
-      },
+            targetName: 'Skill B'
+          }
+        ]
+      }
     };
 
     const result = parseObv3p0OpenBadgeCredential(cred);
     assertMalformedAt(
       result,
-      '/credentialSubject/achievement/alignment/1/targetUrl',
+      '/credentialSubject/achievement/alignment/1/targetUrl'
     );
   });
 });

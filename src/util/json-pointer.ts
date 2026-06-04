@@ -25,7 +25,9 @@
  *   // => '/weird~1key~0with~0chars'
  */
 export function formatJsonPointer(segments: Array<string | number>): string {
-  if (segments.length === 0) return '';
+  if (segments.length === 0) {
+    return '';
+  }
   return (
     '/' +
     segments

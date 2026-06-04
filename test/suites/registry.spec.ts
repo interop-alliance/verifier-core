@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { runSuites } from '../../src/run-suites.js';
 import { registrySuite } from '../../src/suites/registry/index.js';
 import { buildTestContext } from '../factories/services/build-test-context.js';
@@ -12,107 +12,121 @@ const testRegistries: EntityIdentityRegistry[] = [
   {
     name: 'Unit Test Registry',
     type: 'dcc-legacy',
-    url: 'https://factory.test/registry/legacy.json',
-  },
+    url: 'https://factory.test/registry/legacy.json'
+  }
 ];
 
 describe('Registry Suite', () => {
   const baseContext = buildTestContext();
 
   const createSubject = (credential: unknown): VerificationSubject => ({
-    verifiableCredential: credential,
+    verifiableCredential: credential
   });
 
   describe('no registries in context', () => {
     it('skips check when no registries configured', async () => {
-      const subject = createSubject(CredentialFactory({ version: 'v2', credential: {} }));
+      const subject = createSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
       const context: VerificationContext = {
         ...baseContext,
-        registries: undefined,
+        registries: undefined
       };
       const results = await runSuites([registrySuite], subject, context);
 
-      expect(results).to.have.lengthOf(1);
-      expect(results[0].check).to.equal('registry.issuer');
-      expect(results[0].outcome.status).to.equal('skipped');
+      expect(results).toHaveLength(1);
+      expect(results[0].check).toBe('registry.issuer');
+      expect(results[0].outcome.status).toBe('skipped');
       if (results[0].outcome.status === 'skipped') {
-        expect(results[0].outcome.reason).to.include('No registries configured');
+        expect(results[0].outcome.reason).toContain('No registries configured');
       }
     });
   });
 
   describe('issuer lookup (fake)', () => {
     it('succeeds when issuer found in registry', async () => {
-      const subject = createSubject(CredentialFactory({ version: 'v2', credential: {} }));
+      const subject = createSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
       const context: VerificationContext = {
         ...baseContext,
         registries: testRegistries,
         lookupIssuers: FakeRegistryLookup({
           found: true,
-          matchingRegistries: ['Unit Test Registry'],
-        }),
+          matchingRegistries: ['Unit Test Registry']
+        })
       };
       const results = await runSuites([registrySuite], subject, context);
 
-      expect(results).to.have.lengthOf(1);
-      expect(results[0].outcome.status).to.equal('success');
+      expect(results).toHaveLength(1);
+      expect(results[0].outcome.status).toBe('success');
       if (results[0].outcome.status === 'success') {
-        expect(results[0].outcome.message).to.include('Unit Test Registry');
+        expect(results[0].outcome.message).toContain('Unit Test Registry');
       }
     });
 
     it('fails when issuer not in registry', async () => {
-      const subject = createSubject(CredentialFactory({ version: 'v2', credential: {} }));
+      const subject = createSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
       const context: VerificationContext = {
         ...baseContext,
         registries: testRegistries,
-        lookupIssuers: FakeRegistryLookup({ found: false }),
+        lookupIssuers: FakeRegistryLookup({ found: false })
       };
       const results = await runSuites([registrySuite], subject, context);
 
-      expect(results).to.have.lengthOf(1);
-      expect(results[0].outcome.status).to.equal('failure');
+      expect(results).toHaveLength(1);
+      expect(results[0].outcome.status).toBe('failure');
       if (results[0].outcome.status === 'failure') {
-        expect(results[0].outcome.problems[0].type).to.equal(
-          'https://www.w3.org/TR/vc-data-model#ISSUER_NOT_REGISTERED',
+        expect(results[0].outcome.problems[0].type).toBe(
+          'https://www.w3.org/TR/vc-data-model#ISSUER_NOT_REGISTERED'
         );
       }
     });
 
     it('returns REGISTRY_ERROR when lookup throws', async () => {
-      const subject = createSubject(CredentialFactory({ version: 'v2', credential: {} }));
+      const subject = createSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
       const context: VerificationContext = {
         ...baseContext,
         registries: testRegistries,
-        lookupIssuers: FakeRegistryLookup({ error: new Error('Network failure') }),
+        lookupIssuers: FakeRegistryLookup({
+          error: new Error('Network failure')
+        })
       };
       const results = await runSuites([registrySuite], subject, context);
 
-      expect(results[0].outcome.status).to.equal('failure');
+      expect(results[0].outcome.status).toBe('failure');
       if (results[0].outcome.status === 'failure') {
-        expect(results[0].outcome.problems[0].type).to.equal(
-          'https://www.w3.org/TR/vc-data-model#REGISTRY_ERROR',
+        expect(results[0].outcome.problems[0].type).toBe(
+          'https://www.w3.org/TR/vc-data-model#REGISTRY_ERROR'
         );
-        expect(results[0].outcome.problems[0].detail).to.include('Network failure');
+        expect(results[0].outcome.problems[0].detail).toContain(
+          'Network failure'
+        );
       }
     });
 
     it('reports unchecked registries when provided', async () => {
-      const subject = createSubject(CredentialFactory({ version: 'v2', credential: {} }));
+      const subject = createSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
       const context: VerificationContext = {
         ...baseContext,
         registries: testRegistries,
         lookupIssuers: FakeRegistryLookup({
           found: true,
           matchingRegistries: ['Unit Test Registry'],
-          uncheckedRegistries: ['Other Registry'],
-        }),
+          uncheckedRegistries: ['Other Registry']
+        })
       };
       const results = await runSuites([registrySuite], subject, context);
 
-      expect(results[0].outcome.status).to.equal('success');
+      expect(results[0].outcome.status).toBe('success');
       if (results[0].outcome.status === 'success') {
-        expect(results[0].outcome.message).to.include('could not be checked');
+        expect(results[0].outcome.message).toContain('could not be checked');
       }
     });
   });
@@ -126,34 +140,36 @@ describe('Registry Suite', () => {
       const context: VerificationContext = {
         ...baseContext,
         registries: testRegistries,
-        lookupIssuers: FakeRegistryLookup({ found: true }),
+        lookupIssuers: FakeRegistryLookup({ found: true })
       };
       const results = await runSuites([registrySuite], subject, context);
 
-      expect(results).to.have.lengthOf(1);
-      expect(results[0].outcome.status).to.equal('failure');
+      expect(results).toHaveLength(1);
+      expect(results[0].outcome.status).toBe('failure');
       if (results[0].outcome.status === 'failure') {
-        expect(results[0].outcome.problems[0].title).to.equal('Issuer Not Found');
+        expect(results[0].outcome.problems[0].title).toBe('Issuer Not Found');
       }
     });
 
     it('handles issuer as string', async () => {
       const cred = CredentialFactory({
         version: 'v2',
-        credential: { issuer: 'did:key:z6MknNQD1WHLGGraFi6zcbGevuAgkVfdyCdtZnQTGWVVvR5Q' },
+        credential: {
+          issuer: 'did:key:z6MknNQD1WHLGGraFi6zcbGevuAgkVfdyCdtZnQTGWVVvR5Q'
+        }
       });
 
       const subject = createSubject(cred);
       const context: VerificationContext = {
         ...baseContext,
         registries: testRegistries,
-        lookupIssuers: FakeRegistryLookup({ found: true }),
+        lookupIssuers: FakeRegistryLookup({ found: true })
       };
       const results = await runSuites([registrySuite], subject, context);
 
-      expect(results).to.have.lengthOf(1);
-      expect(results[0].check).to.equal('registry.issuer');
-      expect(results[0].outcome.status).to.equal('success');
+      expect(results).toHaveLength(1);
+      expect(results[0].check).toBe('registry.issuer');
+      expect(results[0].outcome.status).toBe('success');
     });
   });
 
@@ -163,11 +179,11 @@ describe('Registry Suite', () => {
       const context: VerificationContext = {
         ...baseContext,
         registries: testRegistries,
-        lookupIssuers: FakeRegistryLookup({ found: true }),
+        lookupIssuers: FakeRegistryLookup({ found: true })
       };
       const results = await runSuites([registrySuite], subject, context);
 
-      expect(results).to.have.lengthOf(0);
+      expect(results).toHaveLength(0);
     });
   });
 });

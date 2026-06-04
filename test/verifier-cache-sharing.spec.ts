@@ -15,21 +15,21 @@
  * is the registry URL.
  */
 
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { createVerifier } from '../src/verifier.js';
 import {
   defaultDocumentLoaderFor,
-  defaultHttpGetService,
+  defaultHttpGetService
 } from '../src/default-services.js';
 import { InMemoryCacheService } from '../src/services/cache-service/in-memory-cache-service.js';
 import {
   BitstringStatusEntry,
-  StatusListCredentialFactory,
+  StatusListCredentialFactory
 } from './factories/data/index.js';
 import {
   FakeCryptoService,
   FakeHttpGetService,
-  okJsonBody,
+  okJsonBody
 } from './factories/services/index.js';
 import type { EntityIdentityRegistry } from '../src/types/registry.js';
 import type { HttpGetService } from '../src/services/http-get-service/http-get-service.js';
@@ -41,15 +41,15 @@ const REGISTRY_BODY = {
   registry: {
     [ISSUER_DID]: {
       name: 'Example Test Issuer',
-      url: 'https://issuer.example.test/',
-    },
-  },
+      url: 'https://issuer.example.test/'
+    }
+  }
 };
 
 const dccLegacyRegistry: EntityIdentityRegistry = {
   type: 'dcc-legacy',
   name: 'Example DCC Legacy Registry',
-  url: REGISTRY_URL,
+  url: REGISTRY_URL
 };
 
 /** Build a minimal V2 VC with a did:key issuer, no status, no schema, no result entries. */
@@ -62,7 +62,7 @@ function makeCredential(id: string): Record<string, unknown> {
     validFrom: '2020-01-01T00:00:00Z',
     credentialSubject: {
       id: 'did:example:subject',
-      name: 'Test Subject',
+      name: 'Test Subject'
     },
     proof: {
       type: 'Ed25519Signature2020',
@@ -70,15 +70,15 @@ function makeCredential(id: string): Record<string, unknown> {
       verificationMethod: `${ISSUER_DID}#z6MknNQD1WHLGGraFi6zcbGevuAgkVfdyCdtZnQTGWVVvR5Q`,
       proofPurpose: 'assertionMethod',
       proofValue:
-        'z0000000000000000000000000000000000000000000000000000000000000000',
-    },
+        'z0000000000000000000000000000000000000000000000000000000000000000'
+    }
   };
 }
 
 describe('Verifier cache sharing', () => {
   it('fetches the issuer registry exactly once across two verifications on the same Verifier', async () => {
     const http = FakeHttpGetService({
-      [REGISTRY_URL]: okJsonBody(REGISTRY_BODY),
+      [REGISTRY_URL]: okJsonBody(REGISTRY_BODY)
     });
 
     const verifier = createVerifier({
@@ -88,55 +88,55 @@ describe('Verifier cache sharing', () => {
       registries: [dccLegacyRegistry],
       // Verbose so the registry success surfaces in `results[]` for
       // the sanity assertion below; folded mode would hide it.
-      verbose: true,
+      verbose: true
     });
 
     const first = await verifier.verifyCredential({
-      credential: makeCredential('urn:uuid:cache-share-1'),
+      credential: makeCredential('urn:uuid:cache-share-1')
     });
     const second = await verifier.verifyCredential({
-      credential: makeCredential('urn:uuid:cache-share-2'),
+      credential: makeCredential('urn:uuid:cache-share-2')
     });
 
     // Sanity: the registry suite ran and found the issuer in both calls.
     const firstRegistry = first.results.find(r => r.suite === 'registry');
     const secondRegistry = second.results.find(r => r.suite === 'registry');
-    expect(firstRegistry?.outcome.status).to.equal('success');
-    expect(secondRegistry?.outcome.status).to.equal('success');
+    expect(firstRegistry?.outcome.status).toBe('success');
+    expect(secondRegistry?.outcome.status).toBe('success');
 
     // Headline claim: only one backing fetch to the registry URL.
-    expect(http.callsTo(REGISTRY_URL)).to.equal(1);
+    expect(http.callsTo(REGISTRY_URL)).toBe(1);
   });
 
   it('refetches when each call uses its own fresh Verifier (no shared cache)', async () => {
     const http = FakeHttpGetService({
-      [REGISTRY_URL]: okJsonBody(REGISTRY_BODY),
+      [REGISTRY_URL]: okJsonBody(REGISTRY_BODY)
     });
 
     const config = {
       httpGetService: http,
       cacheService: InMemoryCacheService(),
       cryptoServices: [FakeCryptoService({ verified: true })],
-      registries: [dccLegacyRegistry],
+      registries: [dccLegacyRegistry]
     };
 
     // Build a fresh verifier (and therefore a fresh cacheService) per call.
     await createVerifier({
       ...config,
-      cacheService: InMemoryCacheService(),
+      cacheService: InMemoryCacheService()
     }).verifyCredential({
-      credential: makeCredential('urn:uuid:no-share-1'),
+      credential: makeCredential('urn:uuid:no-share-1')
     });
     await createVerifier({
       ...config,
-      cacheService: InMemoryCacheService(),
+      cacheService: InMemoryCacheService()
     }).verifyCredential({
-      credential: makeCredential('urn:uuid:no-share-2'),
+      credential: makeCredential('urn:uuid:no-share-2')
     });
 
     // Confirms the previous test's "==1" is meaningful: without a shared
     // cache, the registry URL is hit per call.
-    expect(http.callsTo(REGISTRY_URL)).to.equal(2);
+    expect(http.callsTo(REGISTRY_URL)).toBe(2);
   });
 
   describe('status list URL routing through httpGetService (P-E)', () => {
@@ -148,8 +148,8 @@ describe('Verifier cache sharing', () => {
         ...makeCredential(id),
         credentialStatus: BitstringStatusEntry({
           statusListCredential: STATUS_LIST_URL,
-          statusListIndex: '0',
-        }),
+          statusListIndex: '0'
+        })
       };
     }
 
@@ -157,27 +157,27 @@ describe('Verifier cache sharing', () => {
       const slCred = await StatusListCredentialFactory({
         id: STATUS_LIST_URL,
         revokedIndexes: [],
-        listLength: 32,
+        listLength: 32
       });
       const http = FakeHttpGetService({
         [REGISTRY_URL]: okJsonBody(REGISTRY_BODY),
-        [STATUS_LIST_URL]: okJsonBody(slCred),
+        [STATUS_LIST_URL]: okJsonBody(slCred)
       });
 
       const verifier = createVerifier({
         httpGetService: http,
         cacheService: InMemoryCacheService(),
         cryptoServices: [FakeCryptoService({ verified: true })],
-        registries: [dccLegacyRegistry],
+        registries: [dccLegacyRegistry]
       });
 
       await verifier.verifyCredential({
-        credential: makeRevocableCredential('urn:uuid:status-once-1'),
+        credential: makeRevocableCredential('urn:uuid:status-once-1')
       });
 
       // Pre-P-E this was 2 (DataIntegrityCryptoService.checkStatus + statusSuite).
       // Post-P-E only statusSuite fetches the list.
-      expect(http.callsTo(STATUS_LIST_URL)).to.equal(1);
+      expect(http.callsTo(STATUS_LIST_URL)).toBe(1);
     });
   });
 
@@ -186,32 +186,32 @@ describe('Verifier cache sharing', () => {
       const fake: HttpGetService = FakeHttpGetService({});
       const a = defaultDocumentLoaderFor(fake);
       const b = defaultDocumentLoaderFor(fake);
-      expect(a).to.equal(b);
+      expect(a).toBe(b);
     });
 
     it('returns the same DocumentLoader for the memoized default HttpGetService across calls', () => {
       const a = defaultDocumentLoaderFor(defaultHttpGetService());
       const b = defaultDocumentLoaderFor(defaultHttpGetService());
-      expect(a).to.equal(b);
+      expect(a).toBe(b);
     });
 
     it('returns a different DocumentLoader for a different HttpGetService instance', () => {
       const a = defaultDocumentLoaderFor(FakeHttpGetService({}));
       const b = defaultDocumentLoaderFor(FakeHttpGetService({}));
-      expect(a).to.not.equal(b);
+      expect(a).not.toBe(b);
     });
   });
 
   it('shares the cache across the credentials embedded in a presentation', async () => {
     const http = FakeHttpGetService({
-      [REGISTRY_URL]: okJsonBody(REGISTRY_BODY),
+      [REGISTRY_URL]: okJsonBody(REGISTRY_BODY)
     });
 
     const verifier = createVerifier({
       httpGetService: http,
       cacheService: InMemoryCacheService(),
       cryptoServices: [FakeCryptoService({ verified: true })],
-      registries: [dccLegacyRegistry],
+      registries: [dccLegacyRegistry]
     });
 
     const presentation = {
@@ -219,17 +219,17 @@ describe('Verifier cache sharing', () => {
       type: ['VerifiablePresentation'],
       verifiableCredential: [
         makeCredential('urn:uuid:vp-cred-1'),
-        makeCredential('urn:uuid:vp-cred-2'),
-      ],
+        makeCredential('urn:uuid:vp-cred-2')
+      ]
     };
 
     await verifier.verifyPresentation({
       presentation,
-      unsignedPresentation: true,
+      unsignedPresentation: true
     });
 
     // verifyPresentation recurses into verifier.verifyCredential for each
     // embedded VC; both share the verifier's cacheService.
-    expect(http.callsTo(REGISTRY_URL)).to.equal(1);
+    expect(http.callsTo(REGISTRY_URL)).toBe(1);
   });
 });

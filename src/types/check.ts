@@ -93,7 +93,9 @@ export interface CheckResult {
  * presentations, or both. The orchestrator skips checks whose `appliesTo`
  * doesn't match the current subject.
  */
-export type VerificationSubjectType = 'verifiableCredential' | 'verifiablePresentation';
+export type VerificationSubjectType =
+  | 'verifiableCredential'
+  | 'verifiablePresentation';
 
 /**
  * Suite-phase classification for the two-pass verification workflow.
@@ -145,7 +147,7 @@ export interface VerificationCheck {
   fatal?: boolean;
   execute: (
     subject: VerificationSubject,
-    context: VerificationContext,
+    context: VerificationContext
   ) => Promise<CheckOutcome>;
 }
 
@@ -171,7 +173,7 @@ export interface VerificationSuite {
    */
   applies?: (
     subject: VerificationSubject,
-    context: VerificationContext,
+    context: VerificationContext
   ) => boolean;
   /**
    * Suite-phase tag for the two-pass verification filter; see

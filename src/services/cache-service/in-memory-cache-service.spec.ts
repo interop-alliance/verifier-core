@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { InMemoryCacheService } from './in-memory-cache-service.js';
 
 describe('InMemoryCacheService', () => {
@@ -6,14 +6,14 @@ describe('InMemoryCacheService', () => {
     it('returns undefined for unknown keys', async () => {
       const cache = InMemoryCacheService();
       const result = await cache.get('nonexistent');
-      expect(result).to.equal(undefined);
+      expect(result).toBe(undefined);
     });
 
     it('round-trips a value', async () => {
       const cache = InMemoryCacheService();
       await cache.set('key', 'value');
       const result = await cache.get('key');
-      expect(result).to.equal('value');
+      expect(result).toBe('value');
     });
 
     it('stores objects', async () => {
@@ -21,7 +21,7 @@ describe('InMemoryCacheService', () => {
       const obj = { foo: 'bar', nested: { num: 42 } };
       await cache.set('key', obj);
       const result = await cache.get('key');
-      expect(result).to.deep.equal(obj);
+      expect(result).toEqual(obj);
     });
 
     it('overwrites existing keys', async () => {
@@ -29,7 +29,7 @@ describe('InMemoryCacheService', () => {
       await cache.set('key', 'first');
       await cache.set('key', 'second');
       const result = await cache.get('key');
-      expect(result).to.equal('second');
+      expect(result).toBe('second');
     });
   });
 
@@ -38,11 +38,10 @@ describe('InMemoryCacheService', () => {
       const cache = InMemoryCacheService();
       await cache.set('key', 'value', 1000); // 1 second TTL
       const result = await cache.get('key');
-      expect(result).to.equal('value');
+      expect(result).toBe('value');
     });
 
-    it('returns undefined after TTL expires', async function () {
-      this.timeout(5000);
+    it('returns undefined after TTL expires', async () => {
       const cache = InMemoryCacheService();
       await cache.set('key', 'value', 1); // 1ms TTL
 
@@ -50,11 +49,10 @@ describe('InMemoryCacheService', () => {
       await new Promise(resolve => setTimeout(resolve, 10));
 
       const result = await cache.get('key');
-      expect(result).to.equal(undefined);
+      expect(result).toBe(undefined);
     });
 
-    it('deletes expired entry on access', async function () {
-      this.timeout(5000);
+    it('deletes expired entry on access', async () => {
       const cache = InMemoryCacheService();
       await cache.set('key', 'value', 1); // 1ms TTL
 
@@ -66,11 +64,10 @@ describe('InMemoryCacheService', () => {
 
       // Second access still undefined
       const result = await cache.get('key');
-      expect(result).to.equal(undefined);
+      expect(result).toBe(undefined);
     });
 
-    it('persists without TTL', async function () {
-      this.timeout(5000);
+    it('persists without TTL', async () => {
       const cache = InMemoryCacheService();
       await cache.set('key', 'value'); // no TTL
 
@@ -78,11 +75,10 @@ describe('InMemoryCacheService', () => {
       await new Promise(resolve => setTimeout(resolve, 10));
 
       const result = await cache.get('key');
-      expect(result).to.equal('value');
+      expect(result).toBe('value');
     });
 
-    it('handles TTL of 0 as no expiration', async function () {
-      this.timeout(5000);
+    it('handles TTL of 0 as no expiration', async () => {
       const cache = InMemoryCacheService();
       await cache.set('key', 'value', 0); // 0 TTL means no expiration
 
@@ -90,7 +86,7 @@ describe('InMemoryCacheService', () => {
       await new Promise(resolve => setTimeout(resolve, 10));
 
       const result = await cache.get('key');
-      expect(result).to.equal('value');
+      expect(result).toBe('value');
     });
   });
 
@@ -105,8 +101,8 @@ describe('InMemoryCacheService', () => {
       const result1 = await cache1.get('key');
       const result2 = await cache2.get('key');
 
-      expect(result1).to.equal('cache1-value');
-      expect(result2).to.equal('cache2-value');
+      expect(result1).toBe('cache1-value');
+      expect(result2).toBe('cache2-value');
     });
   });
 });

@@ -7,28 +7,31 @@
  * Fragment dereference logic matches `@digitalcredentials/did-method-web`
  * `getNode` (suite context map aligned with that package).
  */
-import { DidWebDriver, didUrlToHttpsUrl } from '@digitalcredentials/did-method-web';
+import {
+  DidWebDriver,
+  didUrlToHttpsUrl
+} from '@digitalcredentials/did-method-web';
 import { klona } from 'klona';
 import type { HttpGetService } from '../services/http-get-service/http-get-service.js';
 
 const contextsBySuite = new Map<string, string>([
   [
     'Ed25519VerificationKey2020',
-    'https://w3id.org/security/suites/ed25519-2020/v1',
+    'https://w3id.org/security/suites/ed25519-2020/v1'
   ],
   [
     'Ed25519VerificationKey2018',
-    'https://w3id.org/security/suites/ed25519-2018/v1',
+    'https://w3id.org/security/suites/ed25519-2018/v1'
   ],
   ['Multikey', 'https://w3id.org/security/multikey/v1'],
   [
     'X25519KeyAgreementKey2020',
-    'https://w3id.org/security/suites/x25519-2020/v1',
+    'https://w3id.org/security/suites/x25519-2020/v1'
   ],
   [
     'X25519KeyAgreementKey2019',
-    'https://w3id.org/security/suites/x25519-2019/v1',
-  ],
+    'https://w3id.org/security/suites/x25519-2019/v1'
+  ]
 ]);
 
 function assertDomainAllowList(
@@ -88,13 +91,11 @@ function getNodeFromDidDocument(
   }
   const suiteType = match.type;
   const ctxFromSuite =
-    typeof suiteType === 'string'
-      ? contextsBySuite.get(suiteType)
-      : undefined;
+    typeof suiteType === 'string' ? contextsBySuite.get(suiteType) : undefined;
   const ctxSource = ctxFromSuite ?? didDocument['@context'];
   return {
     '@context': klona(ctxSource),
-    ...klona(match),
+    ...klona(match)
   };
 }
 
@@ -123,7 +124,7 @@ export function didWebDriverWithHttpGet(
     async get({
       did,
       url,
-      fetchOptions: _fetchOptions = {},
+      fetchOptions: _fetchOptions = {}
     }: {
       did?: string;
       url?: string;
@@ -149,6 +150,6 @@ export function didWebDriverWithHttpGet(
         return getNodeFromDidDocument(data, id);
       }
       return data;
-    },
+    }
   };
 }

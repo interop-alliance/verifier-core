@@ -25,24 +25,30 @@ import { fetchJsonFromHttpGet } from '../../../src/util/fetch-json-from-http-get
 import type { VerificationContext } from '../../../src/types/context.js';
 import type { CryptoSuite } from '../../../src/types/crypto-suite.js';
 
-const eddsaSuite = new DataIntegrityProof({ cryptosuite: eddsaRdfc2022CryptoSuite });
+const eddsaSuite = new DataIntegrityProof({
+  cryptosuite: eddsaRdfc2022CryptoSuite
+});
 const ed25519Suite = new Ed25519Signature2020();
 
 const defaultCryptoSuites: CryptoSuite[] = [ed25519Suite, eddsaSuite];
 
 /** Build a {@link VerificationContext} for tests, optionally overridden. */
 export function buildTestContext(
-  overrides?: Partial<VerificationContext>,
+  overrides?: Partial<VerificationContext>
 ): VerificationContext {
   const cryptoSuites = overrides?.cryptoSuites ?? defaultCryptoSuites;
-  const cryptoServices =
-    overrides?.cryptoServices ?? [DataIntegrityCryptoService({ suites: cryptoSuites })];
+  const cryptoServices = overrides?.cryptoServices ?? [
+    DataIntegrityCryptoService({ suites: cryptoSuites })
+  ];
 
-  const effectiveHttpGetService = overrides?.httpGetService ?? BuiltinHttpGetService();
-  const effectiveCacheService = overrides?.cacheService ?? InMemoryCacheService();
+  const effectiveHttpGetService =
+    overrides?.httpGetService ?? BuiltinHttpGetService();
+  const effectiveCacheService =
+    overrides?.cacheService ?? InMemoryCacheService();
 
   const documentLoader =
-    overrides?.documentLoader ?? documentLoaderFromHttpGet(effectiveHttpGetService);
+    overrides?.documentLoader ??
+    documentLoaderFromHttpGet(effectiveHttpGetService);
 
   const fetchJson =
     overrides?.fetchJson ?? fetchJsonFromHttpGet(effectiveHttpGetService);
@@ -61,6 +67,6 @@ export function buildTestContext(
     challenge: overrides?.challenge ?? null,
     unsignedPresentation: overrides?.unsignedPresentation ?? false,
     verifyBitstringStatusListCredential:
-      overrides?.verifyBitstringStatusListCredential ?? true,
+      overrides?.verifyBitstringStatusListCredential ?? true
   };
 }

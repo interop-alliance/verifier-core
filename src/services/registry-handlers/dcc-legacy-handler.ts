@@ -1,7 +1,11 @@
 import type { DccLegacyEntityIdentityRegistry } from '../../types/registry.js';
 import type { HttpGetService } from '../http-get-service/http-get-service.js';
 import { parseCacheControlMaxAge, resolveTtl } from './cache-ttl.js';
-import type { HandlerResult, RegistryHandler, RegistryHandlerContext } from './types.js';
+import type {
+  HandlerResult,
+  RegistryHandler,
+  RegistryHandlerContext
+} from './types.js';
 
 /**
  * DCC legacy registry JSON: a map of DID → issuer metadata under `registry`.
@@ -9,7 +13,10 @@ import type { HandlerResult, RegistryHandler, RegistryHandlerContext } from './t
  * @see https://digitalcredentials.github.io/sandbox-registry/registry.json
  */
 export interface DccLegacyRegistryBody {
-  registry: Record<string, { name?: string; url?: string; location?: string } | null>;
+  registry: Record<
+    string,
+    { name?: string; url?: string; location?: string } | null
+  >;
 }
 
 /**
@@ -26,7 +33,7 @@ export const lookupDccLegacy: RegistryHandler = async (did, registry, ctx) => {
 async function lookupDccLegacyForRegistry(
   did: string,
   registry: DccLegacyEntityIdentityRegistry,
-  { httpGetService, cacheService }: RegistryHandlerContext,
+  { httpGetService, cacheService }: RegistryHandlerContext
 ): Promise<HandlerResult> {
   const key = cacheKeyForDccLegacyUrl(registry.url);
   let body = (await cacheService.get(key)) as DccLegacyRegistryBody | undefined;
@@ -49,7 +56,7 @@ async function lookupDccLegacyForRegistry(
 
 async function fetchDccLegacyRegistry(
   registry: DccLegacyEntityIdentityRegistry,
-  httpGetService: HttpGetService,
+  httpGetService: HttpGetService
 ): Promise<{ body: DccLegacyRegistryBody; ttlMs: number } | null> {
   let result;
   try {
@@ -72,7 +79,9 @@ function cacheKeyForDccLegacyUrl(url: string): string {
   return `dcc-legacy:${url}`;
 }
 
-function isDccLegacyRegistryBody(value: unknown): value is DccLegacyRegistryBody {
+function isDccLegacyRegistryBody(
+  value: unknown
+): value is DccLegacyRegistryBody {
   if (!value || typeof value !== 'object') {
     return false;
   }

@@ -49,7 +49,7 @@ export const obv3MissingResultStatusCheck: VerificationCheck = {
   appliesTo: ['verifiableCredential'],
   execute: async (
     subject: VerificationSubject,
-    _context: VerificationContext,
+    _context: VerificationContext
   ): Promise<CheckOutcome> => {
     const credential = subject.verifiableCredential as
       | { credentialSubject?: unknown }
@@ -58,18 +58,18 @@ export const obv3MissingResultStatusCheck: VerificationCheck = {
     if (!credential) {
       return {
         status: 'skipped',
-        reason: 'No verifiable credential found in subject.',
+        reason: 'No verifiable credential found in subject.'
       };
     }
 
     const subjectParse = Obv3CredentialSubjectShape.safeParse(
-      credential.credentialSubject,
+      credential.credentialSubject
     );
 
     if (!subjectParse.success || !subjectParse.data.result?.length) {
       return {
         status: 'skipped',
-        reason: 'Credential has no credentialSubject.result field.',
+        reason: 'Credential has no credentialSubject.result field.'
       };
     }
 
@@ -77,7 +77,8 @@ export const obv3MissingResultStatusCheck: VerificationCheck = {
     if (!resultDescriptions?.length) {
       return {
         status: 'skipped',
-        reason: 'Credential has no achievement.resultDescription[] to validate against.',
+        reason:
+          'Credential has no achievement.resultDescription[] to validate against.'
       };
     }
 
@@ -92,7 +93,7 @@ export const obv3MissingResultStatusCheck: VerificationCheck = {
       return {
         status: 'success',
         message:
-          'No Status-typed ResultDescription found; missing-result-status check is not applicable.',
+          'No Status-typed ResultDescription found; missing-result-status check is not applicable.'
       };
     }
 
@@ -101,8 +102,12 @@ export const obv3MissingResultStatusCheck: VerificationCheck = {
 
     for (let index = 0; index < subjectParse.data.result.length; index++) {
       const entry = subjectParse.data.result[index];
-      if (typeof entry.resultDescription !== 'string') continue;
-      if (!statusTypedRdIds.has(entry.resultDescription)) continue;
+      if (typeof entry.resultDescription !== 'string') {
+        continue;
+      }
+      if (!statusTypedRdIds.has(entry.resultDescription)) {
+        continue;
+      }
       checkedCount++;
 
       if (typeof entry.status !== 'string' || entry.status === '') {
@@ -110,11 +115,7 @@ export const obv3MissingResultStatusCheck: VerificationCheck = {
           type: Obv3ProblemTypes.OB_MISSING_RESULT_STATUS,
           title: 'Missing Result Status',
           detail: `Result entry at index ${index} references a Status-typed ResultDescription "${entry.resultDescription}" but is missing a non-empty status value.`,
-          instance: formatJsonPointer([
-            'credentialSubject',
-            'result',
-            index,
-          ]),
+          instance: formatJsonPointer(['credentialSubject', 'result', index])
         });
       }
     }
@@ -122,13 +123,13 @@ export const obv3MissingResultStatusCheck: VerificationCheck = {
     if (problems.length === 0) {
       return {
         status: 'success',
-        message: `All ${checkedCount} Status-typed result entries carry a status value.`,
+        message: `All ${checkedCount} Status-typed result entries carry a status value.`
       };
     }
 
     return {
       status: 'failure',
-      problems,
+      problems
     };
-  },
+  }
 };

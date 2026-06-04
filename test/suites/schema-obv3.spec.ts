@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { runSuites } from '../../src/run-suites.js';
 import { obv3SchemaSuite } from '../../src/suites/schema/obv3/index.js';
 import { buildTestContext } from '../factories/services/build-test-context.js';
@@ -23,14 +23,14 @@ function minimalSchema($id: string): Record<string, unknown> {
       '@context': {},
       type: {},
       issuer: {},
-      credentialSubject: {},
-    },
+      credentialSubject: {}
+    }
   };
 }
 
 describe('OBv3 Schema Suite', () => {
   const createSubject = (credential: unknown): VerificationSubject => ({
-    verifiableCredential: credential,
+    verifiableCredential: credential
   });
 
   describe('OBv3 schema check', () => {
@@ -41,44 +41,60 @@ describe('OBv3 Schema Suite', () => {
           type: ['VerifiableCredential'],
           '@context': [
             'https://www.w3.org/2018/credentials/v1',
-            'https://w3id.org/security/suites/ed25519-2020/v1',
-          ],
-        },
+            'https://w3id.org/security/suites/ed25519-2020/v1'
+          ]
+        }
       });
       const context = buildTestContext({
-        fetchJson: FakeFetchJson({}),
+        fetchJson: FakeFetchJson({})
       });
-      const results = await runSuites([obv3SchemaSuite], createSubject(cred), context);
+      const results = await runSuites(
+        [obv3SchemaSuite],
+        createSubject(cred),
+        context
+      );
 
       const schemaCheck = results.find(r => r.check === 'schema.obv3.json');
-      expect(schemaCheck?.outcome.status).to.equal('skipped');
+      expect(schemaCheck?.outcome.status).toBe('skipped');
     });
 
     it('validates OpenBadgeCredential when schema is served locally', async () => {
       const cred = CredentialFactory({ version: 'v2', credential: {} });
       const fetchJson = FakeFetchJson({
-        [OBV3_V2_ACHIEVEMENT_SCHEMA_URL]: minimalSchema(OBV3_V2_ACHIEVEMENT_SCHEMA_URL),
+        [OBV3_V2_ACHIEVEMENT_SCHEMA_URL]: minimalSchema(
+          OBV3_V2_ACHIEVEMENT_SCHEMA_URL
+        )
       });
       const context = buildTestContext({ fetchJson });
-      const results = await runSuites([obv3SchemaSuite], createSubject(cred), context);
+      const results = await runSuites(
+        [obv3SchemaSuite],
+        createSubject(cred),
+        context
+      );
 
       const schemaCheck = results.find(r => r.check === 'schema.obv3.json');
-      expect(schemaCheck?.outcome.status).to.equal('success');
+      expect(schemaCheck?.outcome.status).toBe('success');
     });
 
     it('validates EndorsementCredential when schema is served locally', async () => {
       const cred = CredentialFactory({
         version: 'v2',
-        credential: { type: ['VerifiableCredential', 'EndorsementCredential'] },
+        credential: { type: ['VerifiableCredential', 'EndorsementCredential'] }
       });
       const fetchJson = FakeFetchJson({
-        [OBV3_V2_ENDORSEMENT_SCHEMA_URL]: minimalSchema(OBV3_V2_ENDORSEMENT_SCHEMA_URL),
+        [OBV3_V2_ENDORSEMENT_SCHEMA_URL]: minimalSchema(
+          OBV3_V2_ENDORSEMENT_SCHEMA_URL
+        )
       });
       const context = buildTestContext({ fetchJson });
-      const results = await runSuites([obv3SchemaSuite], createSubject(cred), context);
+      const results = await runSuites(
+        [obv3SchemaSuite],
+        createSubject(cred),
+        context
+      );
 
       const schemaCheck = results.find(r => r.check === 'schema.obv3.json');
-      expect(schemaCheck?.outcome.status).to.equal('success');
+      expect(schemaCheck?.outcome.status).toBe('success');
     });
 
     it('fails AJV validation when credential is missing required fields', async () => {
@@ -86,16 +102,22 @@ describe('OBv3 Schema Suite', () => {
       delete (cred as { credentialSubject?: unknown }).credentialSubject;
 
       const fetchJson = FakeFetchJson({
-        [OBV3_V2_ACHIEVEMENT_SCHEMA_URL]: minimalSchema(OBV3_V2_ACHIEVEMENT_SCHEMA_URL),
+        [OBV3_V2_ACHIEVEMENT_SCHEMA_URL]: minimalSchema(
+          OBV3_V2_ACHIEVEMENT_SCHEMA_URL
+        )
       });
       const context = buildTestContext({ fetchJson });
-      const results = await runSuites([obv3SchemaSuite], createSubject(cred), context);
+      const results = await runSuites(
+        [obv3SchemaSuite],
+        createSubject(cred),
+        context
+      );
 
       const schemaCheck = results.find(r => r.check === 'schema.obv3.json');
-      expect(schemaCheck?.outcome.status).to.equal('failure');
+      expect(schemaCheck?.outcome.status).toBe('failure');
       if (schemaCheck?.outcome.status === 'failure') {
-        expect(schemaCheck.outcome.problems[0].type).to.equal(
-          'https://www.w3.org/TR/vc-data-model#SCHEMA_VALIDATION_FAILED',
+        expect(schemaCheck.outcome.problems[0].type).toBe(
+          'https://www.w3.org/TR/vc-data-model#SCHEMA_VALIDATION_FAILED'
         );
       }
     });
@@ -107,18 +129,22 @@ describe('OBv3 Schema Suite', () => {
         credential: {
           credentialSchema: {
             id: customUrl,
-            type: 'JsonSchemaValidator2018',
-          },
-        },
+            type: 'JsonSchemaValidator2018'
+          }
+        }
       });
       const fetchJson = FakeFetchJson({
-        [customUrl]: minimalSchema(customUrl),
+        [customUrl]: minimalSchema(customUrl)
       });
       const context = buildTestContext({ fetchJson });
-      const results = await runSuites([obv3SchemaSuite], createSubject(cred), context);
+      const results = await runSuites(
+        [obv3SchemaSuite],
+        createSubject(cred),
+        context
+      );
 
       const schemaCheck = results.find(r => r.check === 'schema.obv3.json');
-      expect(schemaCheck?.outcome.status).to.equal('success');
+      expect(schemaCheck?.outcome.status).toBe('success');
     });
 
     it('uses first credentialSchema entry when property is an array', async () => {
@@ -128,34 +154,47 @@ describe('OBv3 Schema Suite', () => {
         credential: {
           credentialSchema: [
             { id: customUrl, type: 'JsonSchemaValidator2018' },
-            { id: 'https://factory.test/ignored.json', type: 'JsonSchemaValidator2018' },
-          ],
-        },
+            {
+              id: 'https://factory.test/ignored.json',
+              type: 'JsonSchemaValidator2018'
+            }
+          ]
+        }
       });
       const fetchJson = FakeFetchJson({
-        [customUrl]: minimalSchema(customUrl),
+        [customUrl]: minimalSchema(customUrl)
       });
       const context = buildTestContext({ fetchJson });
-      const results = await runSuites([obv3SchemaSuite], createSubject(cred), context);
+      const results = await runSuites(
+        [obv3SchemaSuite],
+        createSubject(cred),
+        context
+      );
 
       const schemaCheck = results.find(r => r.check === 'schema.obv3.json');
-      expect(schemaCheck?.outcome.status).to.equal('success');
+      expect(schemaCheck?.outcome.status).toBe('success');
     });
 
     it('fails when schema URL cannot be fetched', async () => {
       const cred = CredentialFactory({ version: 'v2', credential: {} });
       const context = buildTestContext({
-        fetchJson: FakeFetchJson({}),
+        fetchJson: FakeFetchJson({})
       });
-      const results = await runSuites([obv3SchemaSuite], createSubject(cred), context);
+      const results = await runSuites(
+        [obv3SchemaSuite],
+        createSubject(cred),
+        context
+      );
 
       const schemaCheck = results.find(r => r.check === 'schema.obv3.json');
-      expect(schemaCheck?.outcome.status).to.equal('failure');
+      expect(schemaCheck?.outcome.status).toBe('failure');
       if (schemaCheck?.outcome.status === 'failure') {
-        expect(schemaCheck.outcome.problems[0].type).to.equal(
-          'https://www.w3.org/TR/vc-data-model#SCHEMA_VALIDATION_ERROR',
+        expect(schemaCheck.outcome.problems[0].type).toBe(
+          'https://www.w3.org/TR/vc-data-model#SCHEMA_VALIDATION_ERROR'
         );
-        expect(schemaCheck.outcome.problems[0].detail).to.include('No fake response');
+        expect(schemaCheck.outcome.problems[0].detail).toContain(
+          'No fake response'
+        );
       }
     });
   });
@@ -168,18 +207,18 @@ describe('OBv3 Schema Suite', () => {
           type: ['VerifiableCredential'],
           '@context': [
             'https://www.w3.org/2018/credentials/v1',
-            'https://w3id.org/security/suites/ed25519-2020/v1',
-          ],
-        },
+            'https://w3id.org/security/suites/ed25519-2020/v1'
+          ]
+        }
       });
       const results = await runSuites(
         [obv3SchemaSuite],
         createSubject(cred),
-        buildTestContext(),
+        buildTestContext()
       );
 
-      expect(results).to.have.lengthOf(1);
-      expect(results[0].outcome.status).to.equal('skipped');
+      expect(results).toHaveLength(1);
+      expect(results[0].outcome.status).toBe('skipped');
     });
   });
 });

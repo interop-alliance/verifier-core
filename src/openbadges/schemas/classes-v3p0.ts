@@ -27,12 +27,12 @@ import { IriString, JsonLdTypeField } from './fields-v3p0.js';
  * other non-URL IRIs are accepted. Strict format validation is
  * the AJV JSON Schema check's job.
  */
-/* eslint-disable @typescript-eslint/explicit-function-return-type */
+
 export const Obv3p0ImageSchema = z
   .object({
     id: IriString,
     type: JsonLdTypeField(['Image']),
-    caption: z.string().optional(),
+    caption: z.string().optional()
   })
   .passthrough();
 
@@ -52,7 +52,7 @@ export type Obv3p0Image = z.infer<typeof Obv3p0ImageSchema>;
 export function ImageField() {
   return z.union([
     IriString.transform(id => ({ id, type: ['Image'] })),
-    Obv3p0ImageSchema,
+    Obv3p0ImageSchema
   ]);
 }
 
@@ -85,7 +85,7 @@ export const Obv3p0ProfileSchema = z
     email: z
       .string()
       .refine(s => s.includes('@'), { message: 'email must contain "@"' })
-      .optional(),
+      .optional()
   })
   .passthrough();
 
@@ -104,7 +104,7 @@ export type Obv3p0Profile = z.infer<typeof Obv3p0ProfileSchema>;
 export function ProfileRefField() {
   return z.union([
     IriString.transform(id => ({ id, type: ['Profile'] })),
-    Obv3p0ProfileSchema,
+    Obv3p0ProfileSchema
   ]);
 }
 
@@ -126,7 +126,7 @@ export const Obv3p0AlignmentSchema = z
     targetCode: z.string().optional(),
     targetDescription: z.string().optional(),
     targetFramework: z.string().optional(),
-    targetType: z.string().optional(),
+    targetType: z.string().optional()
   })
   .passthrough();
 
@@ -151,7 +151,7 @@ export const Obv3p0RubricCriterionLevelSchema = z
     alignment: z.array(Obv3p0AlignmentSchema).optional(),
     description: z.string().optional(),
     level: z.string().optional(),
-    points: z.string().optional(),
+    points: z.string().optional()
   })
   .passthrough();
 
@@ -180,11 +180,9 @@ export const Obv3p0ResultDescriptionSchema = z
     allowedValue: z.array(z.string()).optional(),
     requiredLevel: z.string().url().optional(),
     requiredValue: z.string().optional(),
-    rubricCriterionLevel: z
-      .array(Obv3p0RubricCriterionLevelSchema)
-      .optional(),
+    rubricCriterionLevel: z.array(Obv3p0RubricCriterionLevelSchema).optional(),
     valueMax: z.string().optional(),
-    valueMin: z.string().optional(),
+    valueMin: z.string().optional()
   })
   .passthrough();
 
@@ -218,7 +216,7 @@ export const Obv3p0ResultSchema = z
     alignment: z.array(Obv3p0AlignmentSchema).optional(),
     resultDescription: z.string().url().optional(),
     status: z.string().optional(),
-    value: z.string().optional(),
+    value: z.string().optional()
   })
   .passthrough();
 
@@ -235,7 +233,7 @@ export type Obv3p0Result = z.infer<typeof Obv3p0ResultSchema>;
 const Obv3p0CriteriaSchema = z
   .object({
     id: z.string().url().optional(),
-    narrative: z.string().optional(),
+    narrative: z.string().optional()
   })
   .passthrough();
 
@@ -264,7 +262,7 @@ export const Obv3p0AchievementSchema = z
     alignment: z.array(Obv3p0AlignmentSchema).optional(),
     creator: ProfileRefField().optional(),
     image: ImageField().optional(),
-    resultDescription: z.array(Obv3p0ResultDescriptionSchema).optional(),
+    resultDescription: z.array(Obv3p0ResultDescriptionSchema).optional()
   })
   .passthrough();
 
@@ -280,7 +278,7 @@ export type Obv3p0Achievement = z.infer<typeof Obv3p0AchievementSchema>;
  */
 const Obv3p0IdentityObjectSchema = z
   .object({
-    type: JsonLdTypeField(['IdentityObject']),
+    type: JsonLdTypeField(['IdentityObject'])
   })
   .passthrough();
 
@@ -309,7 +307,7 @@ export const Obv3p0AchievementSubjectSchema = z
     id: z.string().url().optional(),
     identifier: z.array(Obv3p0IdentityObjectSchema).optional(),
     result: z.array(Obv3p0ResultSchema).optional(),
-    image: ImageField().optional(),
+    image: ImageField().optional()
   })
   .passthrough()
   .superRefine((subject, ctx) => {
@@ -321,7 +319,7 @@ export const Obv3p0AchievementSubjectSchema = z
         code: z.ZodIssueCode.custom,
         path: [],
         message:
-          'AchievementSubject requires either id or non-empty identifier[]',
+          'AchievementSubject requires either id or non-empty identifier[]'
       });
     }
   });
@@ -329,4 +327,3 @@ export const Obv3p0AchievementSubjectSchema = z
 export type Obv3p0AchievementSubject = z.infer<
   typeof Obv3p0AchievementSubjectSchema
 >;
-/* eslint-enable @typescript-eslint/explicit-function-return-type */

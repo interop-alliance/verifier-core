@@ -9,6 +9,6 @@ import type { TimeService } from './time-service.js';
 export function RealTimeService(): TimeService {
   return {
     dateNowMs: () => Date.now(),
-    performanceNowMs: () => performance.now(),
+    performanceNowMs: () => performance.now()
   };
 }

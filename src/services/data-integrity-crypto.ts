@@ -3,9 +3,16 @@
  * via `@digitalcredentials/vc`.
  */
 
-import { verifyCredential as vcVerifyCredential, verify as vcVerifyPresentation } from '@digitalcredentials/vc';
+import {
+  verifyCredential as vcVerifyCredential,
+  verify as vcVerifyPresentation
+} from '@digitalcredentials/vc';
 import jsonLdSignatures from '@digitalcredentials/jsonld-signatures';
-import type { CryptoResult, CryptoService, CryptoVerifyOptions } from '../types/crypto-service.js';
+import type {
+  CryptoResult,
+  CryptoService,
+  CryptoVerifyOptions
+} from '../types/crypto-service.js';
 import type { CryptoSuite, ProofPurpose } from '../types/crypto-suite.js';
 import type { ProblemDetail } from '../types/problem-detail.js';
 import type { VerificationSubject } from '../types/subject.js';
@@ -26,7 +33,7 @@ import { ProblemTypes } from '../problem-types.js';
  */
 const noopCheckStatus = async (): Promise<{ verified: true; results: [] }> => ({
   verified: true,
-  results: [],
+  results: []
 });
 
 const { purposes } = jsonLdSignatures;
@@ -52,7 +59,9 @@ function isHttpError(errors: unknown[]): boolean {
 function isJsonLdError(errors: unknown[]): boolean {
   return errors.some(e => {
     const x = e as { name?: string; type?: string };
-    return x.name === JSONLD_VALIDATION_ERROR || x.type === JSONLD_VALIDATION_ERROR;
+    return (
+      x.name === JSONLD_VALIDATION_ERROR || x.type === JSONLD_VALIDATION_ERROR
+    );
   });
 }
 
@@ -83,55 +92,67 @@ function classifySignatureError(
       return {
         type: ProblemTypes.PARSING_ERROR,
         title: 'JSON-LD Validation Error',
-        detail: x.message || 'Invalid JSON-LD document',
+        detail: x.message || 'Invalid JSON-LD document'
       };
     });
   }
 
   if (isHttpError(errors)) {
-    const httpError = getHttpError(errors) as {
-      requestUrl?: string;
-      url?: string;
-      message?: string;
-    } | undefined;
+    const httpError = getHttpError(errors) as
+      | {
+          requestUrl?: string;
+          url?: string;
+          message?: string;
+        }
+      | undefined;
     const requestUrl = httpError?.requestUrl || httpError?.url || '';
 
     if (credential) {
       const issuer = credential.issuer as string | { id: string } | undefined;
-      const issuerDid = typeof issuer === 'string' ? issuer : (issuer?.id || '');
+      const issuerDid = typeof issuer === 'string' ? issuer : issuer?.id || '';
 
       if (isDidWeb(issuerDid)) {
         const didUrlPattern = didWebToUrlPattern(issuerDid);
         if (requestUrl.toLowerCase().includes(didUrlPattern)) {
-          return [{
-            type: ProblemTypes.DID_WEB_UNRESOLVED,
-            title: 'DID Web Unresolved',
-            detail: `The signature could not be checked because the public signing key could not be retrieved from ${String(requestUrl)}`,
-          }];
+          return [
+            {
+              type: ProblemTypes.DID_WEB_UNRESOLVED,
+              title: 'DID Web Unresolved',
+              detail: `The signature could not be checked because the public signing key could not be retrieved from ${String(requestUrl)}`
+            }
+          ];
         }
       }
     }
 
-    return [{
-      type: ProblemTypes.HTTP_ERROR,
-      title: 'HTTP Error',
-      detail: httpError?.message || 'An HTTP error prevented the signature check.',
-    }];
+    return [
+      {
+        type: ProblemTypes.HTTP_ERROR,
+        title: 'HTTP Error',
+        detail:
+          httpError?.message || 'An HTTP error prevented the signature check.'
+      }
+    ];
   }
 
   const err = error as { message?: string } | undefined;
-  return [{
-    type: ProblemTypes.INVALID_SIGNATURE,
-    title: 'Invalid Signature',
-    detail: err?.message || 'The signature is not valid.',
-  }];
+  return [
+    {
+      type: ProblemTypes.INVALID_SIGNATURE,
+      title: 'Invalid Signature',
+      detail: err?.message || 'The signature is not valid.'
+    }
+  ];
 }
 
 function getPresentationPurpose(
   presentation: Record<string, unknown>,
   challenge: string | null | undefined
 ): ProofPurpose {
-  const proof = presentation.proof as Record<string, unknown> | Array<Record<string, unknown>> | undefined;
+  const proof = presentation.proof as
+    | Record<string, unknown>
+    | Array<Record<string, unknown>>
+    | undefined;
 
   let proofPurpose: string | undefined;
   if (Array.isArray(proof)) {
@@ -140,21 +161,31 @@ function getPresentationPurpose(
     proofPurpose = proof.proofPurpose as string | undefined;
   }
 
-  const useAuthenticationPurpose = proofPurpose === 'authentication' || proofPurpose === 'authenticationMethod';
+  const useAuthenticationPurpose =
+    proofPurpose === 'authentication' ||
+    proofPurpose === 'authenticationMethod';
 
   if (useAuthenticationPurpose) {
-    return new purposes.AuthenticationProofPurpose({ challenge: challenge ?? 'meaningless' });
+    return new purposes.AuthenticationProofPurpose({
+      challenge: challenge ?? 'meaningless'
+    });
   }
 
   return new purposes.AssertionProofPurpose();
 }
 
 function documentHasProof(doc: Record<string, unknown> | undefined): boolean {
-  if (!doc) return false;
+  if (!doc) {
+    return false;
+  }
   const proof = doc.proof;
-  if (proof === undefined || proof === null) return false;
+  if (proof === undefined || proof === null) {
+    return false;
+  }
   if (Array.isArray(proof)) {
-    return proof.length > 0 && typeof proof[0] === 'object' && proof[0] !== null;
+    return (
+      proof.length > 0 && typeof proof[0] === 'object' && proof[0] !== null
+    );
   }
   return typeof proof === 'object';
 }
@@ -171,16 +202,22 @@ export interface DataIntegrityCryptoConfig {
  * of `statusSuite` (see `src/suites/status/`). This adapter does not
  * read or verify `credentialStatus`.
  */
-export function DataIntegrityCryptoService(config: DataIntegrityCryptoConfig): CryptoService {
+export function DataIntegrityCryptoService(
+  config: DataIntegrityCryptoConfig
+): CryptoService {
   const { suites } = config;
 
   return {
     canVerify: (subject: VerificationSubject): boolean => {
       if (subject.verifiablePresentation) {
-        return documentHasProof(subject.verifiablePresentation as Record<string, unknown>);
+        return documentHasProof(
+          subject.verifiablePresentation as Record<string, unknown>
+        );
       }
       if (subject.verifiableCredential) {
-        return documentHasProof(subject.verifiableCredential as Record<string, unknown>);
+        return documentHasProof(
+          subject.verifiableCredential as Record<string, unknown>
+        );
       }
       return false;
     },
@@ -195,26 +232,37 @@ export function DataIntegrityCryptoService(config: DataIntegrityCryptoConfig): C
           suite: suites,
           documentLoader: options.documentLoader,
           verifyMatchingIssuers: false,
-          checkStatus: noopCheckStatus,
+          checkStatus: noopCheckStatus
         });
 
         const verified = result.verified ?? false;
         if (verified) {
-          return { verified: true, message: 'Signature verified successfully.' };
+          return {
+            verified: true,
+            message: 'Signature verified successfully.'
+          };
         }
 
         return {
           verified: false,
-          problems: classifySignatureError(result.error, credential as Record<string, unknown> | undefined),
+          problems: classifySignatureError(
+            result.error,
+            credential as Record<string, unknown> | undefined
+          )
         };
       } catch (e) {
         return {
           verified: false,
-          problems: [{
-            type: ProblemTypes.PROOF_VERIFICATION_ERROR,
-            title: 'Verification Error',
-            detail: e instanceof Error ? e.message : 'An unexpected error occurred during signature verification.',
-          }],
+          problems: [
+            {
+              type: ProblemTypes.PROOF_VERIFICATION_ERROR,
+              title: 'Verification Error',
+              detail:
+                e instanceof Error
+                  ? e.message
+                  : 'An unexpected error occurred during signature verification.'
+            }
+          ]
         };
       }
     },
@@ -237,18 +285,22 @@ export function DataIntegrityCryptoService(config: DataIntegrityCryptoConfig): C
           unsignedPresentation: options.unsignedPresentation ?? false,
           challenge: options.challenge ?? 'meaningless',
           verifyMatchingIssuers: false,
-          checkStatus: noopCheckStatus,
+          checkStatus: noopCheckStatus
         });
 
         const verified = result.verified ?? false;
         if (verified) {
-          return { verified: true, message: 'Signature verified successfully.' };
+          return {
+            verified: true,
+            message: 'Signature verified successfully.'
+          };
         }
 
         let error: unknown = result.error;
         if (!error && result.credentialResults) {
           const failedCredential = result.credentialResults.find(
-            (r: { verified?: boolean; error?: unknown }) => !r.verified && r.error
+            (r: { verified?: boolean; error?: unknown }) =>
+              !r.verified && r.error
           );
           if (failedCredential?.error) {
             error = failedCredential.error;
@@ -257,21 +309,23 @@ export function DataIntegrityCryptoService(config: DataIntegrityCryptoConfig): C
 
         return {
           verified: false,
-          problems: classifySignatureError(
-            error,
-            undefined
-          ),
+          problems: classifySignatureError(error, undefined)
         };
       } catch (e) {
         return {
           verified: false,
-          problems: [{
-            type: ProblemTypes.PROOF_VERIFICATION_ERROR,
-            title: 'Verification Error',
-            detail: e instanceof Error ? e.message : 'An unexpected error occurred during signature verification.',
-          }],
+          problems: [
+            {
+              type: ProblemTypes.PROOF_VERIFICATION_ERROR,
+              title: 'Verification Error',
+              detail:
+                e instanceof Error
+                  ? e.message
+                  : 'An unexpected error occurred during signature verification.'
+            }
+          ]
         };
       }
-    },
+    }
   };
 }

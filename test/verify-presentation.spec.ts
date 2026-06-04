@@ -1,9 +1,9 @@
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { verifyPresentation } from '../src/index.js';
 import {
   defaultCryptoServices,
   defaultDocumentLoaderFor,
-  defaultHttpGetService,
+  defaultHttpGetService
 } from '../src/default-services.js';
 import { createVerifier } from '../src/verifier.js';
 import { flattenPresentationResults } from '../src/flatten-presentation-results.js';
@@ -19,75 +19,92 @@ import { v2WithValidStatus } from './fixtures/v2-with-valid-status.js';
 // lives in `describe('folded vs verbose shape', …)` below.
 const fakeVerified = {
   cryptoServices: [FakeCryptoService({ verified: true })],
-  verbose: true,
+  verbose: true
 };
 
 describe('verifyPresentation', () => {
   describe('basic presentation validation', () => {
     it('verifies a presentation with single credential', async () => {
       const presentation = PresentationFactory();
-      const result = await verifyPresentation({ presentation, ...fakeVerified });
+      const result = await verifyPresentation({
+        presentation,
+        ...fakeVerified
+      });
 
-      expect(result.verified).to.be.a('boolean');
-      expect(result.presentationResults).to.be.an('array');
-      expect(result.credentialResults).to.be.an('array');
-      expect(result.credentialResults).to.have.lengthOf(1);
-      expect(result.verifiablePresentation).to.exist;
-      expect(result.verifiablePresentation.type).to.include('VerifiablePresentation');
-      expect(flattenPresentationResults(result)).to.be.an('array');
+      expect(result.verified).toBeTypeOf('boolean');
+      expect(result.presentationResults).toBeInstanceOf(Array);
+      expect(result.credentialResults).toBeInstanceOf(Array);
+      expect(result.credentialResults).toHaveLength(1);
+      expect(result.verifiablePresentation).toBeDefined();
+      expect(result.verifiablePresentation.type).toContain(
+        'VerifiablePresentation'
+      );
+      expect(flattenPresentationResults(result)).toBeInstanceOf(Array);
     });
 
     it('verifies a presentation with multiple credentials', async () => {
       const presentation = PresentationFactory({
         verifiableCredential: [
           CredentialFactory({ version: 'v1', credential: {} }),
-          CredentialFactory({ credential: {} }),
-        ],
+          CredentialFactory({ credential: {} })
+        ]
       });
-      const result = await verifyPresentation({ presentation, ...fakeVerified });
+      const result = await verifyPresentation({
+        presentation,
+        ...fakeVerified
+      });
 
-      expect(result.credentialResults).to.have.lengthOf(2);
+      expect(result.credentialResults).toHaveLength(2);
 
       const cred1Result = result.credentialResults[0];
       const cred2Result = result.credentialResults[1];
 
-      expect(cred1Result).to.exist;
-      expect(cred2Result).to.exist;
-      expect(cred1Result.results).to.be.an('array');
-      expect(cred2Result.results).to.be.an('array');
+      expect(cred1Result).toBeDefined();
+      expect(cred2Result).toBeDefined();
+      expect(cred1Result.results).toBeInstanceOf(Array);
+      expect(cred2Result.results).toBeInstanceOf(Array);
     });
 
     it('returns verified: false for empty presentation', async () => {
       const presentation = PresentationFactory({ verifiableCredential: [] });
-      const result = await verifyPresentation({ presentation, ...fakeVerified });
+      const result = await verifyPresentation({
+        presentation,
+        ...fakeVerified
+      });
 
-      expect(result.presentationResults).to.be.an('array');
-      expect(result.credentialResults).to.have.lengthOf(0);
+      expect(result.presentationResults).toBeInstanceOf(Array);
+      expect(result.credentialResults).toHaveLength(0);
     });
 
     it('returns verified: false for presentation without credentials', async () => {
       const presentation = {
         '@context': ['https://www.w3.org/ns/credentials/v2'],
-        type: ['VerifiablePresentation'],
+        type: ['VerifiablePresentation']
       };
-      const result = await verifyPresentation({ presentation, ...fakeVerified });
+      const result = await verifyPresentation({
+        presentation,
+        ...fakeVerified
+      });
 
-      expect(result.presentationResults).to.be.an('array');
-      expect(result.credentialResults).to.have.lengthOf(0);
+      expect(result.presentationResults).toBeInstanceOf(Array);
+      expect(result.credentialResults).toHaveLength(0);
     });
   });
 
   describe('timing flag (presence/absence)', () => {
     it('omits timing on every result by default', async () => {
       const presentation = PresentationFactory();
-      const result = await verifyPresentation({ presentation, ...fakeVerified });
+      const result = await verifyPresentation({
+        presentation,
+        ...fakeVerified
+      });
 
-      expect(result.timing).to.equal(undefined);
+      expect(result.timing).toBe(undefined);
       for (const c of result.presentationResults) {
-        expect(c.timing).to.equal(undefined);
+        expect(c.timing).toBe(undefined);
       }
       for (const cr of result.credentialResults) {
-        expect(cr.timing).to.equal(undefined);
+        expect(cr.timing).toBe(undefined);
       }
     });
 
@@ -96,18 +113,24 @@ describe('verifyPresentation', () => {
       const result = await verifyPresentation({
         presentation,
         ...fakeVerified,
-        timing: true,
+        timing: true
       });
 
-      expect(result.timing).to.exist;
+      expect(result.timing).toBeDefined();
       for (const c of result.presentationResults) {
-        expect(c.timing, `presentation check ${c.id} missing timing`).to.exist;
+        expect(
+          c.timing,
+          `presentation check ${c.id} missing timing`
+        ).toBeDefined();
       }
       for (const s of result.summary) {
-        expect(s.timing, `presentation suite ${s.id} missing timing`).to.exist;
+        expect(
+          s.timing,
+          `presentation suite ${s.id} missing timing`
+        ).toBeDefined();
       }
       for (const cr of result.credentialResults) {
-        expect(cr.timing, 'credential result missing timing').to.exist;
+        expect(cr.timing, 'credential result missing timing').toBeDefined();
       }
     });
 
@@ -115,24 +138,24 @@ describe('verifyPresentation', () => {
       const presentation = PresentationFactory({
         verifiableCredential: [
           CredentialFactory({ version: 'v1', credential: {} }),
-          CredentialFactory({ credential: {} }),
-        ],
+          CredentialFactory({ credential: {} })
+        ]
       });
       const result = await verifyPresentation({
         presentation,
         ...fakeVerified,
-        timing: true,
+        timing: true
       });
 
-      expect(result.timing).to.exist;
-      expect(result.credentialResults).to.have.lengthOf(2);
+      expect(result.timing).toBeDefined();
+      expect(result.credentialResults).toHaveLength(2);
       const topDuration = result.timing!.durationMs;
       for (const cr of result.credentialResults) {
-        expect(cr.timing).to.exist;
+        expect(cr.timing).toBeDefined();
         expect(
           topDuration,
-          'top-level durationMs should include each embedded credential',
-        ).to.be.at.least(cr.timing!.durationMs);
+          'top-level durationMs should include each embedded credential'
+        ).toBeGreaterThanOrEqual(cr.timing!.durationMs);
       }
     });
   });
@@ -141,24 +164,30 @@ describe('verifyPresentation', () => {
     it('returns verified: false for invalid presentation JSON', async () => {
       const result = await verifyPresentation({
         presentation: 'not a presentation',
-        ...fakeVerified,
+        ...fakeVerified
       });
 
-      expect(result.verified).to.be.false;
-      expect(result.presentationResults).to.have.lengthOf(1);
-      expect(result.presentationResults[0].suite).to.equal('parsing');
+      expect(result.verified).toBe(false);
+      expect(result.presentationResults).toHaveLength(1);
+      expect(result.presentationResults[0].suite).toBe('parsing');
     });
 
     it('returns verified: false for empty object', async () => {
-      const result = await verifyPresentation({ presentation: {}, ...fakeVerified });
+      const result = await verifyPresentation({
+        presentation: {},
+        ...fakeVerified
+      });
 
-      expect(result.verified).to.be.false;
+      expect(result.verified).toBe(false);
     });
 
     it('returns verified: false for null', async () => {
-      const result = await verifyPresentation({ presentation: null, ...fakeVerified });
+      const result = await verifyPresentation({
+        presentation: null,
+        ...fakeVerified
+      });
 
-      expect(result.verified).to.be.false;
+      expect(result.verified).toBe(false);
     });
   });
 
@@ -167,15 +196,18 @@ describe('verifyPresentation', () => {
       const presentation = PresentationFactory({
         verifiableCredential: [
           CredentialFactory({ version: 'v1', credential: {} }),
-          CredentialFactory({ credential: {} }),
-        ],
+          CredentialFactory({ credential: {} })
+        ]
       });
-      const result = await verifyPresentation({ presentation, ...fakeVerified });
+      const result = await verifyPresentation({
+        presentation,
+        ...fakeVerified
+      });
 
       for (const credResult of result.credentialResults) {
-        expect(credResult.verified).to.be.a('boolean');
-        expect(credResult.verifiableCredential).to.exist;
-        expect(credResult.results).to.be.an('array');
+        expect(credResult.verified).toBeTypeOf('boolean');
+        expect(credResult.verifiableCredential).toBeDefined();
+        expect(credResult.results).toBeInstanceOf(Array);
       }
     });
 
@@ -185,12 +217,15 @@ describe('verifyPresentation', () => {
       delete (badCredential as { '@context'?: unknown })['@context'];
 
       const presentation = PresentationFactory({
-        verifiableCredential: [good, badCredential],
+        verifiableCredential: [good, badCredential]
       });
-      const result = await verifyPresentation({ presentation, ...fakeVerified });
+      const result = await verifyPresentation({
+        presentation,
+        ...fakeVerified
+      });
 
-      expect(result.verified).to.be.false;
-      expect(result.presentationResults[0]?.outcome.status).to.equal('failure');
+      expect(result.verified).toBe(false);
+      expect(result.presentationResults[0]?.outcome.status).toBe('failure');
     });
 
     it('separates credential results correctly', async () => {
@@ -199,29 +234,37 @@ describe('verifyPresentation', () => {
       const c1 = CredentialFactory({ version: 'v1', credential: { id: id1 } });
       const c2 = CredentialFactory({ credential: { id: id2 } });
       const presentation = PresentationFactory({
-        verifiableCredential: [c1, c2],
+        verifiableCredential: [c1, c2]
       });
-      const result = await verifyPresentation({ presentation, ...fakeVerified });
+      const result = await verifyPresentation({
+        presentation,
+        ...fakeVerified
+      });
 
-      expect(result.credentialResults).to.have.lengthOf(2);
+      expect(result.credentialResults).toHaveLength(2);
 
-      const ids = result.credentialResults.map(cr => cr.verifiableCredential.id);
-      expect(ids).to.include(id1);
-      expect(ids).to.include(id2);
+      const ids = result.credentialResults.map(
+        cr => cr.verifiableCredential.id
+      );
+      expect(ids).toContain(id1);
+      expect(ids).toContain(id2);
     });
   });
 
   describe('flattenPresentationResults aggregation', () => {
     it('includes both presentation and credential results', async () => {
       const presentation = PresentationFactory();
-      const result = await verifyPresentation({ presentation, ...fakeVerified });
+      const result = await verifyPresentation({
+        presentation,
+        ...fakeVerified
+      });
 
       const presentationSuiteIds = result.presentationResults.map(r => r.suite);
       const flat = flattenPresentationResults(result);
       const allSuiteIds = flat.map(e => e.result.suite);
 
       for (const suiteId of presentationSuiteIds) {
-        expect(allSuiteIds).to.include(suiteId);
+        expect(allSuiteIds).toContain(suiteId);
       }
     });
 
@@ -229,13 +272,16 @@ describe('verifyPresentation', () => {
       const presentation = PresentationFactory({
         verifiableCredential: [
           CredentialFactory({ version: 'v1', credential: {} }),
-          CredentialFactory({ credential: {} }),
-        ],
+          CredentialFactory({ credential: {} })
+        ]
       });
-      const result = await verifyPresentation({ presentation, ...fakeVerified });
+      const result = await verifyPresentation({
+        presentation,
+        ...fakeVerified
+      });
 
-      expect(flattenPresentationResults(result).length).to.be.greaterThan(
-        result.presentationResults.length,
+      expect(flattenPresentationResults(result).length).toBeGreaterThan(
+        result.presentationResults.length
       );
     });
   });
@@ -246,10 +292,10 @@ describe('verifyPresentation', () => {
       const result = await verifyPresentation({
         presentation,
         challenge: 'factory-challenge',
-        ...fakeVerified,
+        ...fakeVerified
       });
 
-      expect(result.presentationResults).to.be.an('array');
+      expect(result.presentationResults).toBeInstanceOf(Array);
     });
 
     it('accepts null challenge', async () => {
@@ -257,10 +303,10 @@ describe('verifyPresentation', () => {
       const result = await verifyPresentation({
         presentation,
         challenge: null,
-        ...fakeVerified,
+        ...fakeVerified
       });
 
-      expect(result.presentationResults).to.be.an('array');
+      expect(result.presentationResults).toBeInstanceOf(Array);
     });
   });
 
@@ -271,10 +317,10 @@ describe('verifyPresentation', () => {
       const result = await verifyPresentation({
         presentation,
         unsignedPresentation: true,
-        ...fakeVerified,
+        ...fakeVerified
       });
 
-      expect(result.presentationResults).to.be.an('array');
+      expect(result.presentationResults).toBeInstanceOf(Array);
     });
   });
 
@@ -288,80 +334,88 @@ describe('verifyPresentation', () => {
         appliesTo: ['verifiablePresentation'] as const,
         execute: async () => ({
           status: 'success' as const,
-          message: 'Custom VP check passed!',
-        }),
+          message: 'Custom VP check passed!'
+        })
       };
 
       const customSuite = {
         id: 'custom',
         name: 'Custom Suite',
         description: 'Custom test suite',
-        checks: [customCheck],
+        checks: [customCheck]
       };
 
       const presentation = PresentationFactory();
       const result = await verifyPresentation({
         presentation,
         additionalSuites: [customSuite],
-        ...fakeVerified,
+        ...fakeVerified
       });
 
-      const customResult = result.presentationResults.find(r => r.suite === 'custom');
-      expect(customResult).to.exist;
+      const customResult = result.presentationResults.find(
+        r => r.suite === 'custom'
+      );
+      expect(customResult).toBeDefined();
     });
   });
 
   describe('result structure', () => {
     it('has correct top-level structure', async () => {
       const presentation = PresentationFactory();
-      const result = await verifyPresentation({ presentation, ...fakeVerified });
+      const result = await verifyPresentation({
+        presentation,
+        ...fakeVerified
+      });
 
-      expect(result).to.have.property('verified');
-      expect(result).to.have.property('verifiablePresentation');
-      expect(result).to.have.property('presentationResults');
-      expect(result).to.have.property('credentialResults');
+      expect(result).toHaveProperty('verified');
+      expect(result).toHaveProperty('verifiablePresentation');
+      expect(result).toHaveProperty('presentationResults');
+      expect(result).toHaveProperty('credentialResults');
 
-      expect(typeof result.verified).to.equal('boolean');
-      expect(Array.isArray(result.presentationResults)).to.be.true;
-      expect(Array.isArray(result.credentialResults)).to.be.true;
-      expect(flattenPresentationResults(result)).to.be.an('array');
+      expect(typeof result.verified).toBe('boolean');
+      expect(Array.isArray(result.presentationResults)).toBe(true);
+      expect(Array.isArray(result.credentialResults)).toBe(true);
+      expect(flattenPresentationResults(result)).toBeInstanceOf(Array);
     });
 
     it('each credential result has correct structure', async () => {
       const presentation = PresentationFactory();
-      const result = await verifyPresentation({ presentation, ...fakeVerified });
+      const result = await verifyPresentation({
+        presentation,
+        ...fakeVerified
+      });
 
       for (const credResult of result.credentialResults) {
-        expect(credResult).to.have.property('verified');
-        expect(credResult).to.have.property('verifiableCredential');
-        expect(credResult).to.have.property('results');
+        expect(credResult).toHaveProperty('verified');
+        expect(credResult).toHaveProperty('verifiableCredential');
+        expect(credResult).toHaveProperty('results');
 
-        expect(typeof credResult.verified).to.equal('boolean');
-        expect(credResult.verifiableCredential).to.be.an('object');
-        expect(Array.isArray(credResult.results)).to.be.true;
+        expect(typeof credResult.verified).toBe('boolean');
+        expect(credResult.verifiableCredential).toBeTypeOf('object');
+        expect(Array.isArray(credResult.results)).toBe(true);
       }
     });
   });
 
   describe('folded vs verbose shape', () => {
     const cryptoOnly = {
-      cryptoServices: [FakeCryptoService({ verified: true })],
+      cryptoServices: [FakeCryptoService({ verified: true })]
     };
 
     it('default folded happy path: every credential summary green; results[] empty', async () => {
       const presentation = PresentationFactory();
       const result = await verifyPresentation({ presentation, ...cryptoOnly });
 
-      expect(result.verified).to.be.true;
-      expect(result.presentationResults).to.deep.equal([]);
-      expect(result.summary.length).to.be.greaterThan(0);
-      expect(result.summary.every(s => s.verified)).to.be.true;
+      expect(result.verified).toBe(true);
+      expect(result.presentationResults).toEqual([]);
+      expect(result.summary.length).toBeGreaterThan(0);
+      expect(result.summary.every(s => s.verified)).toBe(true);
 
-      expect(result.credentialResults).to.have.lengthOf(1);
+      expect(result.credentialResults).toHaveLength(1);
       const cred = result.credentialResults[0];
-      expect(cred.results).to.deep.equal([]);
-      expect(cred.summary.length).to.be.greaterThan(0);
-      expect(cred.summary.every(s => s.verified)).to.be.true;
+      expect(cred.results).toEqual([]);
+      expect(cred.summary.length).toBeGreaterThan(0);
+      expect(cred.summary.every(s => s.verified)).toBe(true);
     });
 
     it('verbose: presentation propagates verbose to embedded credentials', async () => {
@@ -369,19 +423,19 @@ describe('verifyPresentation', () => {
       const result = await verifyPresentation({
         presentation,
         ...cryptoOnly,
-        verbose: true,
+        verbose: true
       });
 
-      expect(result.presentationResults.length).to.be.greaterThan(0);
+      expect(result.presentationResults.length).toBeGreaterThan(0);
       const cred = result.credentialResults[0];
-      expect(cred.results.length).to.be.greaterThan(0);
-      expect(cred.results.every(r => r.id !== undefined)).to.be.true;
+      expect(cred.results.length).toBeGreaterThan(0);
+      expect(cred.results.every(r => r.id !== undefined)).toBe(true);
     });
   });
 
   describe('mixed-result fixture (UI use case)', () => {
     const cryptoOnly = {
-      cryptoServices: [FakeCryptoService({ verified: true })],
+      cryptoServices: [FakeCryptoService({ verified: true })]
     };
 
     function buildMixedResultPresentation(): Record<string, unknown> {
@@ -397,17 +451,17 @@ describe('verifyPresentation', () => {
       const presentation = buildMixedResultPresentation();
       const result = await verifyPresentation({ presentation, ...cryptoOnly });
 
-      expect(result.verified).to.be.false;
-      expect(result.credentialResults).to.have.lengthOf(2);
-      expect(result.credentialResults.filter(c => c.verified)).to.have.lengthOf(1);
+      expect(result.verified).toBe(false);
+      expect(result.credentialResults).toHaveLength(2);
+      expect(result.credentialResults.filter(c => c.verified)).toHaveLength(1);
     });
 
     it('VP-level summary entries are all green when the VP envelope is fine', async () => {
       const presentation = buildMixedResultPresentation();
       const result = await verifyPresentation({ presentation, ...cryptoOnly });
 
-      expect(result.summary.length).to.be.greaterThan(0);
-      expect(result.summary.every(s => s.verified)).to.be.true;
+      expect(result.summary.length).toBeGreaterThan(0);
+      expect(result.summary.every(s => s.verified)).toBe(true);
     });
 
     it('passing credential summary is all green; failing credential surfaces a failure entry', async () => {
@@ -416,18 +470,18 @@ describe('verifyPresentation', () => {
 
       const passing = result.credentialResults.find(c => c.verified);
       const failing = result.credentialResults.find(c => !c.verified);
-      expect(passing).to.exist;
-      expect(failing).to.exist;
+      expect(passing).toBeDefined();
+      expect(failing).toBeDefined();
 
-      expect(passing!.summary.every(s => s.verified)).to.be.true;
-      expect(passing!.results).to.deep.equal([]);
+      expect(passing!.summary.every(s => s.verified)).toBe(true);
+      expect(passing!.results).toEqual([]);
 
       const failureSummaries = failing!.summary.filter(s => !s.verified);
-      expect(failureSummaries.length).to.be.greaterThan(0);
-      expect(failing!.results.length).to.be.greaterThan(0);
-      expect(
-        failing!.results.every(r => r.outcome.status === 'failure'),
-      ).to.be.true;
+      expect(failureSummaries.length).toBeGreaterThan(0);
+      expect(failing!.results.length).toBeGreaterThan(0);
+      expect(failing!.results.every(r => r.outcome.status === 'failure')).toBe(
+        true
+      );
     });
 
     it('failure detail rows can be located by id prefix from a failing summary entry', async () => {
@@ -437,10 +491,10 @@ describe('verifyPresentation', () => {
       const failing = result.credentialResults.find(c => !c.verified)!;
       const failingSummary = failing.summary.find(s => !s.verified)!;
       const detail = failing.results.filter(r =>
-        r.id?.startsWith(failingSummary.id + '.'),
+        r.id?.startsWith(failingSummary.id + '.')
       );
-      expect(detail.length).to.be.greaterThan(0);
-      expect(detail.every(r => r.outcome.status === 'failure')).to.be.true;
+      expect(detail.length).toBeGreaterThan(0);
+      expect(detail.every(r => r.outcome.status === 'failure')).toBe(true);
     });
 
     it('verbose mode preserves all checks; summary[] identical to folded mode', async () => {
@@ -449,25 +503,25 @@ describe('verifyPresentation', () => {
       const verbose = await verifyPresentation({
         presentation,
         ...cryptoOnly,
-        verbose: true,
+        verbose: true
       });
 
-      expect(verbose.verified).to.equal(folded.verified);
-      expect(verbose.summary.map(s => s.id)).to.deep.equal(
-        folded.summary.map(s => s.id),
+      expect(verbose.verified).toBe(folded.verified);
+      expect(verbose.summary.map(s => s.id)).toEqual(
+        folded.summary.map(s => s.id)
       );
-      expect(verbose.summary.map(s => s.status)).to.deep.equal(
-        folded.summary.map(s => s.status),
+      expect(verbose.summary.map(s => s.status)).toEqual(
+        folded.summary.map(s => s.status)
       );
 
       for (let i = 0; i < verbose.credentialResults.length; i++) {
         const v = verbose.credentialResults[i];
         const f = folded.credentialResults[i];
-        expect(v.summary.map(s => s.id)).to.deep.equal(f.summary.map(s => s.id));
-        expect(v.summary.map(s => s.status)).to.deep.equal(
-          f.summary.map(s => s.status),
+        expect(v.summary.map(s => s.id)).toEqual(f.summary.map(s => s.id));
+        expect(v.summary.map(s => s.status)).toEqual(
+          f.summary.map(s => s.status)
         );
-        expect(v.results.length).to.be.greaterThanOrEqual(f.results.length);
+        expect(v.results.length).toBeGreaterThanOrEqual(f.results.length);
       }
     });
   });
@@ -480,7 +534,7 @@ describe('verifyPresentation', () => {
     const statusListE5Fixture = {
       '@context': [
         'https://www.w3.org/ns/credentials/v2',
-        'https://w3id.org/security/suites/ed25519-2020/v1',
+        'https://w3id.org/security/suites/ed25519-2020/v1'
       ],
       id: 'https://testing.dcconsortium.org/status/e5WK8CbZ1GjycuPombrj',
       type: ['VerifiableCredential', 'BitstringStatusListCredential'],
@@ -489,7 +543,7 @@ describe('verifyPresentation', () => {
         type: 'BitstringStatusList',
         encodedList:
           'uH4sIAAAAAAAAA-3BMQEAAAwCoGUx6aLbwgvIHwAAAAAAAAAAAAAAwFwBZnztF9QwAAA',
-        statusPurpose: 'revocation',
+        statusPurpose: 'revocation'
       },
       issuer: 'did:key:z6MknNQD1WHLGGraFi6zcbGevuAgkVfdyCdtZnQTGWVVvR5Q',
       validFrom: '2025-01-09T15:20:02.183Z',
@@ -500,57 +554,60 @@ describe('verifyPresentation', () => {
           'did:key:z6MknNQD1WHLGGraFi6zcbGevuAgkVfdyCdtZnQTGWVVvR5Q#z6MknNQD1WHLGGraFi6zcbGevuAgkVfdyCdtZnQTGWVVvR5Q',
         proofPurpose: 'assertionMethod',
         proofValue:
-          'z4WFodWdHXGieqNtWYK2448A7qZdhMkxyqjVuMqifdanFYXXAqPT8xatjncxjDsXT6fskz8pC8TLBmEhnd7BC7Tqb',
-      },
+          'z4WFodWdHXGieqNtWYK2448A7qZdhMkxyqjVuMqifdanFYXXAqPT8xatjncxjDsXT6fskz8pC8TLBmEhnd7BC7Tqb'
+      }
     };
 
-    it('VP proof rollup succeeds; embedded VC proof + status succeed; no checkStatus TypeError in tree', async function () {
-      this.timeout(90000);
+    it('VP proof rollup succeeds; embedded VC proof + status succeed; no checkStatus TypeError in tree', async () => {
       const presentation = PresentationFactory({
-        verifiableCredential: [v2WithValidStatus],
+        verifiableCredential: [v2WithValidStatus]
       });
       const documentLoader = FakeDocumentLoader(
         { [STATUS_LIST_URL]: statusListE5Fixture },
-        { fallback: defaultDocumentLoaderFor(defaultHttpGetService()) },
+        { fallback: defaultDocumentLoaderFor(defaultHttpGetService()) }
       );
       const verifier = createVerifier({
         verbose: true,
         documentLoader,
         cryptoServices: [
           FakeCryptoService({
-            canVerify: subject => subject.verifiablePresentation != null,
+            canVerify: subject => subject.verifiablePresentation != null
           }),
-          ...defaultCryptoServices(),
-        ],
+          ...defaultCryptoServices()
+        ]
       });
 
       const result = await verifier.verifyPresentation({
         presentation,
-        challenge: 'factory-challenge',
+        challenge: 'factory-challenge'
       });
 
-      expect(result.verified).to.be.true;
-      expect(JSON.stringify(result)).to.not.include('checkStatus');
+      expect(result.verified).toBe(true);
+      expect(JSON.stringify(result)).not.toContain('checkStatus');
 
-      const presProofSummary = result.summary.find(s => s.id === 'cryptographic.proof');
-      expect(presProofSummary?.status).to.equal('success');
+      const presProofSummary = result.summary.find(
+        s => s.id === 'cryptographic.proof'
+      );
+      expect(presProofSummary?.status).toBe('success');
 
-      const presSig = result.presentationResults.find(r => r.check === 'proof.signature');
-      expect(presSig?.outcome.status).to.equal('success');
+      const presSig = result.presentationResults.find(
+        r => r.check === 'proof.signature'
+      );
+      expect(presSig?.outcome.status).toBe('success');
 
-      expect(result.credentialResults).to.have.lengthOf(1);
-      expect(result.credentialResults[0].verified).to.be.true;
+      expect(result.credentialResults).toHaveLength(1);
+      expect(result.credentialResults[0].verified).toBe(true);
 
       const credSummary = result.credentialResults[0].summary;
       const credProof = credSummary.find(s => s.id === 'cryptographic.proof');
       const credStatus = credSummary.find(s => s.id === 'cryptographic.status');
-      expect(credProof?.status).to.equal('success');
-      expect(credStatus?.status).to.equal('success');
+      expect(credProof?.status).toBe('success');
+      expect(credStatus?.status).toBe('success');
 
       const credSig = result.credentialResults[0].results.find(
-        r => r.check === 'proof.signature',
+        r => r.check === 'proof.signature'
       );
-      expect(credSig?.outcome.status).to.equal('success');
+      expect(credSig?.outcome.status).toBe('success');
     });
   });
 });

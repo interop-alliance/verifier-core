@@ -21,9 +21,9 @@ function defaultCredentialSubject(): Record<string, unknown> {
       name: 'Sample Achievement',
       description: 'Issued by credential factory.',
       criteria: {
-        narrative: 'Met all requirements.',
-      },
-    },
+        narrative: 'Met all requirements.'
+      }
+    }
   };
 }
 
@@ -31,7 +31,7 @@ function defaultCredentialSubject(): Record<string, unknown> {
  * Structurally valid proof for tests (not a real signature).
  */
 export function PlaceholderProof(
-  overrides: Record<string, unknown> = {},
+  overrides: Record<string, unknown> = {}
 ): Record<string, unknown> {
   return {
     type: 'Ed25519Signature2020',
@@ -40,7 +40,7 @@ export function PlaceholderProof(
     proofPurpose: 'assertionMethod',
     proofValue:
       'z0000000000000000000000000000000000000000000000000000000000000000',
-    ...overrides,
+    ...overrides
   };
 }
 
@@ -55,7 +55,7 @@ export type CredentialFactoryOptions = {
  * Minimal Open Badge / VC credential with OBv3 contexts and placeholder proof.
  */
 export function CredentialFactory(
-  options: CredentialFactoryOptions = {},
+  options: CredentialFactoryOptions = {}
 ): Record<string, unknown> {
   const version = options.version ?? 'v2';
   const credentialPatch = options.credential ?? {};
@@ -71,7 +71,7 @@ export function CredentialFactory(
           '@context': [
             'https://www.w3.org/2018/credentials/v1',
             'https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json',
-            'https://w3id.org/security/suites/ed25519-2020/v1',
+            'https://w3id.org/security/suites/ed25519-2020/v1'
           ],
           id,
           type: ['VerifiableCredential', 'OpenBadgeCredential'],
@@ -79,17 +79,17 @@ export function CredentialFactory(
           issuer: {
             type: ['Profile'],
             id: DEFAULT_TEST_ISSUER_DID,
-            name: 'Factory Issuer',
+            name: 'Factory Issuer'
           },
           issuanceDate: isoTimestampZ(),
           credentialSubject: defaultCredentialSubject(),
-          proof: PlaceholderProof(),
+          proof: PlaceholderProof()
         }
       : {
           '@context': [
             'https://www.w3.org/ns/credentials/v2',
             'https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json',
-            'https://w3id.org/security/suites/ed25519-2020/v1',
+            'https://w3id.org/security/suites/ed25519-2020/v1'
           ],
           id,
           type: ['VerifiableCredential', 'OpenBadgeCredential'],
@@ -97,11 +97,11 @@ export function CredentialFactory(
           issuer: {
             id: DEFAULT_TEST_ISSUER_DID,
             type: ['Profile'],
-            name: 'Factory Issuer',
+            name: 'Factory Issuer'
           },
           validFrom: isoTimestampZ(),
           credentialSubject: defaultCredentialSubject(),
-          proof: PlaceholderProof(),
+          proof: PlaceholderProof()
         };
 
   return deepMerge(base, credentialPatch);

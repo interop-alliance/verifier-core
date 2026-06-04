@@ -25,12 +25,13 @@ import { formatJsonPointer } from '../util/json-pointer.js';
 export const obv3ResultRefCheck: VerificationCheck = {
   id: 'schema.obv3.result-ref',
   name: 'OBv3 Result Reference Check',
-  description: 'Validates that result entries reference valid ResultDescription IDs.',
+  description:
+    'Validates that result entries reference valid ResultDescription IDs.',
   fatal: false,
   appliesTo: ['verifiableCredential'],
   execute: async (
     subject: VerificationSubject,
-    _context: VerificationContext,
+    _context: VerificationContext
   ): Promise<CheckOutcome> => {
     const credential = subject.verifiableCredential as
       | { credentialSubject?: unknown }
@@ -39,38 +40,38 @@ export const obv3ResultRefCheck: VerificationCheck = {
     if (!credential) {
       return {
         status: 'skipped',
-        reason: 'No verifiable credential found in subject.',
+        reason: 'No verifiable credential found in subject.'
       };
     }
 
     const subjectParse = Obv3CredentialSubjectShape.safeParse(
-      credential.credentialSubject,
+      credential.credentialSubject
     );
 
     if (!subjectParse.success || !subjectParse.data.result?.length) {
       return {
         status: 'skipped',
-        reason: 'Credential has no credentialSubject.result field.',
+        reason: 'Credential has no credentialSubject.result field.'
       };
     }
 
     const knownIds = new Set(
       subjectParse.data.achievement?.resultDescription
         ?.map(rd => rd.id)
-        .filter((id): id is string => typeof id === 'string') ?? [],
+        .filter((id): id is string => typeof id === 'string') ?? []
     );
 
     const invalid = subjectParse.data.result
       .map((entry, index) => ({ index, ref: entry.resultDescription }))
       .filter(
         (entry): entry is { index: number; ref: string } =>
-          typeof entry.ref === 'string' && !knownIds.has(entry.ref),
+          typeof entry.ref === 'string' && !knownIds.has(entry.ref)
       );
 
     if (invalid.length === 0) {
       return {
         status: 'success',
-        message: `All ${subjectParse.data.result.length} result entries reference valid ResultDescription IDs.`,
+        message: `All ${subjectParse.data.result.length} result entries reference valid ResultDescription IDs.`
       };
     }
 
@@ -82,13 +83,13 @@ export const obv3ResultRefCheck: VerificationCheck = {
         'credentialSubject',
         'result',
         index,
-        'resultDescription',
-      ]),
+        'resultDescription'
+      ])
     }));
 
     return {
       status: 'failure',
-      problems,
+      problems
     };
-  },
+  }
 };

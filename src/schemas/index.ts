@@ -5,7 +5,12 @@
  * and Verifiable Presentations.
  */
 
-export { parseCredential, CredentialSchema, CredentialV1Schema, CredentialV2Schema } from './credential.js';
+export {
+  parseCredential,
+  CredentialSchema,
+  CredentialV1Schema,
+  CredentialV2Schema
+} from './credential.js';
 export type { VerifiableCredential } from './credential.js';
 
 export { parsePresentation, PresentationSchema } from './presentation.js';

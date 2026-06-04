@@ -1,10 +1,10 @@
 import {
   createCredential,
-  createList,
+  createList
 } from '@digitalcredentials/vc-bitstring-status-list';
 import {
   DEFAULT_TEST_ISSUER_DID,
-  PlaceholderProof,
+  PlaceholderProof
 } from './credential-factory.js';
 import { deepMerge } from './merge-deep.js';
 
@@ -26,7 +26,7 @@ export type StatusListCredentialFactoryOptions = {
  * Bitstring status list credential; uses library encoding for revoked bits.
  */
 export async function StatusListCredentialFactory(
-  options: StatusListCredentialFactoryOptions = {},
+  options: StatusListCredentialFactoryOptions = {}
 ): Promise<Record<string, unknown>> {
   const {
     id = 'https://example.test/status/list1',
@@ -47,16 +47,16 @@ export async function StatusListCredentialFactory(
   const cred = (await createCredential({
     id,
     list,
-    statusPurpose,
+    statusPurpose
   })) as Record<string, unknown>;
 
   return deepMerge(
     deepMerge(cred, {
       issuer,
       validFrom,
-      proof,
+      proof
     }),
-    rest,
+    rest
   );
 }
 
@@ -71,7 +71,7 @@ export type BitstringStatusEntryOptions = {
  * `credentialStatus` entry pointing at a status list credential URL.
  */
 export function BitstringStatusEntry(
-  options: BitstringStatusEntryOptions = {},
+  options: BitstringStatusEntryOptions = {}
 ): Record<string, unknown> {
   const {
     statusListCredential = 'https://example.test/status/list1',
@@ -87,6 +87,6 @@ export function BitstringStatusEntry(
     statusPurpose,
     statusListCredential,
     statusListIndex,
-    ...rest,
+    ...rest
   };
 }

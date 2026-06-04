@@ -31,17 +31,19 @@ export const recognitionProfileCheck: VerificationCheck = {
     const recognizers = context.recognizers ?? [];
     const credential = subject.verifiableCredential;
     for (const recognizer of recognizers) {
-      if (!recognizer.applies(credential, context)) continue;
+      if (!recognizer.applies(credential, context)) {
+        continue;
+      }
       const result = recognizer.parse(credential);
       if (result.status === 'recognized') {
         return {
           status: 'success',
           message: `recognized as ${result.profile}`,
-          payload: result,
+          payload: result
         };
       }
       return { status: 'failure', problems: result.problems };
     }
     return { status: 'skipped', reason: 'no recognizer matched' };
-  },
+  }
 };

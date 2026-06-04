@@ -30,12 +30,12 @@ export const obv3p0Recognizer: RecognizerSpec = {
   id: 'obv3p0.openbadge',
   name: 'Open Badges 3.0',
   applies: subject => isOpenBadgeCredential(subject),
-  parse: parseObv3p0OpenBadgeCredential,
+  parse: parseObv3p0OpenBadgeCredential
 };
 
 export const obv3p0EndorsementRecognizer: RecognizerSpec = {
   id: 'obv3p0.endorsement',
   name: 'Open Badges 3.0 Endorsement',
   applies: subject => isEndorsementCredential(subject),
-  parse: parseObv3p0EndorsementCredential,
+  parse: parseObv3p0EndorsementCredential
 };

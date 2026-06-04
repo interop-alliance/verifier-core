@@ -2,21 +2,21 @@ export { compose } from './compose.js';
 export {
   CredentialFactory,
   DEFAULT_TEST_ISSUER_DID,
-  PlaceholderProof,
+  PlaceholderProof
 } from './credential-factory.js';
 export type {
   CredentialFactoryOptions,
-  CredentialVersion,
+  CredentialVersion
 } from './credential-factory.js';
 export { PresentationFactory } from './presentation-factory.js';
 export { DidDocumentFactory } from './did-document-factory.js';
 export {
   BitstringStatusEntry,
-  StatusListCredentialFactory,
+  StatusListCredentialFactory
 } from './status-list-factory.js';
 export type {
   BitstringStatusEntryOptions,
-  StatusListCredentialFactoryOptions,
+  StatusListCredentialFactoryOptions
 } from './status-list-factory.js';
 export { addResults, addStatus } from './transforms.js';
 export type { AddResultsOptions } from './transforms.js';

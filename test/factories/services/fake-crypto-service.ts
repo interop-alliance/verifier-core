@@ -1,4 +1,8 @@
-import type { CryptoResult, CryptoService, CryptoVerifyOptions } from '../../../src/types/crypto-service.js';
+import type {
+  CryptoResult,
+  CryptoService,
+  CryptoVerifyOptions
+} from '../../../src/types/crypto-service.js';
 import type { ProblemDetail } from '../../../src/types/problem-detail.js';
 import type { VerificationSubject } from '../../../src/types/subject.js';
 
@@ -6,8 +10,8 @@ const DEFAULT_FAIL_PROBLEMS: ProblemDetail[] = [
   {
     type: 'https://www.w3.org/TR/vc-data-model#PROOF_VERIFICATION_ERROR',
     title: 'Fake Verification Failed',
-    detail: 'FakeCryptoService was configured with verified: false.',
-  },
+    detail: 'FakeCryptoService was configured with verified: false.'
+  }
 ];
 
 function proofIsDataIntegrity(proof: unknown): boolean {
@@ -49,13 +53,15 @@ export type FakeCryptoServiceOptions = {
 /**
  * {@link CryptoService} stub for tests — no real cryptography.
  */
-export function FakeCryptoService(options: FakeCryptoServiceOptions = {}): CryptoService {
+export function FakeCryptoService(
+  options: FakeCryptoServiceOptions = {}
+): CryptoService {
   const {
     canVerify = () => true,
     verified = true,
     message = 'Fake verification passed.',
     problems = DEFAULT_FAIL_PROBLEMS,
-    throwInVerify,
+    throwInVerify
   } = options;
 
   const resolve = async (): Promise<CryptoResult> => {
@@ -70,7 +76,13 @@ export function FakeCryptoService(options: FakeCryptoServiceOptions = {}): Crypt
 
   return {
     canVerify,
-    verifyCredential: async (_credential: unknown, _opts: CryptoVerifyOptions) => resolve(),
-    verifyPresentation: async (_presentation: unknown, _opts: CryptoVerifyOptions) => resolve(),
+    verifyCredential: async (
+      _credential: unknown,
+      _opts: CryptoVerifyOptions
+    ) => resolve(),
+    verifyPresentation: async (
+      _presentation: unknown,
+      _opts: CryptoVerifyOptions
+    ) => resolve()
   };
 }

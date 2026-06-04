@@ -13,7 +13,9 @@ import { didWebDriverWithHttpGet } from './did-web-driver-with-http-get.js';
  * did:web resolution also uses `httpGetService` (stock `securityLoader` wires
  * `DidWebDriver` to `http-client`, which bypasses caller caching).
  */
-export function documentLoaderFromHttpGet(httpGetService: HttpGetService): DocumentLoader {
+export function documentLoaderFromHttpGet(
+  httpGetService: HttpGetService
+): DocumentLoader {
   const loader = securityLoader({ fetchRemoteContexts: true });
 
   const resolver = new CachedResolver();
@@ -23,11 +25,11 @@ export function documentLoaderFromHttpGet(httpGetService: HttpGetService): Docum
   resolver.use(didWebDriver);
   didWebDriver.use({
     multibaseMultikeyHeader: 'z6Mk',
-    fromMultibase: Ed25519Multikey.from,
+    fromMultibase: Ed25519Multikey.from
   });
   didKeyDriver.use({
     multibaseMultikeyHeader: 'z6Mk',
-    fromMultibase: Ed25519Multikey.from,
+    fromMultibase: Ed25519Multikey.from
   });
   loader.setDidResolver(resolver);
 
@@ -45,13 +47,13 @@ export function documentLoaderFromHttpGet(httpGetService: HttpGetService): Docum
         return {
           contextUrl: null,
           document: body,
-          documentUrl: url,
+          documentUrl: url
         };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        throw new Error(`NotFoundError loading "${url}": ${msg}`);
+        throw new Error(`NotFoundError loading "${url}": ${msg}`, { cause: e });
       }
-    },
+    }
   };
   loader.setProtocolHandler({ protocol: 'http', handler });
   loader.setProtocolHandler({ protocol: 'https', handler });

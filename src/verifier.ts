@@ -32,22 +32,25 @@ import type {
   Verifier,
   VerifierConfig,
   VerifyCredentialCall,
-  VerifyPresentationCall,
+  VerifyPresentationCall
 } from './types/verifier.js';
 import type { VerificationContext } from './types/context.js';
 import type {
   VerificationSuite,
   CheckResult,
-  SuitePhase,
+  SuitePhase
 } from './types/check.js';
 import type { RecognitionResult, RecognizerSpec } from './types/recognition.js';
 import type {
   CredentialVerificationResult,
-  PresentationVerificationResult,
+  PresentationVerificationResult
 } from './types/result.js';
 import type { SuiteSummary } from './types/suite-summary.js';
 import { parseCredential, VerifiableCredential } from './schemas/credential.js';
-import { parsePresentation, type VerifiablePresentation } from './schemas/presentation.js';
+import {
+  parsePresentation,
+  type VerifiablePresentation
+} from './schemas/presentation.js';
 import { runSuites } from './run-suites.js';
 import { extractCredentialsFrom } from './extract-credentials-from.js';
 import { defaultSuites } from './default-suites.js';
@@ -58,7 +61,7 @@ import {
   createDefaultCacheService,
   defaultCryptoServices,
   defaultCryptoSuites,
-  defaultDocumentLoaderFor,
+  defaultDocumentLoaderFor
 } from './default-services.js';
 import { createRegistryLookup } from './services/registry-lookup.js';
 import { RealTimeService } from './services/time-service/real-time-service.js';
@@ -73,7 +76,8 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
   const httpGetService = config.httpGetService ?? defaultHttpGetService();
   const cacheService = config.cacheService ?? createDefaultCacheService();
   const cryptoServices = config.cryptoServices ?? defaultCryptoServices();
-  const documentLoader = config.documentLoader ?? defaultDocumentLoaderFor(httpGetService);
+  const documentLoader =
+    config.documentLoader ?? defaultDocumentLoaderFor(httpGetService);
   const fetchJson = fetchJsonFromHttpGet(httpGetService);
   const constructorRegistries = config.registries;
   const recognizers = config.recognizers ?? [];
@@ -96,22 +100,20 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
         throw new Error('verifierRef accessed before createVerifier returned');
       }
       return verifierRef.current;
-    },
+    }
   );
 
   const verifier: Verifier = {
     verifyCredential: async (call: VerifyCredentialCall) => {
       const timing = call.timing ?? constructorTiming ?? false;
-      const topLevel = timing
-        ? startTopLevelTiming(timeService)
-        : undefined;
+      const topLevel = timing ? startTopLevelTiming(timeService) : undefined;
 
       const parseResult = parseCredential(call.credential);
       if (!parseResult.success) {
         const result = parseFailureCredentialResult(
           call.credential,
           parseResult.error,
-          timing ? timeService : undefined,
+          timing ? timeService : undefined
         );
         return finalizeCredentialResult(result, topLevel, timeService);
       }
@@ -127,13 +129,13 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
         registries: call.registries ?? constructorRegistries,
         recognizers,
         timeService,
-        timing,
+        timing
       });
 
       const additionalSuites = call.additionalSuites ?? [];
       const suites: VerificationSuite[] = [
         ...defaultSuites,
-        ...additionalSuites,
+        ...additionalSuites
       ];
       const explicitSuiteIds = new Set(additionalSuites.map(s => s.id));
       const requestedPhases = call.phases ?? constructorPhases;
@@ -142,15 +144,14 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
         suites,
         { verifiableCredential: parsedCredential },
         ctx,
-        { explicitSuiteIds, phases: effectivePhases },
+        { explicitSuiteIds, phases: effectivePhases }
       );
 
       const recognized = extractRecognition(rawChecks);
 
       populateCheckIds(rawChecks, suites);
 
-      const verbose =
-        call.verbose ?? constructorVerbose ?? false;
+      const verbose = call.verbose ?? constructorVerbose ?? false;
       const folded = foldCheckResults(rawChecks, suites, { verbose });
 
       const result: CredentialVerificationResult = {
@@ -159,24 +160,24 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
         normalizedVerifiableCredential: recognized?.normalized,
         recognizedProfile: recognized?.profile,
         results: folded.results,
-        summary: folded.summaries,
+        summary: folded.summaries
       };
-      if (requestedPhases !== undefined) result.partial = true;
+      if (requestedPhases !== undefined) {
+        result.partial = true;
+      }
       return finalizeCredentialResult(result, topLevel, timeService);
     },
 
     verifyPresentation: async (call: VerifyPresentationCall) => {
       const timing = call.timing ?? constructorTiming ?? false;
-      const topLevel = timing
-        ? startTopLevelTiming(timeService)
-        : undefined;
+      const topLevel = timing ? startTopLevelTiming(timeService) : undefined;
 
       const parseResult = parsePresentation(call.presentation);
       if (!parseResult.success) {
         const result = parseFailurePresentationResult(
           call.presentation,
           parseResult.error,
-          timing ? timeService : undefined,
+          timing ? timeService : undefined
         );
         return finalizePresentationResult(result, topLevel, timeService);
       }
@@ -194,13 +195,13 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
         challenge: call.challenge ?? null,
         unsignedPresentation: call.unsignedPresentation ?? false,
         timeService,
-        timing,
+        timing
       });
 
       const additionalSuites = call.additionalSuites ?? [];
       const presentationSuites: VerificationSuite[] = [
         proofSuite,
-        ...additionalSuites,
+        ...additionalSuites
       ];
       const explicitSuiteIds = new Set(additionalSuites.map(s => s.id));
       const requestedPhases = call.phases ?? constructorPhases;
@@ -209,17 +210,16 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
         presentationSuites,
         { verifiablePresentation: parsedPresentation },
         ctx,
-        { explicitSuiteIds, phases: effectivePhases },
+        { explicitSuiteIds, phases: effectivePhases }
       );
 
       populateCheckIds(rawPresentationChecks, presentationSuites);
 
-      const verbose =
-        call.verbose ?? constructorVerbose ?? false;
+      const verbose = call.verbose ?? constructorVerbose ?? false;
       const foldedPresentation = foldCheckResults(
         rawPresentationChecks,
         presentationSuites,
-        { verbose },
+        { verbose }
       );
 
       const credentials = extractCredentialsFrom(parsedPresentation);
@@ -238,8 +238,8 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
               // recursive call would re-evaluate from
               // `constructorTiming` (usually matches, but diverges
               // when the per-call `timing` overrode it here).
-              timing,
-            }),
+              timing
+            })
           );
         }
       }
@@ -252,11 +252,13 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
         verifiablePresentation: parsedPresentation,
         presentationResults: foldedPresentation.results,
         credentialResults,
-        summary: foldedPresentation.summaries,
+        summary: foldedPresentation.summaries
       };
-      if (requestedPhases !== undefined) result.partial = true;
+      if (requestedPhases !== undefined) {
+        result.partial = true;
+      }
       return finalizePresentationResult(result, topLevel, timeService);
-    },
+    }
   };
 
   verifierRef.current = verifier;
@@ -299,7 +301,7 @@ function buildContext(input: BuildContextInput): VerificationContext {
     challenge: input.challenge ?? null,
     unsignedPresentation: input.unsignedPresentation ?? false,
     timeService: input.timeService,
-    timing: input.timing,
+    timing: input.timing
   };
 }
 
@@ -315,10 +317,12 @@ function hasFatalFailures(results: CheckResult[]): boolean {
  */
 function populateCheckIds(
   checks: CheckResult[],
-  suites: VerificationSuite[],
+  suites: VerificationSuite[]
 ): void {
   const phaseBySuiteId = new Map<string, SuitePhase | undefined>();
-  for (const s of suites) phaseBySuiteId.set(s.id, s.phase);
+  for (const s of suites) {
+    phaseBySuiteId.set(s.id, s.phase);
+  }
   for (const c of checks) {
     c.id = computeId(phaseBySuiteId.get(c.suite), c.suite, c.check);
   }
@@ -335,9 +339,11 @@ function populateCheckIds(
  * itself; consumers that pass duplicates get duplicates.
  */
 function expandPhases(
-  requested: SuitePhase[] | undefined,
+  requested: SuitePhase[] | undefined
 ): SuitePhase[] | undefined {
-  if (requested === undefined) return undefined;
+  if (requested === undefined) {
+    return undefined;
+  }
   if (requested.includes('semantic') && !requested.includes('recognition')) {
     return [...requested, 'recognition'];
   }
@@ -355,12 +361,16 @@ function expandPhases(
  * downstream check shape drift).
  */
 function extractRecognition(
-  results: CheckResult[],
+  results: CheckResult[]
 ): { profile: string; normalized: unknown } | undefined {
   const result = results.find(r => r.check === 'recognition.profile');
-  if (!result || result.outcome.status !== 'success') return undefined;
+  if (!result || result.outcome.status !== 'success') {
+    return undefined;
+  }
   const payload = result.outcome.payload as RecognitionResult | undefined;
-  if (!payload || payload.status !== 'recognized') return undefined;
+  if (!payload || payload.status !== 'recognized') {
+    return undefined;
+  }
   return { profile: payload.profile, normalized: payload.normalized };
 }
 
@@ -379,20 +389,20 @@ const PARSING_SUITE: VerificationSuite = {
       id: 'parsing.envelope',
       name: 'Parse credential / presentation envelope',
       fatal: true,
-      execute: async () => ({ status: 'failure', problems: [] }),
-    },
-  ],
+      execute: async () => ({ status: 'failure', problems: [] })
+    }
+  ]
 };
 
 function parseErrorResult(
   problem: ProblemDetail,
-  timeService: TimeService | undefined,
+  timeService: TimeService | undefined
 ): CheckResult {
   const result: CheckResult = {
     suite: 'parsing',
     check: 'parsing.envelope',
     outcome: { status: 'failure', problems: [problem] },
-    fatal: true,
+    fatal: true
   };
   result.id = computeId(PARSING_SUITE.phase, 'parsing', 'parsing.envelope');
   if (timeService !== undefined) {
@@ -409,7 +419,7 @@ function parseErrorResult(
     result.timing = {
       startedAt: new Date(startedDateMs).toISOString(),
       endedAt: new Date(endedDateMs).toISOString(),
-      durationMs: endedMonoMs - startedMonoMs,
+      durationMs: endedMonoMs - startedMonoMs
     };
   }
   return result;
@@ -435,31 +445,35 @@ function parseErrorSummary(check: CheckResult): SuiteSummary[] {
 function parseFailureCredentialResult(
   credential: unknown,
   error: { errors: Array<{ path: Array<string | number>; message: string }> },
-  timeService: TimeService | undefined,
+  timeService: TimeService | undefined
 ): CredentialVerificationResult {
   const problem: ProblemDetail = {
     type: ProblemTypes.PARSING_ERROR,
     title: 'Credential Parsing Failed',
-    detail: error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; '),
+    detail: error.errors
+      .map(e => `${e.path.join('.')}: ${e.message}`)
+      .join('; ')
   };
   const check = parseErrorResult(problem, timeService);
   return {
     verified: false,
     verifiableCredential: credential as VerifiableCredential,
     results: [check],
-    summary: parseErrorSummary(check),
+    summary: parseErrorSummary(check)
   };
 }
 
 function parseFailurePresentationResult(
   presentation: unknown,
   error: { errors: Array<{ path: Array<string | number>; message: string }> },
-  timeService: TimeService | undefined,
+  timeService: TimeService | undefined
 ): PresentationVerificationResult {
   const problem: ProblemDetail = {
     type: ProblemTypes.PARSING_ERROR,
     title: 'Presentation Parsing Failed',
-    detail: error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; '),
+    detail: error.errors
+      .map(e => `${e.path.join('.')}: ${e.message}`)
+      .join('; ')
   };
   const check = parseErrorResult(problem, timeService);
   return {
@@ -467,7 +481,7 @@ function parseFailurePresentationResult(
     verifiablePresentation: presentation as VerifiablePresentation,
     presentationResults: [check],
     credentialResults: [],
-    summary: parseErrorSummary(check),
+    summary: parseErrorSummary(check)
   };
 }
 
@@ -485,11 +499,11 @@ interface InProgressTopLevelTiming {
  * the presentation case).
  */
 function startTopLevelTiming(
-  timeService: TimeService,
+  timeService: TimeService
 ): InProgressTopLevelTiming {
   return {
     startedAt: new Date(timeService.dateNowMs()).toISOString(),
-    startedMonoMs: timeService.performanceNowMs(),
+    startedMonoMs: timeService.performanceNowMs()
   };
 }
 
@@ -501,19 +515,19 @@ function startTopLevelTiming(
  */
 function finishTopLevelTiming(
   started: InProgressTopLevelTiming,
-  timeService: TimeService,
+  timeService: TimeService
 ): TaskTiming {
   return {
     startedAt: started.startedAt,
     endedAt: new Date(timeService.dateNowMs()).toISOString(),
-    durationMs: timeService.performanceNowMs() - started.startedMonoMs,
+    durationMs: timeService.performanceNowMs() - started.startedMonoMs
   };
 }
 
 function finalizeCredentialResult(
   result: CredentialVerificationResult,
   topLevel: InProgressTopLevelTiming | undefined,
-  timeService: TimeService,
+  timeService: TimeService
 ): CredentialVerificationResult {
   if (topLevel !== undefined) {
     result.timing = finishTopLevelTiming(topLevel, timeService);
@@ -524,7 +538,7 @@ function finalizeCredentialResult(
 function finalizePresentationResult(
   result: PresentationVerificationResult,
   topLevel: InProgressTopLevelTiming | undefined,
-  timeService: TimeService,
+  timeService: TimeService
 ): PresentationVerificationResult {
   if (topLevel !== undefined) {
     result.timing = finishTopLevelTiming(topLevel, timeService);

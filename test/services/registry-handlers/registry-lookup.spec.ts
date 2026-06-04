@@ -1,18 +1,21 @@
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import type { EntityIdentityRegistry } from '../../../src/types/registry.js';
 import { createRegistryLookup } from '../../../src/services/registry-lookup.js';
 import type {
   RegistryHandler,
-  RegistryHandlerMap,
+  RegistryHandlerMap
 } from '../../../src/services/registry-handlers/types.js';
 import { FakeCacheService } from '../../factories/services/fake-cache-service.js';
-import { FakeHttpGetService, okJsonBody } from '../../factories/services/fake-http-get-service.js';
+import {
+  FakeHttpGetService,
+  okJsonBody
+} from '../../factories/services/fake-http-get-service.js';
 import { FakeVerifier } from '../../factories/services/fake-verifier.js';
 
 const dccRegistry: EntityIdentityRegistry = {
   name: 'Test Legacy',
   type: 'dcc-legacy',
-  url: 'https://example.com/registry.json',
+  url: 'https://example.com/registry.json'
 };
 
 describe('createRegistryLookup', () => {
@@ -20,47 +23,47 @@ describe('createRegistryLookup', () => {
     const handlers: RegistryHandlerMap = {
       'dcc-legacy': async (_did, registry) => ({
         status: 'found',
-        registryName: registry.name,
+        registryName: registry.name
       }),
       oidf: async () => ({ status: 'not-found' }),
-      'vc-recognition': async () => ({ status: 'not-found' }),
+      'vc-recognition': async () => ({ status: 'not-found' })
     };
     const lookup = createRegistryLookup(
       FakeHttpGetService({ 'https://x.test/': okJsonBody({}) }),
       FakeCacheService(),
-      handlers,
+      handlers
     );
     const result = await lookup('did:key:test', [dccRegistry]);
-    expect(result.found).to.equal(true);
-    expect(result.matchingRegistries).to.deep.equal(['Test Legacy']);
-    expect(result.uncheckedRegistries).to.deep.equal([]);
+    expect(result.found).toBe(true);
+    expect(result.matchingRegistries).toEqual(['Test Legacy']);
+    expect(result.uncheckedRegistries).toEqual([]);
   });
 
   it('collects unchecked registry names', async () => {
     const handlers: RegistryHandlerMap = {
       'dcc-legacy': async (_did, registry) => ({
         status: 'unchecked',
-        registryName: registry.name,
+        registryName: registry.name
       }),
       oidf: async () => ({ status: 'not-found' }),
-      'vc-recognition': async () => ({ status: 'not-found' }),
+      'vc-recognition': async () => ({ status: 'not-found' })
     };
     const lookup = createRegistryLookup(
       FakeHttpGetService({ 'https://x.test/': okJsonBody({}) }),
       FakeCacheService(),
-      handlers,
+      handlers
     );
     const result = await lookup('did:key:x', [dccRegistry]);
-    expect(result.found).to.equal(false);
-    expect(result.matchingRegistries).to.deep.equal([]);
-    expect(result.uncheckedRegistries).to.deep.equal(['Test Legacy']);
+    expect(result.found).toBe(false);
+    expect(result.matchingRegistries).toEqual([]);
+    expect(result.uncheckedRegistries).toEqual(['Test Legacy']);
   });
 
   it('iterates multiple registries with exhaustive mode', async () => {
     const second: EntityIdentityRegistry = {
       name: 'Other',
       type: 'dcc-legacy',
-      url: 'https://example.com/other.json',
+      url: 'https://example.com/other.json'
     };
     const handlers: RegistryHandlerMap = {
       'dcc-legacy': async (did, registry) =>
@@ -68,16 +71,18 @@ describe('createRegistryLookup', () => {
           ? { status: 'found', registryName: registry.name }
           : { status: 'not-found' },
       oidf: async () => ({ status: 'not-found' }),
-      'vc-recognition': async () => ({ status: 'not-found' }),
+      'vc-recognition': async () => ({ status: 'not-found' })
     };
     const lookup = createRegistryLookup(
       FakeHttpGetService({ 'https://x.test/': okJsonBody({}) }),
       FakeCacheService(),
-      handlers,
+      handlers
     );
-    const result = await lookup('did:key:a', [dccRegistry, second], { exhaustive: true });
-    expect(result.found).to.equal(true);
-    expect(result.matchingRegistries).to.deep.equal(['Test Legacy', 'Other']);
+    const result = await lookup('did:key:a', [dccRegistry, second], {
+      exhaustive: true
+    });
+    expect(result.found).toBe(true);
+    expect(result.matchingRegistries).toEqual(['Test Legacy', 'Other']);
   });
 
   describe('caching', () => {
@@ -89,22 +94,22 @@ describe('createRegistryLookup', () => {
           return { status: 'found', registryName: registry.name };
         },
         oidf: async () => ({ status: 'not-found' }),
-        'vc-recognition': async () => ({ status: 'not-found' }),
+        'vc-recognition': async () => ({ status: 'not-found' })
       };
       const cache = FakeCacheService();
       const lookup = createRegistryLookup(
         FakeHttpGetService({}),
         cache,
-        handlers,
+        handlers
       );
 
       // First lookup
       await lookup('did:key:test', [dccRegistry]);
-      expect(handlerCallCount).to.equal(1);
+      expect(handlerCallCount).toBe(1);
 
       // Second lookup should hit cache
       await lookup('did:key:test', [dccRegistry]);
-      expect(handlerCallCount).to.equal(1); // Not called again
+      expect(handlerCallCount).toBe(1); // Not called again
     });
 
     it('different DID triggers new lookup', async () => {
@@ -115,17 +120,17 @@ describe('createRegistryLookup', () => {
           return { status: 'found', registryName: registry.name };
         },
         oidf: async () => ({ status: 'not-found' }),
-        'vc-recognition': async () => ({ status: 'not-found' }),
+        'vc-recognition': async () => ({ status: 'not-found' })
       };
       const lookup = createRegistryLookup(
         FakeHttpGetService({}),
         FakeCacheService(),
-        handlers,
+        handlers
       );
 
       await lookup('did:key:first', [dccRegistry]);
       await lookup('did:key:second', [dccRegistry]);
-      expect(handlerCallCount).to.equal(2);
+      expect(handlerCallCount).toBe(2);
     });
 
     it('different registries trigger new lookup', async () => {
@@ -136,20 +141,26 @@ describe('createRegistryLookup', () => {
           return { status: 'found', registryName: registry.name };
         },
         oidf: async () => ({ status: 'not-found' }),
-        'vc-recognition': async () => ({ status: 'not-found' }),
+        'vc-recognition': async () => ({ status: 'not-found' })
       };
       const lookup = createRegistryLookup(
         FakeHttpGetService({}),
         FakeCacheService(),
-        handlers,
+        handlers
       );
 
-      const registry1: EntityIdentityRegistry = { ...dccRegistry, url: 'https://a.com' };
-      const registry2: EntityIdentityRegistry = { ...dccRegistry, url: 'https://b.com' };
+      const registry1: EntityIdentityRegistry = {
+        ...dccRegistry,
+        url: 'https://a.com'
+      };
+      const registry2: EntityIdentityRegistry = {
+        ...dccRegistry,
+        url: 'https://b.com'
+      };
 
       await lookup('did:key:same', [registry1]);
       await lookup('did:key:same', [registry2]);
-      expect(handlerCallCount).to.equal(2);
+      expect(handlerCallCount).toBe(2);
     });
 
     it('same registries in different order share cache key', async () => {
@@ -160,21 +171,29 @@ describe('createRegistryLookup', () => {
           return { status: 'found', registryName: registry.name };
         },
         oidf: async () => ({ status: 'not-found' }),
-        'vc-recognition': async () => ({ status: 'not-found' }),
+        'vc-recognition': async () => ({ status: 'not-found' })
       };
       const cache = FakeCacheService();
       const lookup = createRegistryLookup(
         FakeHttpGetService({}),
         cache,
-        handlers,
+        handlers
       );
 
-      const reg1: EntityIdentityRegistry = { ...dccRegistry, name: 'Reg1', url: 'https://a.com' };
-      const reg2: EntityIdentityRegistry = { ...dccRegistry, name: 'Reg2', url: 'https://b.com' };
+      const reg1: EntityIdentityRegistry = {
+        ...dccRegistry,
+        name: 'Reg1',
+        url: 'https://a.com'
+      };
+      const reg2: EntityIdentityRegistry = {
+        ...dccRegistry,
+        name: 'Reg2',
+        url: 'https://b.com'
+      };
 
       await lookup('did:key:same', [reg1, reg2]);
       await lookup('did:key:same', [reg2, reg1]); // Different order
-      expect(handlerCallCount).to.equal(1); // Cache hit
+      expect(handlerCallCount).toBe(1); // Cache hit
     });
   });
 
@@ -193,23 +212,28 @@ describe('createRegistryLookup', () => {
         'vc-recognition': async (_did, registry) => {
           handlerCallCount++;
           return { status: 'found', registryName: registry.name };
-        },
+        }
       };
 
       const registries: EntityIdentityRegistry[] = [
         { name: 'First', type: 'dcc-legacy', url: 'https://first.com' },
         { name: 'Second', type: 'oidf', trustAnchorEC: 'https://second.com' },
-        { name: 'Third', type: 'vc-recognition', url: 'https://third.com', acceptedIssuers: [] },
+        {
+          name: 'Third',
+          type: 'vc-recognition',
+          url: 'https://third.com',
+          acceptedIssuers: []
+        }
       ];
 
       const lookup = createRegistryLookup(
         FakeHttpGetService({}),
         FakeCacheService(),
-        handlers,
+        handlers
       );
 
       await lookup('did:key:test', registries);
-      expect(handlerCallCount).to.equal(1); // Only first called
+      expect(handlerCallCount).toBe(1); // Only first called
     });
 
     it('checks all registries when exhaustive: true', async () => {
@@ -226,24 +250,31 @@ describe('createRegistryLookup', () => {
         'vc-recognition': async (_did, registry) => {
           handlerCallCount++;
           return { status: 'found', registryName: registry.name };
-        },
+        }
       };
 
       const registries: EntityIdentityRegistry[] = [
         { name: 'First', type: 'dcc-legacy', url: 'https://first.com' },
         { name: 'Second', type: 'oidf', trustAnchorEC: 'https://second.com' },
-        { name: 'Third', type: 'vc-recognition', url: 'https://third.com', acceptedIssuers: [] },
+        {
+          name: 'Third',
+          type: 'vc-recognition',
+          url: 'https://third.com',
+          acceptedIssuers: []
+        }
       ];
 
       const lookup = createRegistryLookup(
         FakeHttpGetService({}),
         FakeCacheService(),
-        handlers,
+        handlers
       );
 
-      const result = await lookup('did:key:test', registries, { exhaustive: true });
-      expect(handlerCallCount).to.equal(3); // All called
-      expect(result.matchingRegistries).to.deep.equal(['First', 'Second', 'Third']);
+      const result = await lookup('did:key:test', registries, {
+        exhaustive: true
+      });
+      expect(handlerCallCount).toBe(3); // All called
+      expect(result.matchingRegistries).toEqual(['First', 'Second', 'Third']);
     });
   });
 
@@ -256,26 +287,26 @@ describe('createRegistryLookup', () => {
           return { status: 'found', registryName: registry.name };
         },
         oidf: async () => ({ status: 'not-found' }),
-        'vc-recognition': async () => ({ status: 'not-found' }),
+        'vc-recognition': async () => ({ status: 'not-found' })
       };
       const cache = FakeCacheService();
       const lookup = createRegistryLookup(
         FakeHttpGetService({}),
         cache,
-        handlers,
+        handlers
       );
 
       // First lookup (cache miss)
       await lookup('did:key:test', [dccRegistry]);
-      expect(handlerCallCount).to.equal(1);
+      expect(handlerCallCount).toBe(1);
 
       // Second lookup without fresh (cache hit)
       await lookup('did:key:test', [dccRegistry]);
-      expect(handlerCallCount).to.equal(1);
+      expect(handlerCallCount).toBe(1);
 
       // Third lookup with fresh (cache bypass)
       await lookup('did:key:test', [dccRegistry], { fresh: true });
-      expect(handlerCallCount).to.equal(2);
+      expect(handlerCallCount).toBe(2);
     });
 
     it('caches result after fresh lookup', async () => {
@@ -286,22 +317,22 @@ describe('createRegistryLookup', () => {
           return { status: 'found', registryName: registry.name };
         },
         oidf: async () => ({ status: 'not-found' }),
-        'vc-recognition': async () => ({ status: 'not-found' }),
+        'vc-recognition': async () => ({ status: 'not-found' })
       };
       const cache = FakeCacheService();
       const lookup = createRegistryLookup(
         FakeHttpGetService({}),
         cache,
-        handlers,
+        handlers
       );
 
       // Fresh lookup
       await lookup('did:key:test', [dccRegistry], { fresh: true });
-      expect(handlerCallCount).to.equal(1);
+      expect(handlerCallCount).toBe(1);
 
       // Non-fresh should use cached result
       await lookup('did:key:test', [dccRegistry]);
-      expect(handlerCallCount).to.equal(1);
+      expect(handlerCallCount).toBe(1);
     });
   });
 
@@ -316,16 +347,16 @@ describe('createRegistryLookup', () => {
       const handlers: RegistryHandlerMap = {
         'dcc-legacy': captureHandler,
         oidf: async () => ({ status: 'not-found' }),
-        'vc-recognition': async () => ({ status: 'not-found' }),
+        'vc-recognition': async () => ({ status: 'not-found' })
       };
       const lookup = createRegistryLookup(
         FakeHttpGetService({}),
         FakeCacheService(),
         handlers,
-        () => fakeVerifier,
+        () => fakeVerifier
       );
       await lookup('did:key:test', [dccRegistry]);
-      expect(receivedVerifier).to.equal(fakeVerifier);
+      expect(receivedVerifier).toBe(fakeVerifier);
     });
 
     it('lets dcc-legacy / oidf handlers run when no verifier is provided', async () => {
@@ -334,19 +365,19 @@ describe('createRegistryLookup', () => {
       const handlers: RegistryHandlerMap = {
         'dcc-legacy': async (_did, registry) => ({
           status: 'found',
-          registryName: registry.name,
+          registryName: registry.name
         }),
         oidf: async () => ({ status: 'not-found' }),
-        'vc-recognition': async () => ({ status: 'not-found' }),
+        'vc-recognition': async () => ({ status: 'not-found' })
       };
       const lookup = createRegistryLookup(
         FakeHttpGetService({}),
         FakeCacheService(),
-        handlers,
+        handlers
         // no verifier
       );
       const result = await lookup('did:key:test', [dccRegistry]);
-      expect(result.found).to.equal(true);
+      expect(result.found).toBe(true);
     });
 
     it('throws a clear error when a handler accesses ctx.verifier without one bound', async () => {
@@ -357,12 +388,12 @@ describe('createRegistryLookup', () => {
           return { status: 'not-found' };
         },
         oidf: async () => ({ status: 'not-found' }),
-        'vc-recognition': async () => ({ status: 'not-found' }),
+        'vc-recognition': async () => ({ status: 'not-found' })
       };
       const lookup = createRegistryLookup(
         FakeHttpGetService({}),
         FakeCacheService(),
-        handlers,
+        handlers
       );
       let caught: unknown;
       try {
@@ -370,8 +401,8 @@ describe('createRegistryLookup', () => {
       } catch (err) {
         caught = err;
       }
-      expect(caught).to.be.instanceOf(Error);
-      expect((caught as Error).message).to.match(/verifier/i);
+      expect(caught).toBeInstanceOf(Error);
+      expect((caught as Error).message).toMatch(/verifier/i);
     });
   });
 });

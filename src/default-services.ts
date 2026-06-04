@@ -38,7 +38,9 @@ import type { CacheService } from './services/cache-service/cache-service.js';
 
 /** Default {@link HttpGetService}. Memoized per process (stateless adapter). */
 export function defaultHttpGetService(): HttpGetService {
-  if (!cachedHttp) cachedHttp = BuiltinHttpGetService();
+  if (!cachedHttp) {
+    cachedHttp = BuiltinHttpGetService();
+  }
   return cachedHttp;
 }
 
@@ -66,7 +68,7 @@ export function defaultCryptoSuites(): CryptoSuite[] {
   if (!cachedCryptoSuites) {
     cachedCryptoSuites = [
       new Ed25519Signature2020(),
-      new DataIntegrityProof({ cryptosuite: eddsaRdfc2022CryptoSuite }),
+      new DataIntegrityProof({ cryptosuite: eddsaRdfc2022CryptoSuite })
     ];
   }
   return cachedCryptoSuites;
@@ -75,7 +77,9 @@ export function defaultCryptoSuites(): CryptoSuite[] {
 /** Default {@link CryptoService} stack — one Data Integrity adapter using {@link defaultCryptoSuites}. */
 export function defaultCryptoServices(): CryptoService[] {
   if (!cachedCryptoServices) {
-    cachedCryptoServices = [DataIntegrityCryptoService({ suites: defaultCryptoSuites() })];
+    cachedCryptoServices = [
+      DataIntegrityCryptoService({ suites: defaultCryptoSuites() })
+    ];
   }
   return cachedCryptoServices;
 }
@@ -96,9 +100,13 @@ export function defaultCryptoServices(): CryptoService[] {
  * loader for the default service via this map — no per-call
  * `CachedResolver` / did-driver re-allocation.
  */
-export function defaultDocumentLoaderFor(httpGetService: HttpGetService): DocumentLoader {
+export function defaultDocumentLoaderFor(
+  httpGetService: HttpGetService
+): DocumentLoader {
   const cached = documentLoaderByHttpGetService.get(httpGetService);
-  if (cached !== undefined) return cached;
+  if (cached !== undefined) {
+    return cached;
+  }
   const loader = documentLoaderFromHttpGet(httpGetService);
   documentLoaderByHttpGetService.set(httpGetService, loader);
   return loader;
@@ -107,4 +115,7 @@ export function defaultDocumentLoaderFor(httpGetService: HttpGetService): Docume
 let cachedHttp: HttpGetService | undefined;
 let cachedCryptoSuites: CryptoSuite[] | undefined;
 let cachedCryptoServices: CryptoService[] | undefined;
-const documentLoaderByHttpGetService = new WeakMap<HttpGetService, DocumentLoader>();
+const documentLoaderByHttpGetService = new WeakMap<
+  HttpGetService,
+  DocumentLoader
+>();

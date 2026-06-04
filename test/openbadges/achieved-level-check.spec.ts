@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { runSuites } from '../../src/run-suites.js';
 import { obv3AchievedLevelCheck } from '../../src/openbadges/achieved-level-check.js';
 import { VerificationSuite } from '../../src/types/check.js';
@@ -13,11 +13,11 @@ const achievedLevelSuite: VerificationSuite = {
   id: 'openbadges.achieved-level',
   name: 'OBv3 Achieved Level (test wrapper)',
   description: 'Test-only single-check suite around obv3AchievedLevelCheck.',
-  checks: [obv3AchievedLevelCheck],
+  checks: [obv3AchievedLevelCheck]
 };
 
 const createSubject = (credential: unknown): VerificationSubject => ({
-  verifiableCredential: credential,
+  verifiableCredential: credential
 });
 
 const RD_ID = 'https://example.test/result-descriptions/1';
@@ -31,11 +31,11 @@ describe('OBv3 achieved-level check', () => {
     const results = await runSuites(
       [achievedLevelSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const check = results.find(r => r.check === 'schema.obv3.achieved-level');
-    expect(check?.outcome.status).to.equal('skipped');
+    expect(check?.outcome.status).toBe('skipped');
   });
 
   it('skips when achievement has no resultDescription[]', async () => {
@@ -43,8 +43,8 @@ describe('OBv3 achieved-level check', () => {
       CredentialFactory({ version: 'v2', credential: {} }),
       addResults({
         results: [{ type: 'Result', value: 'Pass' }],
-        resultDescriptions: [],
-      }),
+        resultDescriptions: []
+      })
     );
 
     const cs = cred.credentialSubject as Record<string, unknown>;
@@ -54,43 +54,41 @@ describe('OBv3 achieved-level check', () => {
     const results = await runSuites(
       [achievedLevelSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const check = results.find(r => r.check === 'schema.obv3.achieved-level');
-    expect(check?.outcome.status).to.equal('skipped');
+    expect(check?.outcome.status).toBe('skipped');
   });
 
   it('succeeds when results exist but none declare achievedLevel', async () => {
     const cred = compose(
       CredentialFactory({ version: 'v2', credential: {} }),
       addResults({
-        results: [
-          { type: 'Result', resultDescription: RD_ID, value: 'Pass' },
-        ],
+        results: [{ type: 'Result', resultDescription: RD_ID, value: 'Pass' }],
         resultDescriptions: [
           {
             id: RD_ID,
             type: 'ResultDescription',
             name: 'Pass/Fail',
             rubricCriterionLevel: [
-              { id: LEVEL_PASS, type: 'RubricCriterionLevel', name: 'Pass' },
-            ],
-          },
-        ],
-      }),
+              { id: LEVEL_PASS, type: 'RubricCriterionLevel', name: 'Pass' }
+            ]
+          }
+        ]
+      })
     );
 
     const results = await runSuites(
       [achievedLevelSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const check = results.find(r => r.check === 'schema.obv3.achieved-level');
-    expect(check?.outcome.status).to.equal('success');
+    expect(check?.outcome.status).toBe('success');
     if (check?.outcome.status === 'success') {
-      expect(check.outcome.message).to.include('nothing to validate');
+      expect(check.outcome.message).toContain('nothing to validate');
     }
   });
 
@@ -102,8 +100,8 @@ describe('OBv3 achieved-level check', () => {
           {
             type: 'Result',
             resultDescription: RD_ID,
-            achievedLevel: LEVEL_PASS,
-          },
+            achievedLevel: LEVEL_PASS
+          }
         ],
         resultDescriptions: [
           {
@@ -112,23 +110,23 @@ describe('OBv3 achieved-level check', () => {
             name: 'Pass/Fail',
             rubricCriterionLevel: [
               { id: LEVEL_PASS, type: 'RubricCriterionLevel', name: 'Pass' },
-              { id: LEVEL_FAIL, type: 'RubricCriterionLevel', name: 'Fail' },
-            ],
-          },
-        ],
-      }),
+              { id: LEVEL_FAIL, type: 'RubricCriterionLevel', name: 'Fail' }
+            ]
+          }
+        ]
+      })
     );
 
     const results = await runSuites(
       [achievedLevelSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const check = results.find(r => r.check === 'schema.obv3.achieved-level');
-    expect(check?.outcome.status).to.equal('success');
+    expect(check?.outcome.status).toBe('success');
     if (check?.outcome.status === 'success') {
-      expect(check.outcome.message).to.include('1 achievedLevel');
+      expect(check.outcome.message).toContain('1 achievedLevel');
     }
   });
 
@@ -140,8 +138,8 @@ describe('OBv3 achieved-level check', () => {
           {
             type: 'Result',
             resultDescription: RD_ID,
-            achievedLevel: LEVEL_DISTINCTION,
-          },
+            achievedLevel: LEVEL_DISTINCTION
+          }
         ],
         resultDescriptions: [
           {
@@ -150,30 +148,30 @@ describe('OBv3 achieved-level check', () => {
             name: 'Pass/Fail',
             rubricCriterionLevel: [
               { id: LEVEL_PASS, type: 'RubricCriterionLevel', name: 'Pass' },
-              { id: LEVEL_FAIL, type: 'RubricCriterionLevel', name: 'Fail' },
-            ],
-          },
-        ],
-      }),
+              { id: LEVEL_FAIL, type: 'RubricCriterionLevel', name: 'Fail' }
+            ]
+          }
+        ]
+      })
     );
 
     const results = await runSuites(
       [achievedLevelSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const check = results.find(r => r.check === 'schema.obv3.achieved-level');
-    expect(check?.outcome.status).to.equal('failure');
+    expect(check?.outcome.status).toBe('failure');
     if (check?.outcome.status === 'failure') {
-      expect(check.outcome.problems).to.have.lengthOf(1);
-      expect(check.outcome.problems[0].type).to.equal(
-        'https://www.w3.org/TR/vc-data-model#OB_INVALID_ACHIEVED_LEVEL',
+      expect(check.outcome.problems).toHaveLength(1);
+      expect(check.outcome.problems[0].type).toBe(
+        'https://www.w3.org/TR/vc-data-model#OB_INVALID_ACHIEVED_LEVEL'
       );
-      expect(check.outcome.problems[0].detail).to.include(LEVEL_DISTINCTION);
-      expect(check.outcome.problems[0].detail).to.include(LEVEL_PASS);
-      expect(check.outcome.problems[0].instance).to.equal(
-        formatJsonPointer(['credentialSubject', 'result', 0, 'achievedLevel']),
+      expect(check.outcome.problems[0].detail).toContain(LEVEL_DISTINCTION);
+      expect(check.outcome.problems[0].detail).toContain(LEVEL_PASS);
+      expect(check.outcome.problems[0].instance).toBe(
+        formatJsonPointer(['credentialSubject', 'result', 0, 'achievedLevel'])
       );
     }
   });
@@ -186,31 +184,33 @@ describe('OBv3 achieved-level check', () => {
           {
             type: 'Result',
             resultDescription: RD_ID,
-            achievedLevel: LEVEL_PASS,
-          },
+            achievedLevel: LEVEL_PASS
+          }
         ],
         resultDescriptions: [
           {
             id: RD_ID,
             type: 'ResultDescription',
-            name: 'No-Levels',
-          },
-        ],
-      }),
+            name: 'No-Levels'
+          }
+        ]
+      })
     );
 
     const results = await runSuites(
       [achievedLevelSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const check = results.find(r => r.check === 'schema.obv3.achieved-level');
-    expect(check?.outcome.status).to.equal('failure');
+    expect(check?.outcome.status).toBe('failure');
     if (check?.outcome.status === 'failure') {
-      expect(check.outcome.problems[0].detail).to.include('declares no rubricCriterionLevel');
-      expect(check.outcome.problems[0].instance).to.equal(
-        formatJsonPointer(['credentialSubject', 'result', 0, 'achievedLevel']),
+      expect(check.outcome.problems[0].detail).toContain(
+        'declares no rubricCriterionLevel'
+      );
+      expect(check.outcome.problems[0].instance).toBe(
+        formatJsonPointer(['credentialSubject', 'result', 0, 'achievedLevel'])
       );
     }
   });
@@ -222,9 +222,10 @@ describe('OBv3 achieved-level check', () => {
         results: [
           {
             type: 'Result',
-            resultDescription: 'https://example.test/result-descriptions/missing',
-            achievedLevel: LEVEL_PASS,
-          },
+            resultDescription:
+              'https://example.test/result-descriptions/missing',
+            achievedLevel: LEVEL_PASS
+          }
         ],
         resultDescriptions: [
           {
@@ -232,23 +233,25 @@ describe('OBv3 achieved-level check', () => {
             type: 'ResultDescription',
             name: 'Pass/Fail',
             rubricCriterionLevel: [
-              { id: LEVEL_PASS, type: 'RubricCriterionLevel', name: 'Pass' },
-            ],
-          },
-        ],
-      }),
+              { id: LEVEL_PASS, type: 'RubricCriterionLevel', name: 'Pass' }
+            ]
+          }
+        ]
+      })
     );
 
     const results = await runSuites(
       [achievedLevelSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const check = results.find(r => r.check === 'schema.obv3.achieved-level');
-    expect(check?.outcome.status).to.equal('failure');
+    expect(check?.outcome.status).toBe('failure');
     if (check?.outcome.status === 'failure') {
-      expect(check.outcome.problems[0].detail).to.include('declares no rubricCriterionLevel');
+      expect(check.outcome.problems[0].detail).toContain(
+        'declares no rubricCriterionLevel'
+      );
     }
   });
 
@@ -263,23 +266,23 @@ describe('OBv3 achieved-level check', () => {
             type: 'ResultDescription',
             name: 'Pass/Fail',
             rubricCriterionLevel: [
-              { id: LEVEL_PASS, type: 'RubricCriterionLevel', name: 'Pass' },
-            ],
-          },
-        ],
-      }),
+              { id: LEVEL_PASS, type: 'RubricCriterionLevel', name: 'Pass' }
+            ]
+          }
+        ]
+      })
     );
 
     const results = await runSuites(
       [achievedLevelSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const check = results.find(r => r.check === 'schema.obv3.achieved-level');
-    expect(check?.outcome.status).to.equal('success');
+    expect(check?.outcome.status).toBe('success');
     if (check?.outcome.status === 'success') {
-      expect(check.outcome.message).to.include('nothing to validate');
+      expect(check.outcome.message).toContain('nothing to validate');
     }
   });
 
@@ -291,18 +294,18 @@ describe('OBv3 achieved-level check', () => {
           {
             type: 'Result',
             resultDescription: RD_ID,
-            achievedLevel: LEVEL_PASS,
+            achievedLevel: LEVEL_PASS
           },
           {
             type: 'Result',
             resultDescription: RD_ID,
-            achievedLevel: LEVEL_DISTINCTION,
+            achievedLevel: LEVEL_DISTINCTION
           },
           {
             type: 'Result',
             resultDescription: RD_ID,
-            achievedLevel: 'https://example.test/levels/honors',
-          },
+            achievedLevel: 'https://example.test/levels/honors'
+          }
         ],
         resultDescriptions: [
           {
@@ -311,30 +314,30 @@ describe('OBv3 achieved-level check', () => {
             name: 'Pass/Fail',
             rubricCriterionLevel: [
               { id: LEVEL_PASS, type: 'RubricCriterionLevel', name: 'Pass' },
-              { id: LEVEL_FAIL, type: 'RubricCriterionLevel', name: 'Fail' },
-            ],
-          },
-        ],
-      }),
+              { id: LEVEL_FAIL, type: 'RubricCriterionLevel', name: 'Fail' }
+            ]
+          }
+        ]
+      })
     );
 
     const results = await runSuites(
       [achievedLevelSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
     const check = results.find(r => r.check === 'schema.obv3.achieved-level');
-    expect(check?.outcome.status).to.equal('failure');
+    expect(check?.outcome.status).toBe('failure');
     if (check?.outcome.status === 'failure') {
-      expect(check.outcome.problems).to.have.lengthOf(2);
-      expect(check.outcome.problems[0].detail).to.include('index 1');
-      expect(check.outcome.problems[0].detail).to.include(LEVEL_DISTINCTION);
-      expect(check.outcome.problems[1].detail).to.include('index 2');
-      expect(check.outcome.problems[1].detail).to.include('honors');
-      expect(check.outcome.problems.map(p => p.instance)).to.deep.equal([
+      expect(check.outcome.problems).toHaveLength(2);
+      expect(check.outcome.problems[0].detail).toContain('index 1');
+      expect(check.outcome.problems[0].detail).toContain(LEVEL_DISTINCTION);
+      expect(check.outcome.problems[1].detail).toContain('index 2');
+      expect(check.outcome.problems[1].detail).toContain('honors');
+      expect(check.outcome.problems.map(p => p.instance)).toEqual([
         formatJsonPointer(['credentialSubject', 'result', 1, 'achievedLevel']),
-        formatJsonPointer(['credentialSubject', 'result', 2, 'achievedLevel']),
+        formatJsonPointer(['credentialSubject', 'result', 2, 'achievedLevel'])
       ]);
     }
   });

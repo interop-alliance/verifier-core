@@ -34,9 +34,10 @@ export function InMemoryCacheService(): CacheService {
     },
 
     async set(key: string, value: unknown, ttlMs?: number): Promise<void> {
-      const expiresAt = ttlMs !== undefined && ttlMs > 0 ? Date.now() + ttlMs : undefined;
+      const expiresAt =
+        ttlMs !== undefined && ttlMs > 0 ? Date.now() + ttlMs : undefined;
       map.set(key, { value, expiresAt });
-    },
+    }
   };
 }
 

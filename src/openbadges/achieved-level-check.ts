@@ -46,7 +46,7 @@ export const obv3AchievedLevelCheck: VerificationCheck = {
   appliesTo: ['verifiableCredential'],
   execute: async (
     subject: VerificationSubject,
-    _context: VerificationContext,
+    _context: VerificationContext
   ): Promise<CheckOutcome> => {
     const credential = subject.verifiableCredential as
       | { credentialSubject?: unknown }
@@ -55,18 +55,18 @@ export const obv3AchievedLevelCheck: VerificationCheck = {
     if (!credential) {
       return {
         status: 'skipped',
-        reason: 'No verifiable credential found in subject.',
+        reason: 'No verifiable credential found in subject.'
       };
     }
 
     const subjectParse = Obv3CredentialSubjectShape.safeParse(
-      credential.credentialSubject,
+      credential.credentialSubject
     );
 
     if (!subjectParse.success || !subjectParse.data.result?.length) {
       return {
         status: 'skipped',
-        reason: 'Credential has no credentialSubject.result field.',
+        reason: 'Credential has no credentialSubject.result field.'
       };
     }
 
@@ -74,17 +74,20 @@ export const obv3AchievedLevelCheck: VerificationCheck = {
     if (!resultDescriptions?.length) {
       return {
         status: 'skipped',
-        reason: 'Credential has no achievement.resultDescription[] to validate against.',
+        reason:
+          'Credential has no achievement.resultDescription[] to validate against.'
       };
     }
 
     const levelsByRdId = new Map<string, Set<string>>();
     for (const rd of resultDescriptions) {
-      if (typeof rd.id !== 'string' || !rd.rubricCriterionLevel?.length) continue;
+      if (typeof rd.id !== 'string' || !rd.rubricCriterionLevel?.length) {
+        continue;
+      }
       const levelIds = new Set(
         rd.rubricCriterionLevel
           .map(level => level.id)
-          .filter((id): id is string => typeof id === 'string'),
+          .filter((id): id is string => typeof id === 'string')
       );
       if (levelIds.size > 0) {
         levelsByRdId.set(rd.id, levelIds);
@@ -96,15 +99,19 @@ export const obv3AchievedLevelCheck: VerificationCheck = {
 
     for (let index = 0; index < subjectParse.data.result.length; index++) {
       const entry = subjectParse.data.result[index];
-      if (typeof entry.achievedLevel !== 'string') continue;
-      if (typeof entry.resultDescription !== 'string') continue;
+      if (typeof entry.achievedLevel !== 'string') {
+        continue;
+      }
+      if (typeof entry.resultDescription !== 'string') {
+        continue;
+      }
       checkedCount++;
 
       const achievedLevelPointer = formatJsonPointer([
         'credentialSubject',
         'result',
         index,
-        'achievedLevel',
+        'achievedLevel'
       ]);
 
       const validLevels = levelsByRdId.get(entry.resultDescription);
@@ -113,7 +120,7 @@ export const obv3AchievedLevelCheck: VerificationCheck = {
           type: Obv3ProblemTypes.OB_INVALID_ACHIEVED_LEVEL,
           title: 'Invalid Achieved Level',
           detail: `Result entry at index ${index} claims achievedLevel "${entry.achievedLevel}", but the referenced ResultDescription "${entry.resultDescription}" declares no rubricCriterionLevel entries.`,
-          instance: achievedLevelPointer,
+          instance: achievedLevelPointer
         });
         continue;
       }
@@ -124,7 +131,7 @@ export const obv3AchievedLevelCheck: VerificationCheck = {
           type: Obv3ProblemTypes.OB_INVALID_ACHIEVED_LEVEL,
           title: 'Invalid Achieved Level',
           detail: `Result entry at index ${index} claims achievedLevel "${entry.achievedLevel}" which is not declared in the referenced ResultDescription "${entry.resultDescription}" (valid levels: ${validList}).`,
-          instance: achievedLevelPointer,
+          instance: achievedLevelPointer
         });
       }
     }
@@ -135,13 +142,13 @@ export const obv3AchievedLevelCheck: VerificationCheck = {
         message:
           checkedCount === 0
             ? 'No result entries declare achievedLevel; nothing to validate.'
-            : `All ${checkedCount} achievedLevel values reference valid RubricCriterionLevel ids.`,
+            : `All ${checkedCount} achievedLevel values reference valid RubricCriterionLevel ids.`
       };
     }
 
     return {
       status: 'failure',
-      problems,
+      problems
     };
-  },
+  }
 };

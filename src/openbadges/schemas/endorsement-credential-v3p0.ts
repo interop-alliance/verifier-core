@@ -23,7 +23,7 @@ import {
   Obv3p0ContextArray,
   VCDM_V1_CONTEXT,
   VCDM_V2_CONTEXT,
-  zodErrorToProblems,
+  zodErrorToProblems
 } from './fields-v3p0.js';
 import { ImageField, ProfileRefField } from './classes-v3p0.js';
 import type { RecognitionResult } from '../../types/recognition.js';
@@ -43,7 +43,7 @@ export const Obv3p0EndorsementSubjectSchema = z
   .object({
     id: IriString,
     type: JsonLdTypeField(['EndorsementSubject']),
-    endorsementComment: z.string().optional(),
+    endorsementComment: z.string().optional()
   })
   .passthrough();
 
@@ -57,10 +57,10 @@ const TypeField = JsonLdTypeField(['VerifiableCredential']).superRefine(
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "type must include 'EndorsementCredential'",
-        path: [],
+        path: []
       });
     }
-  },
+  }
 );
 
 /**
@@ -88,7 +88,7 @@ export const Obv3p0EndorsementCredentialSchema: z.ZodTypeAny = z
     validUntil: z.string().datetime({ offset: true }).optional(),
     awardedDate: z.string().datetime({ offset: true }).optional(),
     image: ImageField().optional(),
-    credentialSubject: Obv3p0EndorsementSubjectSchema,
+    credentialSubject: Obv3p0EndorsementSubjectSchema
   })
   .passthrough()
   .superRefine((cred, ctx) => {
@@ -98,14 +98,14 @@ export const Obv3p0EndorsementCredentialSchema: z.ZodTypeAny = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['issuanceDate'],
-        message: 'issuanceDate is required for VCDM v1 credentials',
+        message: 'issuanceDate is required for VCDM v1 credentials'
       });
     }
     if (head === VCDM_V2_CONTEXT && cred.validFrom === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['validFrom'],
-        message: 'validFrom is required for VCDM v2 credentials',
+        message: 'validFrom is required for VCDM v2 credentials'
       });
     }
   });
@@ -123,19 +123,19 @@ export type Obv3p0EndorsementCredential = Record<string, unknown>;
  * `RecognizerSpec.parse` implementation.
  */
 export function parseObv3p0EndorsementCredential(
-  credential: unknown,
+  credential: unknown
 ): RecognitionResult {
   const parsed = Obv3p0EndorsementCredentialSchema.safeParse(credential);
   if (parsed.success) {
     return {
       status: 'recognized',
       profile: OBV3P0_ENDORSEMENT_PROFILE,
-      normalized: parsed.data,
+      normalized: parsed.data
     };
   }
   return {
     status: 'malformed',
     profile: OBV3P0_ENDORSEMENT_PROFILE,
-    problems: zodErrorToProblems(parsed.error),
+    problems: zodErrorToProblems(parsed.error)
   };
 }

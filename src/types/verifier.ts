@@ -25,7 +25,7 @@ import type { RecognizerSpec } from './recognition.js';
 import type { RegistryHandlerMap } from '../services/registry-handlers/types.js';
 import type {
   CredentialVerificationResult,
-  PresentationVerificationResult,
+  PresentationVerificationResult
 } from './result.js';
 
 /**
@@ -214,6 +214,10 @@ export interface VerifyPresentationCall {
  * instance.
  */
 export interface Verifier {
-  verifyCredential: (call: VerifyCredentialCall) => Promise<CredentialVerificationResult>;
-  verifyPresentation: (call: VerifyPresentationCall) => Promise<PresentationVerificationResult>;
+  verifyCredential: (
+    call: VerifyCredentialCall
+  ) => Promise<CredentialVerificationResult>;
+  verifyPresentation: (
+    call: VerifyPresentationCall
+  ) => Promise<PresentationVerificationResult>;
 }

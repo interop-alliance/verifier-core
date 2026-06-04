@@ -12,7 +12,7 @@
  *   corresponding success result is in `results`.
  */
 
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { createVerifier } from '../src/verifier.js';
 import type { RecognizerSpec } from '../src/types/recognition.js';
 import { obv3p0Recognizer } from '../src/openbadges/recognizers.js';
@@ -24,40 +24,40 @@ import { sampleAchievementCredential } from './openbadges/fixtures/sample-achiev
 // successes / non-applies skips).
 const fakeVerified = {
   cryptoServices: [FakeCryptoService({ verified: true })],
-  verbose: true,
+  verbose: true
 };
 
 describe('verifier recognition pipeline', () => {
   it('emits a skipped recognition.profile result when no recognizers are configured', async () => {
     const verifier = createVerifier(fakeVerified);
     const result = await verifier.verifyCredential({
-      credential: sampleAchievementCredential,
+      credential: sampleAchievementCredential
     });
 
     const recognition = result.results.find(
-      r => r.check === 'recognition.profile',
+      r => r.check === 'recognition.profile'
     );
-    expect(recognition?.outcome.status).to.equal('skipped');
-    expect(result.normalizedVerifiableCredential).to.equal(undefined);
-    expect(result.recognizedProfile).to.equal(undefined);
+    expect(recognition?.outcome.status).toBe('skipped');
+    expect(result.normalizedVerifiableCredential).toBe(undefined);
+    expect(result.recognizedProfile).toBe(undefined);
   });
 
   it('surfaces normalizedVerifiableCredential + recognizedProfile when obv3p0Recognizer matches', async () => {
     const verifier = createVerifier({
       ...fakeVerified,
-      recognizers: [obv3p0Recognizer],
+      recognizers: [obv3p0Recognizer]
     });
     const result = await verifier.verifyCredential({
-      credential: sampleAchievementCredential,
+      credential: sampleAchievementCredential
     });
 
-    expect(result.recognizedProfile).to.equal('obv3p0.openbadge');
-    expect(result.normalizedVerifiableCredential).to.exist;
+    expect(result.recognizedProfile).toBe('obv3p0.openbadge');
+    expect(result.normalizedVerifiableCredential).toBeDefined();
 
     const recognition = result.results.find(
-      r => r.check === 'recognition.profile',
+      r => r.check === 'recognition.profile'
     );
-    expect(recognition?.outcome.status).to.equal('success');
+    expect(recognition?.outcome.status).toBe('success');
   });
 
   it('skips recognition cleanly when no configured recognizer matches', async () => {
@@ -68,22 +68,22 @@ describe('verifier recognition pipeline', () => {
       parse: () => ({
         status: 'recognized',
         profile: 'never',
-        normalized: {},
-      }),
+        normalized: {}
+      })
     };
     const verifier = createVerifier({
       ...fakeVerified,
-      recognizers: [neverMatches],
+      recognizers: [neverMatches]
     });
     const result = await verifier.verifyCredential({
-      credential: sampleAchievementCredential,
+      credential: sampleAchievementCredential
     });
 
-    expect(result.recognizedProfile).to.equal(undefined);
-    expect(result.normalizedVerifiableCredential).to.equal(undefined);
+    expect(result.recognizedProfile).toBe(undefined);
+    expect(result.normalizedVerifiableCredential).toBe(undefined);
     const recognition = result.results.find(
-      r => r.check === 'recognition.profile',
+      r => r.check === 'recognition.profile'
     );
-    expect(recognition?.outcome.status).to.equal('skipped');
+    expect(recognition?.outcome.status).toBe('skipped');
   });
 });

@@ -22,7 +22,7 @@
  * the dynamic-import test below.
  */
 
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { createVerifier } from '../../src/verifier.js';
 import {
   openBadgesSuite,
@@ -40,12 +40,12 @@ import {
   Obv3ProblemTypes,
   KNOWN_ACHIEVEMENT_TYPES,
   OB_3_0_ACHIEVEMENT_TYPES,
-  ACHIEVEMENT_TYPE_EXT_PREFIX,
+  ACHIEVEMENT_TYPE_EXT_PREFIX
 } from '../../src/openbadges/index.js';
 import { FakeCryptoService } from '../factories/services/fake-crypto-service.js';
 import {
   FakeHttpGetService,
-  okJsonBody,
+  okJsonBody
 } from '../factories/services/fake-http-get-service.js';
 import { sampleAchievementCredential } from './fixtures/sample-achievement-credential.js';
 
@@ -59,7 +59,7 @@ function acceptAllSchema($id: string): Record<string, unknown> {
     $id,
     $schema: 'https://json-schema.org/draft/2019-09/schema',
     type: 'object',
-    additionalProperties: true,
+    additionalProperties: true
   };
 }
 
@@ -71,7 +71,7 @@ function cloneCredential(): Record<string, unknown> {
 // regardless of outcome; folded mode hides successes.
 const fakeVerified = {
   cryptoServices: [FakeCryptoService({ verified: true })],
-  verbose: true,
+  verbose: true
 };
 
 describe('@digitalcredentials/verifier-core/openbadges (integration)', () => {
@@ -82,97 +82,106 @@ describe('@digitalcredentials/verifier-core/openbadges (integration)', () => {
     // ESM resolver handles it at runtime via package self-reference.
     const submodulePath = '@digitalcredentials/verifier-core/openbadges';
     const mod = (await import(submodulePath)) as Record<string, unknown>;
-    expect(mod.openBadgesSuite, 'openBadgesSuite').to.exist;
-    expect(mod.openBadgesSemanticSuite, 'openBadgesSemanticSuite').to.exist;
-    expect(mod.openBadgesSchemaSuite, 'openBadgesSchemaSuite').to.exist;
-    expect(mod.obv3SchemaCheck, 'obv3SchemaCheck').to.exist;
-    expect(mod.createObv3UnknownAchievementTypeCheck).to.be.a('function');
-    expect(mod.isOpenBadgeCredential).to.be.a('function');
-    expect(mod.OpenBadgesProblemTypes).to.equal(mod.Obv3ProblemTypes);
+    expect(mod.openBadgesSuite, 'openBadgesSuite').toBeDefined();
+    expect(
+      mod.openBadgesSemanticSuite,
+      'openBadgesSemanticSuite'
+    ).toBeDefined();
+    expect(mod.openBadgesSchemaSuite, 'openBadgesSchemaSuite').toBeDefined();
+    expect(mod.obv3SchemaCheck, 'obv3SchemaCheck').toBeDefined();
+    expect(mod.createObv3UnknownAchievementTypeCheck).toBeTypeOf('function');
+    expect(mod.isOpenBadgeCredential).toBeTypeOf('function');
+    expect(mod.OpenBadgesProblemTypes).toBe(mod.Obv3ProblemTypes);
   });
 
   it('exposes the documented surface from the static import', () => {
-    expect(openBadgesSuite.id).to.equal('openbadges');
-    expect(openBadgesSemanticSuite.id).to.equal('openbadges.semantic');
-    expect(openBadgesSchemaSuite.id).to.equal('openbadges.schema');
+    expect(openBadgesSuite.id).toBe('openbadges');
+    expect(openBadgesSemanticSuite.id).toBe('openbadges.semantic');
+    expect(openBadgesSchemaSuite.id).toBe('openbadges.schema');
 
-    expect(openBadgesSemanticSuite.checks).to.include.members([
-      obv3ResultRefCheck,
-      obv3AchievedLevelCheck,
-      obv3MissingResultStatusCheck,
-      obv3UnknownAchievementTypeCheck,
-    ]);
-    expect(openBadgesSchemaSuite.checks).to.include(obv3SchemaCheck);
+    expect(openBadgesSemanticSuite.checks).toEqual(
+      expect.arrayContaining([
+        obv3ResultRefCheck,
+        obv3AchievedLevelCheck,
+        obv3MissingResultStatusCheck,
+        obv3UnknownAchievementTypeCheck
+      ])
+    );
+    expect(openBadgesSchemaSuite.checks).toContain(obv3SchemaCheck);
 
-    expect(isOpenBadgeCredential(sampleAchievementCredential)).to.equal(true);
-    expect(isEndorsementCredential(sampleAchievementCredential)).to.equal(false);
+    expect(isOpenBadgeCredential(sampleAchievementCredential)).toBe(true);
+    expect(isEndorsementCredential(sampleAchievementCredential)).toBe(false);
 
-    expect(OpenBadgesProblemTypes).to.equal(Obv3ProblemTypes);
-    expect(OpenBadgesProblemTypes.OB_INVALID_ACHIEVED_LEVEL).to.be.a('string');
+    expect(OpenBadgesProblemTypes).toBe(Obv3ProblemTypes);
+    expect(OpenBadgesProblemTypes.OB_INVALID_ACHIEVED_LEVEL).toBeTypeOf(
+      'string'
+    );
 
-    expect(KNOWN_ACHIEVEMENT_TYPES).to.equal(OB_3_0_ACHIEVEMENT_TYPES);
-    expect(ACHIEVEMENT_TYPE_EXT_PREFIX).to.equal('ext:');
+    expect(KNOWN_ACHIEVEMENT_TYPES).toBe(OB_3_0_ACHIEVEMENT_TYPES);
+    expect(ACHIEVEMENT_TYPE_EXT_PREFIX).toBe('ext:');
   });
 
   it('runs no OB checks by default (Q2 invariant)', async () => {
     const verifier = createVerifier(fakeVerified);
     const result = await verifier.verifyCredential({
-      credential: cloneCredential(),
+      credential: cloneCredential()
     });
 
     const obResults = result.results.filter(
-      r => r.suite.startsWith('openbadges') || r.suite.startsWith('schema.obv3'),
+      r => r.suite.startsWith('openbadges') || r.suite.startsWith('schema.obv3')
     );
-    expect(obResults).to.have.lengthOf(0);
+    expect(obResults).toHaveLength(0);
   });
 
   it('runs OB semantic + schema checks when openBadgesSuite is opted in', async () => {
     const httpGetService = FakeHttpGetService({
       [OBV3_V2_ACHIEVEMENT_SCHEMA_URL]: okJsonBody(
-        acceptAllSchema(OBV3_V2_ACHIEVEMENT_SCHEMA_URL),
-      ),
+        acceptAllSchema(OBV3_V2_ACHIEVEMENT_SCHEMA_URL)
+      )
     });
 
     const verifier = createVerifier({ ...fakeVerified, httpGetService });
     const result = await verifier.verifyCredential({
       credential: cloneCredential(),
-      additionalSuites: [openBadgesSuite],
+      additionalSuites: [openBadgesSuite]
     });
 
     const obSuiteResults = result.results.filter(r => r.suite === 'openbadges');
     const checkIds = new Set(obSuiteResults.map(r => r.check));
-    expect(checkIds).to.include('schema.obv3.result-ref');
-    expect(checkIds).to.include('schema.obv3.achieved-level');
-    expect(checkIds).to.include('schema.obv3.missing-result-status');
-    expect(checkIds).to.include('schema.obv3.unknown-achievement-type');
-    expect(checkIds).to.include('schema.obv3.json');
+    expect(checkIds).toContain('schema.obv3.result-ref');
+    expect(checkIds).toContain('schema.obv3.achieved-level');
+    expect(checkIds).toContain('schema.obv3.missing-result-status');
+    expect(checkIds).toContain('schema.obv3.unknown-achievement-type');
+    expect(checkIds).toContain('schema.obv3.json');
 
     const failures = obSuiteResults.filter(r => r.outcome.status === 'failure');
-    expect(failures, JSON.stringify(failures, null, 2)).to.have.lengthOf(0);
+    expect(failures, JSON.stringify(failures, null, 2)).toHaveLength(0);
   });
 
   it('emits OB_INVALID_ACHIEVED_LEVEL on a mutated credential', async () => {
     const credential = cloneCredential();
-    const subject = credential.credentialSubject as { result: Array<{ achievedLevel: string }> };
+    const subject = credential.credentialSubject as {
+      result: Array<{ achievedLevel: string }>;
+    };
     subject.result[0].achievedLevel = 'urn:lvl:NOT_REAL';
 
     const verifier = createVerifier(fakeVerified);
     const result = await verifier.verifyCredential({
       credential,
-      additionalSuites: [openBadgesSemanticSuite],
+      additionalSuites: [openBadgesSemanticSuite]
     });
 
     const achievedLevelResult = result.results.find(
-      r => r.check === 'schema.obv3.achieved-level',
+      r => r.check === 'schema.obv3.achieved-level'
     );
-    expect(achievedLevelResult?.outcome.status).to.equal('failure');
+    expect(achievedLevelResult?.outcome.status).toBe('failure');
 
     const problems =
       achievedLevelResult?.outcome.status === 'failure'
         ? achievedLevelResult.outcome.problems
         : [];
-    expect(problems.map(p => p.type)).to.include(
-      OpenBadgesProblemTypes.OB_INVALID_ACHIEVED_LEVEL,
+    expect(problems.map(p => p.type)).toContain(
+      OpenBadgesProblemTypes.OB_INVALID_ACHIEVED_LEVEL
     );
   });
 
@@ -183,35 +192,37 @@ describe('@digitalcredentials/verifier-core/openbadges (integration)', () => {
       type: ['VerifiableCredential'],
       issuer: 'https://example.test/issuer',
       validFrom: '2024-01-01T00:00:00Z',
-      credentialSubject: { id: 'did:example:subject' },
+      credentialSubject: { id: 'did:example:subject' }
     };
 
     const verifier = createVerifier(fakeVerified);
     const result = await verifier.verifyCredential({
       credential: nonObCredential,
-      additionalSuites: [openBadgesSuite],
+      additionalSuites: [openBadgesSuite]
     });
 
     const obSuiteResults = result.results.filter(r => r.suite === 'openbadges');
-    expect(obSuiteResults).to.have.lengthOf(1);
-    expect(obSuiteResults[0].check).to.equal('openbadges.applies');
-    expect(obSuiteResults[0].outcome.status).to.equal('skipped');
+    expect(obSuiteResults).toHaveLength(1);
+    expect(obSuiteResults[0].check).toBe('openbadges.applies');
+    expect(obSuiteResults[0].outcome.status).toBe('skipped');
     if (obSuiteResults[0].outcome.status === 'skipped') {
-      expect(obSuiteResults[0].outcome.reason).to.equal(
-        'suite predicate returned false',
+      expect(obSuiteResults[0].outcome.reason).toBe(
+        'suite predicate returned false'
       );
     }
   });
 
   it('createObv3UnknownAchievementTypeCheck composes a custom-vocab check', async () => {
     const credential = cloneCredential();
-    const achievement = (credential.credentialSubject as {
-      achievement: { achievementType: string };
-    }).achievement;
+    const achievement = (
+      credential.credentialSubject as {
+        achievement: { achievementType: string };
+      }
+    ).achievement;
     achievement.achievementType = 'CompanyInternal';
 
     const customCheck = createObv3UnknownAchievementTypeCheck({
-      additionalKnownTypes: ['CompanyInternal'],
+      additionalKnownTypes: ['CompanyInternal']
     });
 
     const verifier = createVerifier(fakeVerified);
@@ -221,13 +232,16 @@ describe('@digitalcredentials/verifier-core/openbadges (integration)', () => {
         {
           id: 'openbadges.custom',
           name: 'OpenBadges Custom Vocab',
-          description: 'Test-only suite wrapping createObv3UnknownAchievementTypeCheck.',
-          checks: [customCheck],
-        },
-      ],
+          description:
+            'Test-only suite wrapping createObv3UnknownAchievementTypeCheck.',
+          checks: [customCheck]
+        }
+      ]
     });
 
-    const customResult = result.results.find(r => r.suite === 'openbadges.custom');
-    expect(customResult?.outcome.status).to.equal('success');
+    const customResult = result.results.find(
+      r => r.suite === 'openbadges.custom'
+    );
+    expect(customResult?.outcome.status).toBe('success');
   });
 });

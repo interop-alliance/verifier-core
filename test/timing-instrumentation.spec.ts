@@ -9,7 +9,7 @@
  * `test/verify-presentation.spec.ts`.
  */
 
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { createVerifier } from '../src/verifier.js';
 import { FakeTimeService } from '../src/services/time-service/fake-time-service.js';
 import { CredentialFactory } from './factories/data/credential-factory.js';
@@ -20,7 +20,7 @@ const BASE_DATE_MS = new Date('2026-01-01T00:00:00Z').getTime();
 
 const fakeVerified = {
   cryptoServices: [FakeCryptoService({ verified: true })],
-  verbose: true,
+  verbose: true
 };
 
 describe('timing instrumentation', () => {
@@ -29,22 +29,26 @@ describe('timing instrumentation', () => {
       const verifier = createVerifier({ ...fakeVerified });
       const credential = CredentialFactory({ version: 'v1', credential: {} });
       const result = await verifier.verifyCredential({ credential });
-      expect(result.timing).to.equal(undefined);
-      for (const c of result.results) expect(c.timing).to.equal(undefined);
-      for (const s of result.summary) expect(s.timing).to.equal(undefined);
+      expect(result.timing).toBe(undefined);
+      for (const c of result.results) {
+        expect(c.timing).toBe(undefined);
+      }
+      for (const s of result.summary) {
+        expect(s.timing).toBe(undefined);
+      }
     });
 
     it('is present on every CheckResult when timing: true', async () => {
       const verifier = createVerifier({
         ...fakeVerified,
         timing: true,
-        timeService: FakeTimeService(),
+        timeService: FakeTimeService()
       });
       const credential = CredentialFactory({ version: 'v1', credential: {} });
       const result = await verifier.verifyCredential({ credential });
-      expect(result.results.length).to.be.greaterThan(0);
+      expect(result.results.length).toBeGreaterThan(0);
       for (const c of result.results) {
-        expect(c.timing, `${c.id ?? c.check} missing timing`).to.exist;
+        expect(c.timing, `${c.id ?? c.check} missing timing`).toBeDefined();
       }
     });
 
@@ -52,7 +56,7 @@ describe('timing instrumentation', () => {
       const verifier = createVerifier({
         ...fakeVerified,
         timing: true,
-        timeService: FakeTimeService({ baseDateMs: BASE_DATE_MS }),
+        timeService: FakeTimeService({ baseDateMs: BASE_DATE_MS })
       });
       const credential = CredentialFactory({ version: 'v1', credential: {} });
       const result = await verifier.verifyCredential({ credential });
@@ -60,9 +64,9 @@ describe('timing instrumentation', () => {
       for (const c of result.results) {
         const startedMs = new Date(c.timing!.startedAt).getTime();
         const endedMs = new Date(c.timing!.endedAt).getTime();
-        expect(startedMs - BASE_DATE_MS).to.be.greaterThan(0);
-        expect(endedMs - BASE_DATE_MS).to.be.greaterThan(0);
-        expect(endedMs).to.be.at.least(startedMs);
+        expect(startedMs - BASE_DATE_MS).toBeGreaterThan(0);
+        expect(endedMs - BASE_DATE_MS).toBeGreaterThan(0);
+        expect(endedMs).toBeGreaterThanOrEqual(startedMs);
       }
     });
 
@@ -70,16 +74,16 @@ describe('timing instrumentation', () => {
       const verifier = createVerifier({
         ...fakeVerified,
         timing: true,
-        timeService: FakeTimeService(),
+        timeService: FakeTimeService()
       });
       const credential = CredentialFactory({ version: 'v1', credential: {} });
       const result = await verifier.verifyCredential({ credential });
       for (const c of result.results) {
         const s = new Date(c.timing!.startedAt).getTime();
         const e = new Date(c.timing!.endedAt).getTime();
-        expect(Number.isNaN(s), `bad startedAt for ${c.id}`).to.equal(false);
-        expect(Number.isNaN(e), `bad endedAt for ${c.id}`).to.equal(false);
-        expect(e).to.be.at.least(s);
+        expect(Number.isNaN(s), `bad startedAt for ${c.id}`).toBe(false);
+        expect(Number.isNaN(e), `bad endedAt for ${c.id}`).toBe(false);
+        expect(e).toBeGreaterThanOrEqual(s);
       }
     });
 
@@ -87,12 +91,12 @@ describe('timing instrumentation', () => {
       const verifier = createVerifier({
         ...fakeVerified,
         timing: true,
-        timeService: FakeTimeService(),
+        timeService: FakeTimeService()
       });
       const credential = CredentialFactory({ version: 'v1', credential: {} });
       const result = await verifier.verifyCredential({ credential });
       for (const c of result.results) {
-        expect(c.timing!.durationMs).to.equal(1);
+        expect(c.timing!.durationMs).toBe(1);
       }
     });
   });
@@ -102,7 +106,7 @@ describe('timing instrumentation', () => {
       const verifier = createVerifier({
         ...fakeVerified,
         timing: true,
-        timeService: FakeTimeService(),
+        timeService: FakeTimeService()
       });
       const credential = CredentialFactory({ version: 'v1', credential: {} });
       const result = await verifier.verifyCredential({ credential });
@@ -115,16 +119,18 @@ describe('timing instrumentation', () => {
       }
       for (const s of result.summary) {
         const children = childrenBySuite.get(s.suite);
-        if (!children || children.length === 0) continue;
-        expect(s.timing).to.exist;
+        if (!children || children.length === 0) {
+          continue;
+        }
+        expect(s.timing).toBeDefined();
         const minStart = children
           .map(c => c.timing!.startedAt)
           .reduce((a, b) => (a < b ? a : b));
         const maxEnd = children
           .map(c => c.timing!.endedAt)
           .reduce((a, b) => (a > b ? a : b));
-        expect(s.timing!.startedAt).to.equal(minStart);
-        expect(s.timing!.endedAt).to.equal(maxEnd);
+        expect(s.timing!.startedAt).toBe(minStart);
+        expect(s.timing!.endedAt).toBe(maxEnd);
       }
     });
 
@@ -132,7 +138,7 @@ describe('timing instrumentation', () => {
       const verifier = createVerifier({
         ...fakeVerified,
         timing: true,
-        timeService: FakeTimeService(),
+        timeService: FakeTimeService()
       });
       const credential = CredentialFactory({ version: 'v1', credential: {} });
       const result = await verifier.verifyCredential({ credential });
@@ -145,9 +151,11 @@ describe('timing instrumentation', () => {
       }
       for (const s of result.summary) {
         const children = childrenBySuite.get(s.suite) ?? [];
-        if (children.length === 0) continue;
+        if (children.length === 0) {
+          continue;
+        }
         const sum = children.reduce((acc, c) => acc + c.timing!.durationMs, 0);
-        expect(s.timing!.durationMs).to.equal(sum);
+        expect(s.timing!.durationMs).toBe(sum);
       }
     });
 
@@ -155,14 +163,16 @@ describe('timing instrumentation', () => {
       const verifier = createVerifier({
         cryptoServices: [FakeCryptoService({ verified: true })],
         timing: true,
-        timeService: FakeTimeService(),
+        timeService: FakeTimeService()
         // verbose: false (default)
       });
       const credential = CredentialFactory({ version: 'v1', credential: {} });
       const result = await verifier.verifyCredential({ credential });
-      expect(result.results).to.deep.equal([]);
-      expect(result.summary.length).to.be.greaterThan(0);
-      for (const s of result.summary) expect(s.timing).to.exist;
+      expect(result.results).toEqual([]);
+      expect(result.summary.length).toBeGreaterThan(0);
+      for (const s of result.summary) {
+        expect(s.timing).toBeDefined();
+      }
     });
   });
 
@@ -171,55 +181,57 @@ describe('timing instrumentation', () => {
       const verifier = createVerifier({
         ...fakeVerified,
         timing: true,
-        timeService: FakeTimeService(),
+        timeService: FakeTimeService()
       });
       const credential = CredentialFactory({ version: 'v1', credential: {} });
       const result = await verifier.verifyCredential({ credential });
-      expect(result.timing).to.exist;
+      expect(result.timing).toBeDefined();
       const s = new Date(result.timing!.startedAt).getTime();
       const e = new Date(result.timing!.endedAt).getTime();
-      expect(e).to.be.at.least(s);
+      expect(e).toBeGreaterThanOrEqual(s);
     });
 
     it('absent when timing: false (default)', async () => {
       const verifier = createVerifier({ ...fakeVerified });
       const credential = CredentialFactory({ version: 'v1', credential: {} });
       const result = await verifier.verifyCredential({ credential });
-      expect(result.timing).to.equal(undefined);
+      expect(result.timing).toBe(undefined);
     });
 
     it('top-level durationMs >= max suite durationMs (inclusive)', async () => {
       const verifier = createVerifier({
         ...fakeVerified,
         timing: true,
-        timeService: FakeTimeService(),
+        timeService: FakeTimeService()
       });
       const credential = CredentialFactory({ version: 'v1', credential: {} });
       const result = await verifier.verifyCredential({ credential });
       const maxSuite = result.summary
         .map(s => s.timing?.durationMs ?? 0)
         .reduce((a, b) => Math.max(a, b), 0);
-      expect(result.timing!.durationMs).to.be.at.least(maxSuite);
+      expect(result.timing!.durationMs).toBeGreaterThanOrEqual(maxSuite);
     });
 
     it('verifyPresentation top-level timing >= each embedded credential timing', async () => {
       const verifier = createVerifier({
         ...fakeVerified,
         timing: true,
-        timeService: FakeTimeService(),
+        timeService: FakeTimeService()
       });
       const presentation = PresentationFactory({
         verifiableCredential: [
           CredentialFactory({ version: 'v1', credential: {} }),
-          CredentialFactory({ credential: {} }),
-        ],
+          CredentialFactory({ credential: {} })
+        ]
       });
       const result = await verifier.verifyPresentation({ presentation });
-      expect(result.timing).to.exist;
-      expect(result.credentialResults).to.have.lengthOf(2);
+      expect(result.timing).toBeDefined();
+      expect(result.credentialResults).toHaveLength(2);
       for (const cr of result.credentialResults) {
-        expect(cr.timing).to.exist;
-        expect(result.timing!.durationMs).to.be.at.least(cr.timing!.durationMs);
+        expect(cr.timing).toBeDefined();
+        expect(result.timing!.durationMs).toBeGreaterThanOrEqual(
+          cr.timing!.durationMs
+        );
       }
     });
   });
@@ -228,30 +240,30 @@ describe('timing instrumentation', () => {
     it('emits timing on the synthetic parsing.envelope check when timing: true', async () => {
       const verifier = createVerifier({
         timing: true,
-        timeService: FakeTimeService(),
+        timeService: FakeTimeService()
       });
       const result = await verifier.verifyCredential({
-        credential: 'not a credential',
+        credential: 'not a credential'
       });
-      expect(result.timing).to.exist;
-      expect(result.results).to.have.lengthOf(1);
+      expect(result.timing).toBeDefined();
+      expect(result.results).toHaveLength(1);
       const only = result.results[0];
-      expect(only.suite).to.equal('parsing');
-      expect(only.timing).to.exist;
-      expect(only.timing!.durationMs).to.equal(1);
-      expect(result.summary).to.have.lengthOf(1);
-      expect(result.summary[0].timing).to.exist;
-      expect(result.summary[0].timing!.durationMs).to.equal(1);
+      expect(only.suite).toBe('parsing');
+      expect(only.timing).toBeDefined();
+      expect(only.timing!.durationMs).toBe(1);
+      expect(result.summary).toHaveLength(1);
+      expect(result.summary[0].timing).toBeDefined();
+      expect(result.summary[0].timing!.durationMs).toBe(1);
     });
 
     it('omits timing on parse failure when timing: false', async () => {
       const verifier = createVerifier({});
       const result = await verifier.verifyCredential({
-        credential: 'not a credential',
+        credential: 'not a credential'
       });
-      expect(result.timing).to.equal(undefined);
-      expect(result.results[0].timing).to.equal(undefined);
-      expect(result.summary[0].timing).to.equal(undefined);
+      expect(result.timing).toBe(undefined);
+      expect(result.results[0].timing).toBe(undefined);
+      expect(result.summary[0].timing).toBe(undefined);
     });
   });
 
@@ -260,23 +272,33 @@ describe('timing instrumentation', () => {
       const verifier = createVerifier({
         ...fakeVerified,
         timing: true,
-        timeService: FakeTimeService(),
+        timeService: FakeTimeService()
       });
       const credential = CredentialFactory({ version: 'v1', credential: {} });
-      const result = await verifier.verifyCredential({ credential, timing: false });
-      expect(result.timing).to.equal(undefined);
-      for (const c of result.results) expect(c.timing).to.equal(undefined);
+      const result = await verifier.verifyCredential({
+        credential,
+        timing: false
+      });
+      expect(result.timing).toBe(undefined);
+      for (const c of result.results) {
+        expect(c.timing).toBe(undefined);
+      }
     });
 
     it('per-call timing: true overrides constructor timing: false', async () => {
       const verifier = createVerifier({
         ...fakeVerified,
-        timeService: FakeTimeService(),
+        timeService: FakeTimeService()
       });
       const credential = CredentialFactory({ version: 'v1', credential: {} });
-      const result = await verifier.verifyCredential({ credential, timing: true });
-      expect(result.timing).to.exist;
-      for (const c of result.results) expect(c.timing).to.exist;
+      const result = await verifier.verifyCredential({
+        credential,
+        timing: true
+      });
+      expect(result.timing).toBeDefined();
+      for (const c of result.results) {
+        expect(c.timing).toBeDefined();
+      }
     });
   });
 
@@ -284,16 +306,21 @@ describe('timing instrumentation', () => {
     it('verifyPresentation propagates per-call timing to embedded verifyCredential', async () => {
       const verifier = createVerifier({
         ...fakeVerified,
-        timeService: FakeTimeService(),
+        timeService: FakeTimeService()
       });
       const presentation = PresentationFactory({
-        verifiableCredential: [CredentialFactory({ credential: {} })],
+        verifiableCredential: [CredentialFactory({ credential: {} })]
       });
-      const result = await verifier.verifyPresentation({ presentation, timing: true });
-      expect(result.timing).to.exist;
+      const result = await verifier.verifyPresentation({
+        presentation,
+        timing: true
+      });
+      expect(result.timing).toBeDefined();
       for (const cr of result.credentialResults) {
-        expect(cr.timing).to.exist;
-        for (const c of cr.results) expect(c.timing).to.exist;
+        expect(cr.timing).toBeDefined();
+        for (const c of cr.results) {
+          expect(c.timing).toBeDefined();
+        }
       }
     });
 
@@ -301,19 +328,21 @@ describe('timing instrumentation', () => {
       const verifier = createVerifier({
         ...fakeVerified,
         timing: true,
-        timeService: FakeTimeService(),
+        timeService: FakeTimeService()
       });
       const presentation = PresentationFactory({
-        verifiableCredential: [CredentialFactory({ credential: {} })],
+        verifiableCredential: [CredentialFactory({ credential: {} })]
       });
       const result = await verifier.verifyPresentation({
         presentation,
-        timing: false,
+        timing: false
       });
-      expect(result.timing).to.equal(undefined);
+      expect(result.timing).toBe(undefined);
       for (const cr of result.credentialResults) {
-        expect(cr.timing).to.equal(undefined);
-        for (const c of cr.results) expect(c.timing).to.equal(undefined);
+        expect(cr.timing).toBe(undefined);
+        for (const c of cr.results) {
+          expect(c.timing).toBe(undefined);
+        }
       }
     });
   });

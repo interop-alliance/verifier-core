@@ -6,7 +6,11 @@ export {
   DEFAULT_TTL_MS,
   parseCacheControlMaxAge,
   resolveTtl,
-  ttlFromValidUntil,
+  ttlFromValidUntil
 } from './cache-ttl.js';
 export { jwtDecodePayload } from './jwt-payload-decode.js';
-export type { HandlerResult, RegistryHandler, RegistryHandlerMap } from './types.js';
+export type {
+  HandlerResult,
+  RegistryHandler,
+  RegistryHandlerMap
+} from './types.js';

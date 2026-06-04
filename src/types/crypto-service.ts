@@ -33,6 +33,12 @@ export interface CryptoVerifyOptions {
  */
 export interface CryptoService {
   canVerify: (subject: VerificationSubject) => boolean;
-  verifyCredential: (credential: unknown, options: CryptoVerifyOptions) => Promise<CryptoResult>;
-  verifyPresentation: (presentation: unknown, options: CryptoVerifyOptions) => Promise<CryptoResult>;
+  verifyCredential: (
+    credential: unknown,
+    options: CryptoVerifyOptions
+  ) => Promise<CryptoResult>;
+  verifyPresentation: (
+    presentation: unknown,
+    options: CryptoVerifyOptions
+  ) => Promise<CryptoResult>;
 }

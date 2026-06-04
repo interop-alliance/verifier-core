@@ -84,5 +84,5 @@ export interface LookupIssuersOptions {
 export type LookupIssuers = (
   did: string,
   registries: EntityIdentityRegistry[],
-  options?: LookupIssuersOptions,
+  options?: LookupIssuersOptions
 ) => Promise<RegistryLookupResult>;

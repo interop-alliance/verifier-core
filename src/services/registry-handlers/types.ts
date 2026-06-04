@@ -29,8 +29,11 @@ export interface RegistryHandlerContext {
 export type RegistryHandler = (
   did: string,
   registry: EntityIdentityRegistry,
-  ctx: RegistryHandlerContext,
+  ctx: RegistryHandlerContext
 ) => Promise<HandlerResult>;
 
 /** Per-type handlers used by `createRegistryLookup`. */
-export type RegistryHandlerMap = Record<EntityIdentityRegistry['type'], RegistryHandler>;
+export type RegistryHandlerMap = Record<
+  EntityIdentityRegistry['type'],
+  RegistryHandler
+>;

@@ -60,8 +60,8 @@ export const Obv3ProblemTypes = {
    * issuer-defined extensions.
    */
   OB_UNKNOWN_ACHIEVEMENT_TYPE:
-    'https://www.w3.org/TR/vc-data-model#OB_UNKNOWN_ACHIEVEMENT_TYPE',
+    'https://www.w3.org/TR/vc-data-model#OB_UNKNOWN_ACHIEVEMENT_TYPE'
 } as const;
 
 export type Obv3ProblemType =
-  typeof Obv3ProblemTypes[keyof typeof Obv3ProblemTypes];
+  (typeof Obv3ProblemTypes)[keyof typeof Obv3ProblemTypes];

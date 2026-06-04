@@ -12,7 +12,7 @@ export type FakeDocumentLoaderOptions = {
  */
 export function FakeDocumentLoader(
   urlMap: Record<string, unknown>,
-  options: FakeDocumentLoaderOptions = {},
+  options: FakeDocumentLoaderOptions = {}
 ): DocumentLoader {
   const { fallback } = options;
 
@@ -21,7 +21,7 @@ export function FakeDocumentLoader(
       return {
         contextUrl: null,
         document: urlMap[url],
-        documentUrl: url,
+        documentUrl: url
       };
     }
     if (fallback !== undefined) {

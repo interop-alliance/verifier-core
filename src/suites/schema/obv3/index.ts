@@ -16,6 +16,7 @@ import { obv3SchemaCheck } from './obv3-schema-check.js';
 export const obv3SchemaSuite: VerificationSuite = {
   id: 'schema.obv3',
   name: 'OBv3 Schema',
-  description: 'JSON Schema validation for OpenBadgeCredential / EndorsementCredential.',
-  checks: [obv3SchemaCheck],
+  description:
+    'JSON Schema validation for OpenBadgeCredential / EndorsementCredential.',
+  checks: [obv3SchemaCheck]
 };

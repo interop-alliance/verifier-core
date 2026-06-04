@@ -4,7 +4,9 @@ export const DEFAULT_TTL_MS = 60 * 60 * 1000;
 /**
  * Extract `max-age` (seconds) from response headers and convert to milliseconds.
  */
-export const parseCacheControlMaxAge = (headers: Headers): number | undefined => {
+export const parseCacheControlMaxAge = (
+  headers: Headers
+): number | undefined => {
   const raw = headers.get('cache-control');
   if (!raw) {
     return undefined;

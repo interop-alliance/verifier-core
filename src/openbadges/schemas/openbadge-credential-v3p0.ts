@@ -17,12 +17,12 @@ import {
   Obv3p0ContextArray,
   VCDM_V1_CONTEXT,
   VCDM_V2_CONTEXT,
-  zodErrorToProblems,
+  zodErrorToProblems
 } from './fields-v3p0.js';
 import {
   ImageField,
   Obv3p0AchievementSubjectSchema,
-  ProfileRefField,
+  ProfileRefField
 } from './classes-v3p0.js';
 import type { RecognitionResult } from '../../types/recognition.js';
 
@@ -38,10 +38,10 @@ const TypeField = JsonLdTypeField(['VerifiableCredential']).superRefine(
         code: z.ZodIssueCode.custom,
         message:
           "type must include 'AchievementCredential' or 'OpenBadgeCredential'",
-        path: [],
+        path: []
       });
     }
-  },
+  }
 );
 
 /**
@@ -65,7 +65,7 @@ export const Obv3p0OpenBadgeCredentialSchema: z.ZodTypeAny = z
     validFrom: z.string().datetime({ offset: true }).optional(),
     validUntil: z.string().datetime({ offset: true }).optional(),
     image: ImageField().optional(),
-    credentialSubject: Obv3p0AchievementSubjectSchema,
+    credentialSubject: Obv3p0AchievementSubjectSchema
   })
   .passthrough()
   .superRefine((cred, ctx) => {
@@ -75,14 +75,14 @@ export const Obv3p0OpenBadgeCredentialSchema: z.ZodTypeAny = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['issuanceDate'],
-        message: 'issuanceDate is required for VCDM v1 credentials',
+        message: 'issuanceDate is required for VCDM v1 credentials'
       });
     }
     if (head === VCDM_V2_CONTEXT && cred.validFrom === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['validFrom'],
-        message: 'validFrom is required for VCDM v2 credentials',
+        message: 'validFrom is required for VCDM v2 credentials'
       });
     }
   });
@@ -106,19 +106,19 @@ export type Obv3p0OpenBadgeCredential = Record<string, unknown>;
  * `RecognizerSpec.parse` implementation.
  */
 export function parseObv3p0OpenBadgeCredential(
-  credential: unknown,
+  credential: unknown
 ): RecognitionResult {
   const parsed = Obv3p0OpenBadgeCredentialSchema.safeParse(credential);
   if (parsed.success) {
     return {
       status: 'recognized',
       profile: OBV3P0_OPENBADGE_PROFILE,
-      normalized: parsed.data,
+      normalized: parsed.data
     };
   }
   return {
     status: 'malformed',
     profile: OBV3P0_OPENBADGE_PROFILE,
-    problems: zodErrorToProblems(parsed.error),
+    problems: zodErrorToProblems(parsed.error)
   };
 }

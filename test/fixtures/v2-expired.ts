@@ -5,14 +5,14 @@ export const v2Expired = {
   '@context': [
     'https://www.w3.org/ns/credentials/v2',
     'https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json',
-    'https://w3id.org/security/suites/ed25519-2020/v1',
+    'https://w3id.org/security/suites/ed25519-2020/v1'
   ],
   id: 'http://example.com/credentials/3527',
   type: ['VerifiableCredential', 'OpenBadgeCredential'],
   issuer: {
     id: 'did:key:z6MknNQD1WHLGGraFi6zcbGevuAgkVfdyCdtZnQTGWVVvR5Q',
     type: ['Profile'],
-    name: 'Example Corp',
+    name: 'Example Corp'
   },
   validFrom: '2010-01-01T00:00:00Z',
   validUntil: '2011-01-01T00:00:00Z',
@@ -25,12 +25,12 @@ export const v2Expired = {
       type: ['Achievement'],
       criteria: {
         narrative:
-          'Team members are nominated for this badge by their peers and recognized upon review by Example Corp management.',
+          'Team members are nominated for this badge by their peers and recognized upon review by Example Corp management.'
       },
       description:
         'This badge recognizes the development of the capacity to collaborate within a group environment.',
-      name: 'Teamwork',
-    },
+      name: 'Teamwork'
+    }
   },
   proof: {
     type: 'Ed25519Signature2020',
@@ -39,6 +39,6 @@ export const v2Expired = {
       'did:key:z6MknNQD1WHLGGraFi6zcbGevuAgkVfdyCdtZnQTGWVVvR5Q#z6MknNQD1WHLGGraFi6zcbGevuAgkVfdyCdtZnQTGWVVvR5Q',
     proofPurpose: 'assertionMethod',
     proofValue:
-      'z2B4R2hwrcgR8ag39SZEgm2hAJSPnoWae7zdRr8RUTkcbMPNHu7tedk1x3D29J3CmiU5Wb1e7zew82nQAKYCQuRBo',
-  },
+      'z2B4R2hwrcgR8ag39SZEgm2hAJSPnoWae7zdRr8RUTkcbMPNHu7tedk1x3D29J3CmiU5Wb1e7zew82nQAKYCQuRBo'
+  }
 };

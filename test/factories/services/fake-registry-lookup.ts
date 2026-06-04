@@ -1,4 +1,8 @@
-import type { LookupIssuers, LookupIssuersOptions, RegistryLookupResult } from '../../../src/types/registry.js';
+import type {
+  LookupIssuers,
+  LookupIssuersOptions,
+  RegistryLookupResult
+} from '../../../src/types/registry.js';
 
 export type FakeRegistryLookupOptions = {
   found?: boolean;
@@ -14,23 +18,27 @@ export type FakeRegistryLookupOptions = {
  * — the stub result is always the same regardless of options.
  */
 export function FakeRegistryLookup(
-  options: FakeRegistryLookupOptions = {},
+  options: FakeRegistryLookupOptions = {}
 ): LookupIssuers {
   const {
     found = true,
     matchingRegistries = found ? ['Test Registry'] : [],
     uncheckedRegistries = [],
-    error,
+    error
   } = options;
 
-  return async (_did, _registries, _options?: LookupIssuersOptions): Promise<RegistryLookupResult> => {
+  return async (
+    _did,
+    _registries,
+    _options?: LookupIssuersOptions
+  ): Promise<RegistryLookupResult> => {
     if (error !== undefined) {
       throw error;
     }
     return {
       found,
       matchingRegistries,
-      uncheckedRegistries,
+      uncheckedRegistries
     };
   };
 }

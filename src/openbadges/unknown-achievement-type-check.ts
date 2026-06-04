@@ -5,7 +5,7 @@ import { Obv3ProblemTypes } from './problem-types.js';
 import { Obv3CredentialSubjectShape } from './openbadges-zod.js';
 import {
   KNOWN_ACHIEVEMENT_TYPES,
-  ACHIEVEMENT_TYPE_EXT_PREFIX,
+  ACHIEVEMENT_TYPE_EXT_PREFIX
 } from './known-achievement-types.js';
 import { formatJsonPointer } from '../util/json-pointer.js';
 
@@ -22,18 +22,26 @@ const CHECK_DESCRIPTION =
  */
 function evaluateAchievementType(
   value: unknown,
-  knownTypes: ReadonlySet<string>,
+  knownTypes: ReadonlySet<string>
 ): ProblemDetail[] {
-  if (value === undefined) return [];
+  if (value === undefined) {
+    return [];
+  }
   const values = Array.isArray(value) ? value : [value];
   const isArray = Array.isArray(value);
   const problems: ProblemDetail[] = [];
 
   for (let index = 0; index < values.length; index++) {
     const entry = values[index];
-    if (typeof entry !== 'string') continue;
-    if (knownTypes.has(entry)) continue;
-    if (entry.startsWith(ACHIEVEMENT_TYPE_EXT_PREFIX)) continue;
+    if (typeof entry !== 'string') {
+      continue;
+    }
+    if (knownTypes.has(entry)) {
+      continue;
+    }
+    if (entry.startsWith(ACHIEVEMENT_TYPE_EXT_PREFIX)) {
+      continue;
+    }
 
     const target = isArray
       ? `achievement.achievementType[${index}]`
@@ -45,7 +53,7 @@ function evaluateAchievementType(
       type: Obv3ProblemTypes.OB_UNKNOWN_ACHIEVEMENT_TYPE,
       title: 'Unknown Achievement Type',
       detail: `${target} = "${entry}" is not in the known AchievementType vocabulary and does not use the "${ACHIEVEMENT_TYPE_EXT_PREFIX}" extension prefix.`,
-      instance: formatJsonPointer(pointerSegments),
+      instance: formatJsonPointer(pointerSegments)
     });
   }
 
@@ -58,7 +66,7 @@ function evaluateAchievementType(
  */
 async function executeForKnownTypes(
   subject: VerificationSubject,
-  knownTypes: ReadonlySet<string>,
+  knownTypes: ReadonlySet<string>
 ): Promise<CheckOutcome> {
   const credential = subject.verifiableCredential as
     | { credentialSubject?: unknown }
@@ -67,12 +75,12 @@ async function executeForKnownTypes(
   if (!credential) {
     return {
       status: 'skipped',
-      reason: 'No verifiable credential found in subject.',
+      reason: 'No verifiable credential found in subject.'
     };
   }
 
   const subjectParse = Obv3CredentialSubjectShape.safeParse(
-    credential.credentialSubject,
+    credential.credentialSubject
   );
 
   const achievementType = subjectParse.success
@@ -82,7 +90,7 @@ async function executeForKnownTypes(
   if (achievementType === undefined) {
     return {
       status: 'skipped',
-      reason: 'Credential has no achievement.achievementType to evaluate.',
+      reason: 'Credential has no achievement.achievementType to evaluate.'
     };
   }
 
@@ -91,13 +99,13 @@ async function executeForKnownTypes(
   if (problems.length === 0) {
     return {
       status: 'success',
-      message: 'All achievement.achievementType values are recognized.',
+      message: 'All achievement.achievementType values are recognized.'
     };
   }
 
   return {
     status: 'failure',
-    problems,
+    problems
   };
 }
 
@@ -129,7 +137,8 @@ export const obv3UnknownAchievementTypeCheck: VerificationCheck = {
   description: CHECK_DESCRIPTION,
   fatal: false,
   appliesTo: ['verifiableCredential'],
-  execute: async subject => executeForKnownTypes(subject, KNOWN_ACHIEVEMENT_TYPES),
+  execute: async subject =>
+    executeForKnownTypes(subject, KNOWN_ACHIEVEMENT_TYPES)
 };
 
 export interface CreateObv3UnknownAchievementTypeCheckOptions {
@@ -161,11 +170,11 @@ export interface CreateObv3UnknownAchievementTypeCheckOptions {
  * ```
  */
 export function createObv3UnknownAchievementTypeCheck(
-  options: CreateObv3UnknownAchievementTypeCheckOptions = {},
+  options: CreateObv3UnknownAchievementTypeCheckOptions = {}
 ): VerificationCheck {
   const knownTypes: ReadonlySet<string> = new Set([
     ...KNOWN_ACHIEVEMENT_TYPES,
-    ...(options.additionalKnownTypes ?? []),
+    ...(options.additionalKnownTypes ?? [])
   ]);
   return {
     id: CHECK_ID,
@@ -173,6 +182,6 @@ export function createObv3UnknownAchievementTypeCheck(
     description: CHECK_DESCRIPTION,
     fatal: false,
     appliesTo: ['verifiableCredential'],
-    execute: async subject => executeForKnownTypes(subject, knownTypes),
+    execute: async subject => executeForKnownTypes(subject, knownTypes)
   };
 }

@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { runSuites } from '../../src/run-suites.js';
 import { obv3MissingResultStatusCheck } from '../../src/openbadges/missing-result-status-check.js';
 import { VerificationSuite } from '../../src/types/check.js';
@@ -12,12 +12,13 @@ import { formatJsonPointer } from '../../src/util/json-pointer.js';
 const missingStatusSuite: VerificationSuite = {
   id: 'openbadges.missing-result-status',
   name: 'OBv3 Missing Result Status (test wrapper)',
-  description: 'Test-only single-check suite around obv3MissingResultStatusCheck.',
-  checks: [obv3MissingResultStatusCheck],
+  description:
+    'Test-only single-check suite around obv3MissingResultStatusCheck.',
+  checks: [obv3MissingResultStatusCheck]
 };
 
 const createSubject = (credential: unknown): VerificationSubject => ({
-  verifiableCredential: credential,
+  verifiableCredential: credential
 });
 
 const RD_STATUS_ID = 'https://example.test/result-descriptions/status';
@@ -29,11 +30,13 @@ describe('OBv3 missing-result-status check', () => {
     const results = await runSuites(
       [missingStatusSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
-    const check = results.find(r => r.check === 'schema.obv3.missing-result-status');
-    expect(check?.outcome.status).to.equal('skipped');
+    const check = results.find(
+      r => r.check === 'schema.obv3.missing-result-status'
+    );
+    expect(check?.outcome.status).toBe('skipped');
   });
 
   it('skips when achievement has no resultDescription[]', async () => {
@@ -41,8 +44,8 @@ describe('OBv3 missing-result-status check', () => {
       CredentialFactory({ version: 'v2', credential: {} }),
       addResults({
         results: [{ type: 'Result', value: 'Pass' }],
-        resultDescriptions: [],
-      }),
+        resultDescriptions: []
+      })
     );
 
     const cs = cred.credentialSubject as Record<string, unknown>;
@@ -52,11 +55,13 @@ describe('OBv3 missing-result-status check', () => {
     const results = await runSuites(
       [missingStatusSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
-    const check = results.find(r => r.check === 'schema.obv3.missing-result-status');
-    expect(check?.outcome.status).to.equal('skipped');
+    const check = results.find(
+      r => r.check === 'schema.obv3.missing-result-status'
+    );
+    expect(check?.outcome.status).toBe('skipped');
   });
 
   it('succeeds (not applicable) when no ResultDescription has resultType Status', async () => {
@@ -64,29 +69,31 @@ describe('OBv3 missing-result-status check', () => {
       CredentialFactory({ version: 'v2', credential: {} }),
       addResults({
         results: [
-          { type: 'Result', resultDescription: RD_NUMERIC_ID, value: '42' },
+          { type: 'Result', resultDescription: RD_NUMERIC_ID, value: '42' }
         ],
         resultDescriptions: [
           {
             id: RD_NUMERIC_ID,
             type: 'ResultDescription',
             name: 'Score',
-            resultType: 'NumericGrade',
-          },
-        ],
-      }),
+            resultType: 'NumericGrade'
+          }
+        ]
+      })
     );
 
     const results = await runSuites(
       [missingStatusSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
-    const check = results.find(r => r.check === 'schema.obv3.missing-result-status');
-    expect(check?.outcome.status).to.equal('success');
+    const check = results.find(
+      r => r.check === 'schema.obv3.missing-result-status'
+    );
+    expect(check?.outcome.status).toBe('success');
     if (check?.outcome.status === 'success') {
-      expect(check.outcome.message).to.include('not applicable');
+      expect(check.outcome.message).toContain('not applicable');
     }
   });
 
@@ -98,35 +105,37 @@ describe('OBv3 missing-result-status check', () => {
           {
             type: 'Result',
             resultDescription: RD_STATUS_ID,
-            status: 'Completed',
+            status: 'Completed'
           },
           {
             type: 'Result',
             resultDescription: RD_STATUS_ID,
-            status: 'Failed',
-          },
+            status: 'Failed'
+          }
         ],
         resultDescriptions: [
           {
             id: RD_STATUS_ID,
             type: 'ResultDescription',
             name: 'Course Status',
-            resultType: 'Status',
-          },
-        ],
-      }),
+            resultType: 'Status'
+          }
+        ]
+      })
     );
 
     const results = await runSuites(
       [missingStatusSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
-    const check = results.find(r => r.check === 'schema.obv3.missing-result-status');
-    expect(check?.outcome.status).to.equal('success');
+    const check = results.find(
+      r => r.check === 'schema.obv3.missing-result-status'
+    );
+    expect(check?.outcome.status).toBe('success');
     if (check?.outcome.status === 'success') {
-      expect(check.outcome.message).to.include('2 Status-typed');
+      expect(check.outcome.message).toContain('2 Status-typed');
     }
   });
 
@@ -135,36 +144,42 @@ describe('OBv3 missing-result-status check', () => {
       CredentialFactory({ version: 'v2', credential: {} }),
       addResults({
         results: [
-          { type: 'Result', resultDescription: RD_STATUS_ID, value: 'Completed' },
+          {
+            type: 'Result',
+            resultDescription: RD_STATUS_ID,
+            value: 'Completed'
+          }
         ],
         resultDescriptions: [
           {
             id: RD_STATUS_ID,
             type: 'ResultDescription',
             name: 'Course Status',
-            resultType: 'Status',
-          },
-        ],
-      }),
+            resultType: 'Status'
+          }
+        ]
+      })
     );
 
     const results = await runSuites(
       [missingStatusSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
-    const check = results.find(r => r.check === 'schema.obv3.missing-result-status');
-    expect(check?.outcome.status).to.equal('failure');
+    const check = results.find(
+      r => r.check === 'schema.obv3.missing-result-status'
+    );
+    expect(check?.outcome.status).toBe('failure');
     if (check?.outcome.status === 'failure') {
-      expect(check.outcome.problems).to.have.lengthOf(1);
-      expect(check.outcome.problems[0].type).to.equal(
-        'https://www.w3.org/TR/vc-data-model#OB_MISSING_RESULT_STATUS',
+      expect(check.outcome.problems).toHaveLength(1);
+      expect(check.outcome.problems[0].type).toBe(
+        'https://www.w3.org/TR/vc-data-model#OB_MISSING_RESULT_STATUS'
       );
-      expect(check.outcome.problems[0].detail).to.include('index 0');
-      expect(check.outcome.problems[0].detail).to.include(RD_STATUS_ID);
-      expect(check.outcome.problems[0].instance).to.equal(
-        formatJsonPointer(['credentialSubject', 'result', 0]),
+      expect(check.outcome.problems[0].detail).toContain('index 0');
+      expect(check.outcome.problems[0].detail).toContain(RD_STATUS_ID);
+      expect(check.outcome.problems[0].instance).toBe(
+        formatJsonPointer(['credentialSubject', 'result', 0])
       );
     }
   });
@@ -174,29 +189,31 @@ describe('OBv3 missing-result-status check', () => {
       CredentialFactory({ version: 'v2', credential: {} }),
       addResults({
         results: [
-          { type: 'Result', resultDescription: RD_STATUS_ID, status: '' },
+          { type: 'Result', resultDescription: RD_STATUS_ID, status: '' }
         ],
         resultDescriptions: [
           {
             id: RD_STATUS_ID,
             type: 'ResultDescription',
             name: 'Course Status',
-            resultType: 'Status',
-          },
-        ],
-      }),
+            resultType: 'Status'
+          }
+        ]
+      })
     );
 
     const results = await runSuites(
       [missingStatusSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
-    const check = results.find(r => r.check === 'schema.obv3.missing-result-status');
-    expect(check?.outcome.status).to.equal('failure');
+    const check = results.find(
+      r => r.check === 'schema.obv3.missing-result-status'
+    );
+    expect(check?.outcome.status).toBe('failure');
     if (check?.outcome.status === 'failure') {
-      expect(check.outcome.problems).to.have.lengthOf(1);
+      expect(check.outcome.problems).toHaveLength(1);
     }
   });
 
@@ -209,36 +226,38 @@ describe('OBv3 missing-result-status check', () => {
           {
             type: 'Result',
             resultDescription: RD_STATUS_ID,
-            status: 'Completed',
-          },
+            status: 'Completed'
+          }
         ],
         resultDescriptions: [
           {
             id: RD_NUMERIC_ID,
             type: 'ResultDescription',
             name: 'Score',
-            resultType: 'NumericGrade',
+            resultType: 'NumericGrade'
           },
           {
             id: RD_STATUS_ID,
             type: 'ResultDescription',
             name: 'Course Status',
-            resultType: 'Status',
-          },
-        ],
-      }),
+            resultType: 'Status'
+          }
+        ]
+      })
     );
 
     const results = await runSuites(
       [missingStatusSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
-    const check = results.find(r => r.check === 'schema.obv3.missing-result-status');
-    expect(check?.outcome.status).to.equal('success');
+    const check = results.find(
+      r => r.check === 'schema.obv3.missing-result-status'
+    );
+    expect(check?.outcome.status).toBe('success');
     if (check?.outcome.status === 'success') {
-      expect(check.outcome.message).to.include('1 Status-typed');
+      expect(check.outcome.message).toContain('1 Status-typed');
     }
   });
 
@@ -252,20 +271,22 @@ describe('OBv3 missing-result-status check', () => {
             id: RD_STATUS_ID,
             type: 'ResultDescription',
             name: 'Course Status',
-            resultType: 'Status',
-          },
-        ],
-      }),
+            resultType: 'Status'
+          }
+        ]
+      })
     );
 
     const results = await runSuites(
       [missingStatusSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
-    const check = results.find(r => r.check === 'schema.obv3.missing-result-status');
-    expect(check?.outcome.status).to.equal('success');
+    const check = results.find(
+      r => r.check === 'schema.obv3.missing-result-status'
+    );
+    expect(check?.outcome.status).toBe('success');
   });
 
   it('treats lowercase "status" resultType as not-Status (case-sensitive)', async () => {
@@ -273,29 +294,31 @@ describe('OBv3 missing-result-status check', () => {
       CredentialFactory({ version: 'v2', credential: {} }),
       addResults({
         results: [
-          { type: 'Result', resultDescription: RD_STATUS_ID, value: 'Pass' },
+          { type: 'Result', resultDescription: RD_STATUS_ID, value: 'Pass' }
         ],
         resultDescriptions: [
           {
             id: RD_STATUS_ID,
             type: 'ResultDescription',
             name: 'Course Status',
-            resultType: 'status',
-          },
-        ],
-      }),
+            resultType: 'status'
+          }
+        ]
+      })
     );
 
     const results = await runSuites(
       [missingStatusSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
-    const check = results.find(r => r.check === 'schema.obv3.missing-result-status');
-    expect(check?.outcome.status).to.equal('success');
+    const check = results.find(
+      r => r.check === 'schema.obv3.missing-result-status'
+    );
+    expect(check?.outcome.status).toBe('success');
     if (check?.outcome.status === 'success') {
-      expect(check.outcome.message).to.include('not applicable');
+      expect(check.outcome.message).toContain('not applicable');
     }
   });
 
@@ -307,37 +330,43 @@ describe('OBv3 missing-result-status check', () => {
           {
             type: 'Result',
             resultDescription: RD_STATUS_ID,
-            status: 'Completed',
+            status: 'Completed'
           },
-          { type: 'Result', resultDescription: RD_STATUS_ID, value: 'lacks status' },
-          { type: 'Result', resultDescription: RD_STATUS_ID, status: '' },
+          {
+            type: 'Result',
+            resultDescription: RD_STATUS_ID,
+            value: 'lacks status'
+          },
+          { type: 'Result', resultDescription: RD_STATUS_ID, status: '' }
         ],
         resultDescriptions: [
           {
             id: RD_STATUS_ID,
             type: 'ResultDescription',
             name: 'Course Status',
-            resultType: 'Status',
-          },
-        ],
-      }),
+            resultType: 'Status'
+          }
+        ]
+      })
     );
 
     const results = await runSuites(
       [missingStatusSuite],
       createSubject(cred),
-      buildTestContext(),
+      buildTestContext()
     );
 
-    const check = results.find(r => r.check === 'schema.obv3.missing-result-status');
-    expect(check?.outcome.status).to.equal('failure');
+    const check = results.find(
+      r => r.check === 'schema.obv3.missing-result-status'
+    );
+    expect(check?.outcome.status).toBe('failure');
     if (check?.outcome.status === 'failure') {
-      expect(check.outcome.problems).to.have.lengthOf(2);
-      expect(check.outcome.problems[0].detail).to.include('index 1');
-      expect(check.outcome.problems[1].detail).to.include('index 2');
-      expect(check.outcome.problems.map(p => p.instance)).to.deep.equal([
+      expect(check.outcome.problems).toHaveLength(2);
+      expect(check.outcome.problems[0].detail).toContain('index 1');
+      expect(check.outcome.problems[1].detail).toContain('index 2');
+      expect(check.outcome.problems.map(p => p.instance)).toEqual([
         formatJsonPointer(['credentialSubject', 'result', 1]),
-        formatJsonPointer(['credentialSubject', 'result', 2]),
+        formatJsonPointer(['credentialSubject', 'result', 2])
       ]);
     }
   });

@@ -15,7 +15,7 @@ import {
   VerificationCheck,
   CheckResult,
   CheckOutcome,
-  SuitePhase,
+  SuitePhase
 } from './types/check.js';
 import { VerificationContext } from './types/context.js';
 import { VerificationSubject } from './types/subject.js';
@@ -51,10 +51,14 @@ export interface RunSuitesOptions {
  */
 function suiteRunsInPhases(
   suite: VerificationSuite,
-  phases: SuitePhase[] | undefined,
+  phases: SuitePhase[] | undefined
 ): boolean {
-  if (phases === undefined) return true;
-  if (suite.phase === undefined) return true;
+  if (phases === undefined) {
+    return true;
+  }
+  if (suite.phase === undefined) {
+    return true;
+  }
   return phases.includes(suite.phase);
 }
 
@@ -63,7 +67,10 @@ function suiteRunsInPhases(
  * If check.appliesTo is defined, the subject must have at least one
  * of the specified properties (verifiableCredential or verifiablePresentation).
  */
-function appliesToSubject(check: VerificationCheck, subject: VerificationSubject): boolean {
+function appliesToSubject(
+  check: VerificationCheck,
+  subject: VerificationSubject
+): boolean {
   if (!check.appliesTo || check.appliesTo.length === 0) {
     return true; // No restriction = applies to everything
   }
@@ -100,19 +107,21 @@ export async function runSuites(
   suites: VerificationSuite[],
   subject: VerificationSubject,
   context: VerificationContext,
-  options: RunSuitesOptions = {},
+  options: RunSuitesOptions = {}
 ): Promise<CheckResult[]> {
   const results: CheckResult[] = [];
   const timing = context.timing === true;
   const timeService = context.timeService;
 
   for (const suite of suites) {
-    if (!suiteRunsInPhases(suite, options.phases)) continue;
+    if (!suiteRunsInPhases(suite, options.phases)) {
+      continue;
+    }
 
     if (suite.applies && !suite.applies(subject, context)) {
       if (options.explicitSuiteIds?.has(suite.id)) {
         results.push(
-          buildSyntheticAppliesSkipResult(suite.id, timing, timeService),
+          buildSyntheticAppliesSkipResult(suite.id, timing, timeService)
         );
       }
       continue;
@@ -133,7 +142,7 @@ export async function runSuites(
         check: check.id,
         suite: suite.id,
         outcome,
-        fatal: check.fatal,
+        fatal: check.fatal
       };
       if (finishedTiming !== undefined) {
         result.timing = finishedTiming;
@@ -161,15 +170,15 @@ export async function runSuites(
 function buildSyntheticAppliesSkipResult(
   suiteId: string,
   timing: boolean,
-  timeService: TimeService | undefined,
+  timeService: TimeService | undefined
 ): CheckResult {
   const result: CheckResult = {
     check: `${suiteId}.applies`,
     suite: suiteId,
     outcome: {
       status: 'skipped',
-      reason: 'suite predicate returned false',
-    },
+      reason: 'suite predicate returned false'
+    }
   };
   if (timing) {
     const started = startTaskTiming(timeService);
@@ -193,7 +202,7 @@ interface InProgressTiming {
  * via `createVerifier(...)`.
  */
 function startTaskTiming(
-  timeService: TimeService | undefined,
+  timeService: TimeService | undefined
 ): InProgressTiming {
   const dateNowMs = timeService ? timeService.dateNowMs() : Date.now();
   const startedMonoMs = timeService
@@ -201,7 +210,7 @@ function startTaskTiming(
     : performance.now();
   return {
     startedAt: new Date(dateNowMs).toISOString(),
-    startedMonoMs,
+    startedMonoMs
   };
 }
 
@@ -213,7 +222,7 @@ function startTaskTiming(
  */
 function finishTaskTiming(
   started: InProgressTiming,
-  timeService: TimeService | undefined,
+  timeService: TimeService | undefined
 ): TaskTiming {
   const endDateMs = timeService ? timeService.dateNowMs() : Date.now();
   const endMonoMs = timeService
@@ -222,6 +231,6 @@ function finishTaskTiming(
   return {
     startedAt: started.startedAt,
     endedAt: new Date(endDateMs).toISOString(),
-    durationMs: endMonoMs - started.startedMonoMs,
+    durationMs: endMonoMs - started.startedMonoMs
   };
 }

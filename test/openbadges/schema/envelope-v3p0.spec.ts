@@ -5,7 +5,7 @@
  * `docs/plans/2026-04-18-openbadges-recognizer-and-subchecks/02-envelope-and-date-discriminator.md`.
  */
 
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { parseObv3p0OpenBadgeCredential } from '../../../src/openbadges/schemas/openbadge-credential-v3p0.js';
 import type { RecognitionResult } from '../../../src/types/recognition.js';
 import { obv3p0OpenBadgeSpecConforming } from '../fixtures/obv3p0-openbadge-spec-conforming.js';
@@ -17,17 +17,17 @@ function clone<T>(v: T): T {
 
 function assertMalformedAt(
   result: RecognitionResult,
-  expectedInstance: string,
+  expectedInstance: string
 ): void {
-  expect(result.status).to.equal('malformed');
+  expect(result.status).toBe('malformed');
   if (result.status === 'malformed') {
     const matched = result.problems.find(p => p.instance === expectedInstance);
     expect(
       matched,
       `expected a problem at ${expectedInstance}, got ${JSON.stringify(
-        result.problems.map(p => p.instance),
-      )}`,
-    ).to.exist;
+        result.problems.map(p => p.instance)
+      )}`
+    ).toBeDefined();
   }
 }
 
@@ -35,17 +35,17 @@ describe('parseObv3p0OpenBadgeCredential (envelope)', () => {
   describe('happy path', () => {
     it('recognizes a spec-conforming VCDM v2 credential', () => {
       const result = parseObv3p0OpenBadgeCredential(
-        obv3p0OpenBadgeSpecConforming,
+        obv3p0OpenBadgeSpecConforming
       );
-      expect(result.status).to.equal('recognized');
+      expect(result.status).toBe('recognized');
       if (result.status === 'recognized') {
-        expect(result.profile).to.equal('obv3p0.openbadge');
+        expect(result.profile).toBe('obv3p0.openbadge');
       }
     });
 
     it('recognizes a VCDM v1 credential', () => {
       const result = parseObv3p0OpenBadgeCredential(obv3p0OpenBadgeVcdmV1);
-      expect(result.status).to.equal('recognized');
+      expect(result.status).toBe('recognized');
     });
 
     it('normalizes a string issuer to { id }', () => {
@@ -54,26 +54,26 @@ describe('parseObv3p0OpenBadgeCredential (envelope)', () => {
 
       const result = parseObv3p0OpenBadgeCredential(cred);
 
-      expect(result.status).to.equal('recognized');
+      expect(result.status).toBe('recognized');
       if (result.status === 'recognized') {
         const normalized = result.normalized as { issuer: { id: string } };
-        expect(normalized.issuer).to.deep.include({
-          id: 'did:example:string-issuer',
+        expect(normalized.issuer).toMatchObject({
+          id: 'did:example:string-issuer'
         });
       }
     });
 
     it('passes an object issuer through unchanged', () => {
       const result = parseObv3p0OpenBadgeCredential(
-        obv3p0OpenBadgeSpecConforming,
+        obv3p0OpenBadgeSpecConforming
       );
-      expect(result.status).to.equal('recognized');
+      expect(result.status).toBe('recognized');
       if (result.status === 'recognized') {
         const normalized = result.normalized as {
           issuer: { id: string; name?: string };
         };
-        expect(normalized.issuer.id).to.equal('did:example:issuer');
-        expect(normalized.issuer.name).to.equal('Spec-Conforming Issuer');
+        expect(normalized.issuer.id).toBe('did:example:issuer');
+        expect(normalized.issuer.name).toBe('Spec-Conforming Issuer');
       }
     });
 
@@ -90,11 +90,11 @@ describe('parseObv3p0OpenBadgeCredential (envelope)', () => {
       cred.type = ['VerifiableCredential', 'OpenBadgeCredential'];
 
       const result = parseObv3p0OpenBadgeCredential(cred);
-      expect(result.status).to.equal('recognized');
+      expect(result.status).toBe('recognized');
       if (result.status === 'recognized') {
-        expect((result.normalized as { type: string[] }).type).to.deep.equal([
+        expect((result.normalized as { type: string[] }).type).toEqual([
           'VerifiableCredential',
-          'OpenBadgeCredential',
+          'OpenBadgeCredential'
         ]);
       }
     });
@@ -122,7 +122,7 @@ describe('parseObv3p0OpenBadgeCredential (envelope)', () => {
       cred.issuanceDate = '2024-01-01T00:00:00Z';
 
       const result = parseObv3p0OpenBadgeCredential(cred);
-      expect(result.status).to.equal('recognized');
+      expect(result.status).toBe('recognized');
     });
   });
 
@@ -148,7 +148,7 @@ describe('parseObv3p0OpenBadgeCredential (envelope)', () => {
       cred.type = ['VerifiableCredential', 'AchievementCredential'];
 
       const result = parseObv3p0OpenBadgeCredential(cred);
-      expect(result.status).to.equal('recognized');
+      expect(result.status).toBe('recognized');
     });
   });
 
@@ -165,7 +165,7 @@ describe('parseObv3p0OpenBadgeCredential (envelope)', () => {
       const cred = clone(obv3p0OpenBadgeSpecConforming);
       cred['@context'] = [
         'https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json',
-        'https://www.w3.org/ns/credentials/v2',
+        'https://www.w3.org/ns/credentials/v2'
       ];
 
       const result = parseObv3p0OpenBadgeCredential(cred);
@@ -176,11 +176,11 @@ describe('parseObv3p0OpenBadgeCredential (envelope)', () => {
       const cred = clone(obv3p0OpenBadgeSpecConforming);
       cred['@context'] = [
         'https://www.w3.org/ns/credentials/v2',
-        'https://purl.imsglobal.org/spec/ob/v3p0/context-3.99.0.json',
+        'https://purl.imsglobal.org/spec/ob/v3p0/context-3.99.0.json'
       ];
 
       const result = parseObv3p0OpenBadgeCredential(cred);
-      expect(result.status).to.equal('recognized');
+      expect(result.status).toBe('recognized');
     });
   });
 
@@ -195,9 +195,9 @@ describe('parseObv3p0OpenBadgeCredential (envelope)', () => {
 
     it('accepts a urn:uuid id', () => {
       const result = parseObv3p0OpenBadgeCredential(
-        obv3p0OpenBadgeSpecConforming,
+        obv3p0OpenBadgeSpecConforming
       );
-      expect(result.status).to.equal('recognized');
+      expect(result.status).toBe('recognized');
     });
   });
 
@@ -207,13 +207,13 @@ describe('parseObv3p0OpenBadgeCredential (envelope)', () => {
       cred.id = 'not-an-iri';
 
       const result = parseObv3p0OpenBadgeCredential(cred);
-      expect(result.status).to.equal('malformed');
+      expect(result.status).toBe('malformed');
       if (result.status === 'malformed') {
         for (const problem of result.problems) {
-          expect(problem.type).to.equal(
-            'urn:dcc-verifier:openbadges:malformed-envelope',
+          expect(problem.type).toBe(
+            'urn:dcc-verifier:openbadges:malformed-envelope'
           );
-          expect(problem.title).to.equal('Malformed Open Badges 3.0 Envelope');
+          expect(problem.title).toBe('Malformed Open Badges 3.0 Envelope');
         }
       }
     });
@@ -228,7 +228,9 @@ describe('parseObv3p0OpenBadgeCredential (envelope)', () => {
       const result = parseObv3p0OpenBadgeCredential(cred);
       if (result.status === 'malformed') {
         for (const problem of result.problems) {
-          expect(problem.instance, JSON.stringify(problem)).to.be.a('string');
+          expect(problem.instance, JSON.stringify(problem)).toBeTypeOf(
+            'string'
+          );
         }
       }
     });

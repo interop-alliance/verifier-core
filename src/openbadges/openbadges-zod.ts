@@ -61,7 +61,7 @@ import { z } from 'zod';
 
 const RubricCriterionLevelShape = z
   .object({
-    id: z.string().optional(),
+    id: z.string().optional()
   })
   .passthrough();
 
@@ -69,7 +69,7 @@ export const Obv3ResultDescriptionShape = z
   .object({
     id: z.string().optional(),
     resultType: z.string().optional(),
-    rubricCriterionLevel: z.array(RubricCriterionLevelShape).optional(),
+    rubricCriterionLevel: z.array(RubricCriterionLevelShape).optional()
   })
   .passthrough();
 
@@ -77,7 +77,7 @@ export const Obv3ResultShape = z
   .object({
     resultDescription: z.string().optional(),
     achievedLevel: z.string().optional(),
-    status: z.string().optional(),
+    status: z.string().optional()
   })
   .passthrough();
 
@@ -92,13 +92,13 @@ export const Obv3AchievementShape = z
      * whole check.
      */
     achievementType: z.unknown(),
-    resultDescription: z.array(Obv3ResultDescriptionShape).optional(),
+    resultDescription: z.array(Obv3ResultDescriptionShape).optional()
   })
   .passthrough();
 
 export const Obv3CredentialSubjectShape = z
   .object({
     achievement: Obv3AchievementShape.optional(),
-    result: z.array(Obv3ResultShape).optional(),
+    result: z.array(Obv3ResultShape).optional()
   })
   .passthrough();

@@ -15,7 +15,9 @@ export function addResults(options: AddResultsOptions = {}) {
     const c = JSON.parse(JSON.stringify(credential)) as Record<string, unknown>;
     const cs = c.credentialSubject as Record<string, unknown> | undefined;
     if (cs === undefined) {
-      throw new Error('addResults requires credentialSubject on the credential');
+      throw new Error(
+        'addResults requires credentialSubject on the credential'
+      );
     }
 
     const achievement = (cs.achievement as Record<string, unknown>) ?? {};
@@ -24,7 +26,10 @@ export function addResults(options: AddResultsOptions = {}) {
     let descriptions: Array<Record<string, unknown>>;
     let results: Array<Record<string, unknown>>;
 
-    if (options.resultDescriptions !== undefined && options.results !== undefined) {
+    if (
+      options.resultDescriptions !== undefined &&
+      options.results !== undefined
+    ) {
       descriptions = options.resultDescriptions;
       results = options.results;
     } else {
@@ -35,12 +40,12 @@ export function addResults(options: AddResultsOptions = {}) {
         descriptions.push({
           id: descId,
           type: 'ResultDescription',
-          name: `Result Description ${i}`,
+          name: `Result Description ${i}`
         });
         results.push({
           type: 'Result',
           resultDescription: descId,
-          name: `Result ${i}`,
+          name: `Result ${i}`
         });
       }
     }
@@ -48,11 +53,14 @@ export function addResults(options: AddResultsOptions = {}) {
     const existingDesc = achievement.resultDescription;
     achievement.resultDescription = [
       ...(Array.isArray(existingDesc) ? existingDesc : []),
-      ...descriptions,
+      ...descriptions
     ];
 
     const existingResult = cs.result;
-    cs.result = [...(Array.isArray(existingResult) ? existingResult : []), ...results];
+    cs.result = [
+      ...(Array.isArray(existingResult) ? existingResult : []),
+      ...results
+    ];
 
     return c;
   };

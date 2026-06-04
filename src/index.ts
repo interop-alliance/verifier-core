@@ -10,10 +10,16 @@ export type {
   Verifier,
   VerifierConfig,
   VerifyCredentialCall,
-  VerifyPresentationCall,
+  VerifyPresentationCall
 } from './types/verifier.js';
-export type { CredentialVerificationResult, PresentationVerificationResult } from './types/result.js';
-export type { VerifyCredentialOptions, VerifyPresentationOptions } from './types/options.js';
+export type {
+  CredentialVerificationResult,
+  PresentationVerificationResult
+} from './types/result.js';
+export type {
+  VerifyCredentialOptions,
+  VerifyPresentationOptions
+} from './types/options.js';
 export type {
   EntityIdentityRegistry,
   OidfEntityIdentityRegistry,
@@ -21,19 +27,39 @@ export type {
   VcRecognitionEntityIdentityRegistry,
   RegistryLookupResult,
   LookupIssuers,
-  LookupIssuersOptions,
+  LookupIssuersOptions
 } from './types/registry.js';
 
 // ==================== Core Types ====================
 
-export type { CheckResult, CheckOutcome, VerificationCheck, VerificationSuite, VerificationSubjectType, SuitePhase } from './types/check.js';
+export type {
+  CheckResult,
+  CheckOutcome,
+  VerificationCheck,
+  VerificationSuite,
+  VerificationSubjectType,
+  SuitePhase
+} from './types/check.js';
 export type { SuiteSummary, SuiteSummaryPhase } from './types/suite-summary.js';
 export type { TaskTiming } from './types/timing.js';
 export type { ProblemDetail } from './types/problem-detail.js';
-export type { VerificationContext, DocumentLoader, FetchJson } from './types/context.js';
+export type {
+  VerificationContext,
+  DocumentLoader,
+  FetchJson
+} from './types/context.js';
 export type { HttpGetResult } from './types/http.js';
-export type { CryptoService, CryptoResult, CryptoVerifyOptions } from './types/crypto-service.js';
-export type { CryptoSuite, LinkedDataSuite, DataIntegritySuite, ProofPurpose } from './types/crypto-suite.js';
+export type {
+  CryptoService,
+  CryptoResult,
+  CryptoVerifyOptions
+} from './types/crypto-service.js';
+export type {
+  CryptoSuite,
+  LinkedDataSuite,
+  DataIntegritySuite,
+  ProofPurpose
+} from './types/crypto-suite.js';
 export type { VerificationSubject } from './types/subject.js';
 export type { RecognizerSpec, RecognitionResult } from './types/recognition.js';
 
@@ -72,13 +98,11 @@ export type { ProblemType } from './problem-types.js';
 export type {
   RegistryHandlerContext,
   RegistryHandlerMap,
-  RegistryHandler,
+  RegistryHandler
 } from './services/registry-handlers/types.js';
 export { DataIntegrityCryptoService } from './services/data-integrity-crypto.js';
 export type { DataIntegrityCryptoConfig } from './services/data-integrity-crypto.js';
-export {
-  flattenPresentationResults,
-} from './flatten-presentation-results.js';
+export { flattenPresentationResults } from './flatten-presentation-results.js';
 export type { FlattenedCheckResult } from './flatten-presentation-results.js';
 export { foldCheckResults, computeId } from './fold-results.js';
 export type { FoldOptions } from './fold-results.js';

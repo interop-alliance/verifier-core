@@ -17,16 +17,20 @@ export const credentialIdCheck: VerificationCheck = {
     subject: VerificationSubject,
     _context: VerificationContext
   ): Promise<CheckOutcome> => {
-    const credential = subject.verifiableCredential as Record<string, unknown> | undefined;
+    const credential = subject.verifiableCredential as
+      | Record<string, unknown>
+      | undefined;
 
     if (!credential) {
       return {
         status: 'failure',
-        problems: [{
-          type: ProblemTypes.INVALID_CREDENTIAL_ID,
-          title: 'Invalid Credential ID',
-          detail: 'No verifiable credential found in subject.',
-        }],
+        problems: [
+          {
+            type: ProblemTypes.INVALID_CREDENTIAL_ID,
+            title: 'Invalid Credential ID',
+            detail: 'No verifiable credential found in subject.'
+          }
+        ]
       };
     }
 
@@ -36,7 +40,7 @@ export const credentialIdCheck: VerificationCheck = {
     if (id === undefined || id === null) {
       return {
         status: 'success',
-        message: 'Credential has no ID (optional field).',
+        message: 'Credential has no ID (optional field).'
       };
     }
 
@@ -44,31 +48,34 @@ export const credentialIdCheck: VerificationCheck = {
     if (typeof id !== 'string') {
       return {
         status: 'failure',
-        problems: [{
-          type: ProblemTypes.INVALID_CREDENTIAL_ID,
-          title: 'Invalid Credential ID',
-          detail: 'Credential ID must be a string URL.',
-        }],
+        problems: [
+          {
+            type: ProblemTypes.INVALID_CREDENTIAL_ID,
+            title: 'Invalid Credential ID',
+            detail: 'Credential ID must be a string URL.'
+          }
+        ]
       };
     }
 
     try {
-      // eslint-disable-next-line no-new
       new URL(id);
     } catch {
       return {
         status: 'failure',
-        problems: [{
-          type: ProblemTypes.INVALID_CREDENTIAL_ID,
-          title: 'Invalid Credential ID',
-          detail: `Credential ID is not a valid URL: ${id}`,
-        }],
+        problems: [
+          {
+            type: ProblemTypes.INVALID_CREDENTIAL_ID,
+            title: 'Invalid Credential ID',
+            detail: `Credential ID is not a valid URL: ${id}`
+          }
+        ]
       };
     }
 
     return {
       status: 'success',
-      message: 'Credential has a valid ID.',
+      message: 'Credential has a valid ID.'
     };
-  },
+  }
 };

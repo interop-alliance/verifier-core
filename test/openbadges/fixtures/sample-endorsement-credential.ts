@@ -23,7 +23,7 @@
 export const sampleEndorsementCredential: Record<string, unknown> = {
   '@context': [
     'https://www.w3.org/ns/credentials/v2',
-    'https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json',
+    'https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json'
   ],
   id: 'urn:uuid:endorsement-recognizer-fixture',
   type: ['VerifiableCredential', 'EndorsementCredential'],
@@ -32,7 +32,7 @@ export const sampleEndorsementCredential: Record<string, unknown> = {
   issuer: {
     id: 'did:example:endorser',
     type: ['Profile'],
-    name: 'Example Endorser',
+    name: 'Example Endorser'
   },
   validFrom: '2024-01-01T00:00:00Z',
   validUntil: '2034-01-01T00:00:00Z',
@@ -41,6 +41,6 @@ export const sampleEndorsementCredential: Record<string, unknown> = {
     id: 'urn:example:achievement-1',
     type: ['EndorsementSubject'],
     endorsementComment:
-      'This achievement reflects mastery as measured by the issuer rubric.',
-  },
+      'This achievement reflects mastery as measured by the issuer rubric.'
+  }
 };

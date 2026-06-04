@@ -7,7 +7,7 @@
  * `docs/plans/2026-04-18-openbadges-recognizer-and-subchecks/03-image.md`.
  */
 
-import { expect } from 'chai';
+import { describe, it, expect } from 'vitest';
 import { Obv3p0ImageSchema } from '../../../src/openbadges/schemas/classes-v3p0.js';
 import { parseObv3p0OpenBadgeCredential } from '../../../src/openbadges/schemas/openbadge-credential-v3p0.js';
 import type { RecognitionResult } from '../../../src/types/recognition.js';
@@ -19,17 +19,17 @@ function clone<T>(v: T): T {
 
 function assertMalformedAt(
   result: RecognitionResult,
-  expectedInstance: string,
+  expectedInstance: string
 ): void {
-  expect(result.status).to.equal('malformed');
+  expect(result.status).toBe('malformed');
   if (result.status === 'malformed') {
     const matched = result.problems.find(p => p.instance === expectedInstance);
     expect(
       matched,
       `expected a problem at ${expectedInstance}, got ${JSON.stringify(
-        result.problems.map(p => p.instance),
-      )}`,
-    ).to.exist;
+        result.problems.map(p => p.instance)
+      )}`
+    ).toBeDefined();
   }
 }
 
@@ -38,61 +38,61 @@ describe('Obv3p0ImageSchema (standalone)', () => {
     const parsed = Obv3p0ImageSchema.safeParse({
       id: 'https://example.test/badge.png',
       type: ['Image'],
-      caption: 'A badge',
+      caption: 'A badge'
     });
 
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.id).to.equal('https://example.test/badge.png');
-      expect(parsed.data.type).to.deep.equal(['Image']);
-      expect(parsed.data.caption).to.equal('A badge');
+      expect(parsed.data.id).toBe('https://example.test/badge.png');
+      expect(parsed.data.type).toEqual(['Image']);
+      expect(parsed.data.caption).toBe('A badge');
     }
   });
 
   it('rejects an Image whose type is wrong', () => {
     const parsed = Obv3p0ImageSchema.safeParse({
       id: 'https://example.test/badge.png',
-      type: ['Profile'],
+      type: ['Profile']
     });
 
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
   });
 
   it('rejects an Image whose id is not an IRI', () => {
     const parsed = Obv3p0ImageSchema.safeParse({
       id: 'not-an-iri',
-      type: ['Image'],
+      type: ['Image']
     });
 
-    expect(parsed.success).to.be.false;
+    expect(parsed.success).toBe(false);
   });
 
   it('accepts a data: URI as id', () => {
     const parsed = Obv3p0ImageSchema.safeParse({
       id: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAE=',
-      type: ['Image'],
+      type: ['Image']
     });
 
-    expect(parsed.success).to.be.true;
+    expect(parsed.success).toBe(true);
   });
 });
 
 describe('credential.image (backfilled ImageField)', () => {
   it('round-trips an object-form image on the spec-conforming fixture', () => {
     const result = parseObv3p0OpenBadgeCredential(
-      obv3p0OpenBadgeSpecConforming,
+      obv3p0OpenBadgeSpecConforming
     );
 
-    expect(result.status).to.equal('recognized');
+    expect(result.status).toBe('recognized');
     if (result.status === 'recognized') {
       const normalized = result.normalized as {
         image: { id: string; type: string[]; caption?: string };
       };
-      expect(normalized.image).to.deep.include({
+      expect(normalized.image).toMatchObject({
         id: 'https://example.test/badge.png',
-        caption: 'Spec-conforming badge image',
+        caption: 'Spec-conforming badge image'
       });
-      expect(normalized.image.type).to.deep.equal(['Image']);
+      expect(normalized.image.type).toEqual(['Image']);
     }
   });
 
@@ -102,14 +102,14 @@ describe('credential.image (backfilled ImageField)', () => {
 
     const result = parseObv3p0OpenBadgeCredential(cred);
 
-    expect(result.status).to.equal('recognized');
+    expect(result.status).toBe('recognized');
     if (result.status === 'recognized') {
       const normalized = result.normalized as {
         image: { id: string; type: string[] };
       };
-      expect(normalized.image).to.deep.equal({
+      expect(normalized.image).toEqual({
         id: 'https://example.test/string-form.png',
-        type: ['Image'],
+        type: ['Image']
       });
     }
   });
@@ -119,14 +119,14 @@ describe('credential.image (backfilled ImageField)', () => {
     delete cred.image;
 
     const result = parseObv3p0OpenBadgeCredential(cred);
-    expect(result.status).to.equal('recognized');
+    expect(result.status).toBe('recognized');
   });
 
   it('rejects an image object with the wrong type', () => {
     const cred = clone(obv3p0OpenBadgeSpecConforming);
     cred.image = {
       id: 'https://example.test/badge.png',
-      type: ['Profile'],
+      type: ['Profile']
     };
 
     const result = parseObv3p0OpenBadgeCredential(cred);

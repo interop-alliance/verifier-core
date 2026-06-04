@@ -26,8 +26,10 @@ export function BuiltinHttpGetService(): HttpGetService {
       }
 
       return { body, headers: response.headers, status: response.status };
-    },
+    }
   };
 }
 
-export type BuiltinHttpGetServiceType = ReturnType<typeof BuiltinHttpGetService>;
+export type BuiltinHttpGetServiceType = ReturnType<
+  typeof BuiltinHttpGetService
+>;
