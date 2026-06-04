@@ -1,4 +1,10 @@
 allowBuilds:
   esbuild: set this to true or false
+minimumReleaseAgeExclude:
+  - '@interop/data-integrity-core@6.1.2'
+  - '@interop/did-io@4.0.2'
+  - '@interop/did-method-key@7.1.1'
+  - '@interop/lru-memoize@4.0.3'
+  - '@interop/vc-bitstring-status-list@3.0.1'
 onlyBuiltDependencies:
   - esbuild

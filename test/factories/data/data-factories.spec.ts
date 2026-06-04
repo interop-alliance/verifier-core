@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decodeList } from '@digitalcredentials/vc-bitstring-status-list';
+import { decodeList } from '@interop/vc-bitstring-status-list';
 import { compose } from './compose.js';
 import { CredentialFactory } from './credential-factory.js';
 import { DidDocumentFactory } from './did-document-factory.js';

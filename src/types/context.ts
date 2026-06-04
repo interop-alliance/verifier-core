@@ -10,6 +10,7 @@
  * dependencies directly — it reads them from the context.
  */
 
+import type { IDocumentLoader } from '@interop/data-integrity-core/loader';
 import type { CacheService } from '../services/cache-service/cache-service.js';
 import type { CryptoService } from './crypto-service.js';
 import type { CryptoSuite } from './crypto-suite.js';
@@ -21,12 +22,13 @@ import type { RecognizerSpec } from './recognition.js';
 /**
  * Resolves a URL to a JSON-LD document (or other linked resource).
  *
- * This is a port interface — the default implementation uses
- * `@interop/security-document-loader` with cached contexts,
- * but callers can inject any loader (e.g. one that reads from a fixture map
- * in tests).
+ * Aliases the shared `@interop/data-integrity-core` `IDocumentLoader` (a
+ * `(url) => Promise<IRemoteDocument>` returning the
+ * `{ contextUrl, document, documentUrl }` envelope). The default implementation
+ * uses `@interop/security-document-loader` with cached contexts, but callers can
+ * inject any loader (e.g. one that reads from a fixture map in tests).
  */
-export type DocumentLoader = (url: string) => Promise<unknown>;
+export type DocumentLoader = IDocumentLoader;
 
 /**
  * Fetches a plain JSON document by URL — no JSON-LD envelope.
@@ -56,12 +58,12 @@ export interface VerificationContext {
    */
   cacheService?: CacheService;
   /**
-   * Linked Data Proof / Data Integrity suite instances for `@digitalcredentials/vc`.
+   * Linked Data Proof / Data Integrity suite instances for `@interop/vc`.
    *
    * @internal Slated for removal. Currently still consumed by
    * `bitstring-status-check`, which passes the concrete suite instances
    * to the third-party `checkStatus` function from
-   * `@digitalcredentials/vc-bitstring-status-list`. A follow-up phase
+   * `@interop/vc-bitstring-status-list`. A follow-up phase
    * will refactor that check (e.g. recursively verify the status list
    * credential via `Verifier.verifyCredential`) and drop this field.
    */

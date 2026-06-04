@@ -1,6 +1,6 @@
 import { securityLoader } from '@interop/security-document-loader';
-import { CachedResolver } from '@digitalcredentials/did-io';
-import * as didKey from '@digitalcredentials/did-method-key';
+import { CachedResolver } from '@interop/did-io';
+import * as didKey from '@interop/did-method-key';
 import { Ed25519VerificationKey } from '@interop/ed25519-verification-key';
 import type { DocumentLoader } from '../types/context.js';
 import type { HttpGetService } from '../services/http-get-service/http-get-service.js';
@@ -57,5 +57,5 @@ export function documentLoaderFromHttpGet(
   };
   loader.setProtocolHandler({ protocol: 'http', handler });
   loader.setProtocolHandler({ protocol: 'https', handler });
-  return loader.build() as DocumentLoader;
+  return loader.build();
 }

@@ -7,7 +7,7 @@ import { VerificationSubject } from '../src/types/subject.js';
 describe('runSuites', () => {
   // Mock context for testing
   const mockContext: VerificationContext = {
-    documentLoader: async () => ({}),
+    documentLoader: async () => ({ document: {} }),
     fetchJson: async () => ({}),
     cryptoSuites: [],
     cryptoServices: [],

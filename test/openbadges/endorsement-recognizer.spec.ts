@@ -23,7 +23,7 @@ import { sampleAchievementCredential } from './fixtures/sample-achievement-crede
 import { FakeCryptoService } from '../factories/services/fake-crypto-service.js';
 
 const ctx: VerificationContext = {
-  documentLoader: async () => ({}),
+  documentLoader: async () => ({ document: {} }),
   fetchJson: async () => ({}),
   cryptoSuites: [],
   cryptoServices: [],

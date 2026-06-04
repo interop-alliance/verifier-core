@@ -11,7 +11,7 @@ import type {
 const baseContext = (
   overrides: Partial<VerificationContext> = {}
 ): VerificationContext => ({
-  documentLoader: async () => ({}),
+  documentLoader: async () => ({ document: {} }),
   fetchJson: async () => ({}),
   cryptoSuites: [],
   cryptoServices: [],

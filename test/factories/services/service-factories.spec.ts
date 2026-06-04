@@ -16,7 +16,7 @@ describe('service factories', () => {
       const svc = FakeCryptoService({ verified: true });
       const result = await svc.verifyCredential(
         { proof: { type: 'Ed25519Signature2020' } },
-        { documentLoader: async () => ({}) }
+        { documentLoader: async () => ({ document: {} }) }
       );
       expect(result.verified).toBe(true);
       if (result.verified) {
@@ -35,7 +35,7 @@ describe('service factories', () => {
       const svc = FakeCryptoService({ verified: false, problems });
       const result = await svc.verifyCredential(
         {},
-        { documentLoader: async () => ({}) }
+        { documentLoader: async () => ({ document: {} }) }
       );
       expect(result.verified).toBe(false);
       if (!result.verified) {
@@ -48,7 +48,7 @@ describe('service factories', () => {
         throwInVerify: new Error('injected fault')
       });
       try {
-        await svc.verifyCredential({}, { documentLoader: async () => ({}) });
+        await svc.verifyCredential({}, { documentLoader: async () => ({ document: {} }) });
         expect.fail('expected throw');
       } catch (e) {
         expect(e).toBeInstanceOf(Error);

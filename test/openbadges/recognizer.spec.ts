@@ -13,7 +13,7 @@ import type { VerificationContext } from '../../src/types/context.js';
 import { sampleAchievementCredential } from './fixtures/sample-achievement-credential.js';
 
 const ctx: VerificationContext = {
-  documentLoader: async () => ({}),
+  documentLoader: async () => ({ document: {} }),
   fetchJson: async () => ({}),
   cryptoSuites: [],
   cryptoServices: [],

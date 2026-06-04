@@ -16,7 +16,7 @@
   `securityLoader` export and document-loader behavior are unchanged; the fork
   ships its own type declarations, so the module shim in `declarations.d.ts` was
   dropped.
-- **Dependencies**: switched the remaining DCC crypto/DID packages to their
+- **Dependencies**: switched the DCC crypto/DID packages to their
   TypeScript `@interop/*` forks (which ship their own type declarations, so the
   corresponding `declare module` shims were dropped):
   - `@digitalcredentials/ed25519-multikey` (`^1.4.0`) and
@@ -33,6 +33,31 @@
     `@digitalcredentials/eddsa-rdfc-2022-cryptosuite` (`^1.3.0`) to
     `@interop/ed25519-signature` (`^7.0.1`), which provides both
     `Ed25519Signature2020` and the `eddsaRdfc2022` cryptosuite.
+- **Dependencies**: switched the last remaining DCC packages to their
+  TypeScript `@interop/*` forks: `@digitalcredentials/vc` (`^10.0.0`) →
+  `@interop/vc` (`^11.0.1`); `@digitalcredentials/jsonld-signatures` (`^12.0.1`)
+  → `@interop/jsonld-signatures` (`^11.6.7`);
+  `@digitalcredentials/vc-bitstring-status-list` (`^1.0.0`) →
+  `@interop/vc-bitstring-status-list` (`^3.0.1`);
+  `@digitalcredentials/did-io` (`^1.0.2`) → `@interop/did-io` (`^4.0.2`);
+  `@digitalcredentials/did-method-key` (`^3.0.0`) →
+  `@interop/did-method-key` (`^7.1.1`). Added `@interop/data-integrity-core`
+  (`^6.1.2`) as a direct dependency for the ecosystem's shared types.
+- **Types**: The local `DocumentLoader`,
+  `CryptoSuite`, and `ProofPurpose` types are now thin aliases over the shared
+  `@interop/data-integrity-core` (`IDocumentLoader`/`IRemoteDocument`) and
+  `@interop/jsonld-signatures` (`LinkedDataProof`/`ProofPurpose`) types, so the
+  verifier speaks the ecosystem's vocabulary end-to-end. The unused
+  `LinkedDataSuite` / `DataIntegritySuite` public exports were dropped
+  (`CryptoSuite` is now `LinkedDataProof`).
+- **Fix (status list)**: `@interop/vc-bitstring-status-list` (`v3`) splits the
+  `checkStatus` result — `verified` now means "status checked without error" and
+  the revoked/suspended bit moved into each `results[].status`. The status suite
+  reads `results[].status` accordingly (previously relied on `verified === false`
+  meaning revoked).
+- **Removed (`@interop/vc`)**: the `verifyMatchingIssuers` option is gone from
+  `@interop/vc`'s verify APIs; the Data Integrity adapter no longer passes it
+  (it had always passed `false` to disable that check).
 - **Fix (document loader)**: the custom http(s) protocol handler in
   `documentLoaderFromHttpGet` now returns the bare document. The
   `@interop/security-document-loader` (jsonld-document-loader ≥ 2) wraps the
