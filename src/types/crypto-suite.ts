@@ -12,20 +12,32 @@
 // Shared parameter shapes
 // ---------------------------------------------------------------------------
 
-/** Options passed to `suite.matchProof()` by `ProofSet`. */
+/**
+ * Options passed to `suite.matchProof()` by `ProofSet`.
+ *
+ * `documentLoader` is intentionally `any`: the `@interop/*` suite forks now
+ * ship their own (narrower) `IDocumentLoader` type, and the port must stay
+ * assignable from those concrete adapter signatures.
+ */
 export interface MatchProofOptions {
   proof: Record<string, unknown>;
   document: Record<string, unknown>;
   purpose?: unknown;
-  documentLoader?: unknown;
+  documentLoader?: any;
 }
 
-/** Options passed to `suite.verifyProof()` by `ProofSet`. */
+/**
+ * Options passed to `suite.verifyProof()` by `ProofSet`.
+ *
+ * `documentLoader` is required (and typed `any`) so the now-typed `@interop/*`
+ * suite forks — whose `verifyProof` takes a required `documentLoader:
+ * IDocumentLoader` — stay assignable to this port.
+ */
 export interface VerifyProofOptions {
   proof: Record<string, unknown>;
   document: Record<string, unknown>;
   purpose?: unknown;
-  documentLoader?: unknown;
+  documentLoader: any;
   proofSet?: Array<Record<string, unknown>>;
 }
 

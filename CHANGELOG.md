@@ -1,5 +1,51 @@
 # @digitalcredentials/verifier-core CHANGELOG
 
+## 3.0.0 -
+
+### Changed
+
+- **Tooling / packaging** (infrastructure aligned with
+  `isomorphic-lib-template`, no library behavior change): build is a single-pass
+  `tsc` under `moduleResolution: Bundler`; tests run on **vitest** (Node) +
+  **playwright** (browser, replacing karma); lint/format on eslint flat config +
+  prettier 3; package manager is **pnpm**. `engines.node` raised to `>=24`.
+  `exports` now declare `react-native` / `import` conditions for `.` and
+  `./openbadges`, and the package is marked `sideEffects: false`.
+- **Dependencies**: switched `@digitalcredentials/security-document-loader`
+  (`^8.0.0`) to the `@interop/security-document-loader` fork (`^9.2.1`). The
+  `securityLoader` export and document-loader behavior are unchanged; the fork
+  ships its own type declarations, so the module shim in `declarations.d.ts` was
+  dropped.
+- **Dependencies**: switched the remaining DCC crypto/DID packages to their
+  TypeScript `@interop/*` forks (which ship their own type declarations, so the
+  corresponding `declare module` shims were dropped):
+  - `@digitalcredentials/ed25519-multikey` (`^1.4.0`) and
+    `@digitalcredentials/ed25519-verification-key-2020` (`^4.0.0`, dev) to
+    `@interop/ed25519-verification-key` (`^7.0.1`); `Ed25519Multikey.from`
+    becomes `Ed25519VerificationKey.from`.
+  - `@digitalcredentials/data-integrity` (`^2.6.0`) to
+    `@interop/data-integrity-proof` (`^3.2.1`) for the `DataIntegrityProof`
+    suite.
+  - `@digitalcredentials/did-method-web` (`^1.1.0`) to
+    `@interop/did-web-resolver` (`^6.1.0`); `DidWebDriver` becomes
+    `DidWebResolver` and `didUrlToHttpsUrl` is replaced by `urlFromDid`.
+  - `@digitalcredentials/ed25519-signature-2020` (`^7.0.0`) +
+    `@digitalcredentials/eddsa-rdfc-2022-cryptosuite` (`^1.3.0`) to
+    `@interop/ed25519-signature` (`^7.0.1`), which provides both
+    `Ed25519Signature2020` and the `eddsaRdfc2022` cryptosuite.
+- **Fix (document loader)**: the custom http(s) protocol handler in
+  `documentLoaderFromHttpGet` now returns the bare document. The
+  `@interop/security-document-loader` (jsonld-document-loader ≥ 2) wraps the
+  handler result in `{ contextUrl, document, documentUrl }` itself, so the
+  previous wrapper double-nested it (`document.document`). Restores networked
+  status-list / context fetching (`test:smoke`).
+- **Fix (`BuiltinHttpGetService`)**: the default `HttpGetService` now also
+  JSON-parses a string response body (falling back to raw text), so hosts that
+  serve JSON-LD as `text/plain` (e.g. raw.githubusercontent.com status lists)
+  yield a parsed document. Centralizes the contract that `body` is the parsed
+  JSON document for all consumers (document loader, did:web driver, registry
+  fetches), not just the JSON Content-Type path.
+
 ## 2.0.0 - Month XX 2026
 
 Verifier results now fold per-suite checks into a single
@@ -44,13 +90,6 @@ Verifier results now fold per-suite checks into a single
   only. Pass `verbose: true` to restore the prior shape.
 - `flattenPresentationResults` semantically unchanged; in folded mode the
   returned array is naturally smaller.
-- **Tooling / packaging** (infrastructure aligned with
-  `isomorphic-lib-template`, no library behavior change): build is a single-pass
-  `tsc` under `moduleResolution: Bundler`; tests run on **vitest** (Node) +
-  **playwright** (browser, replacing karma); lint/format on eslint flat config +
-  prettier 3; package manager is **pnpm**. `engines.node` raised to `>=24`.
-  `exports` now declare `react-native` / `import` conditions for `.` and
-  `./openbadges`, and the package is marked `sideEffects: false`.
 
 ### Deprecated
 

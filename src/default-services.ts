@@ -23,9 +23,11 @@
  * Internal module — not exported from `index.ts`.
  */
 
-import { Ed25519Signature2020 } from '@digitalcredentials/ed25519-signature-2020';
-import { DataIntegrityProof } from '@digitalcredentials/data-integrity';
-import { cryptosuite as eddsaRdfc2022CryptoSuite } from '@digitalcredentials/eddsa-rdfc-2022-cryptosuite';
+import {
+  Ed25519Signature2020,
+  eddsaRdfc2022
+} from '@interop/ed25519-signature';
+import { DataIntegrityProof } from '@interop/data-integrity-proof';
 import { BuiltinHttpGetService } from './services/http-get-service/builtin-http-get-service.js';
 import { InMemoryCacheService } from './services/cache-service/in-memory-cache-service.js';
 import { DataIntegrityCryptoService } from './services/data-integrity-crypto.js';
@@ -68,7 +70,7 @@ export function defaultCryptoSuites(): CryptoSuite[] {
   if (!cachedCryptoSuites) {
     cachedCryptoSuites = [
       new Ed25519Signature2020(),
-      new DataIntegrityProof({ cryptosuite: eddsaRdfc2022CryptoSuite })
+      new DataIntegrityProof({ cryptosuite: eddsaRdfc2022 })
     ];
   }
   return cachedCryptoSuites;

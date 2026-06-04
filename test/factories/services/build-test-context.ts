@@ -13,9 +13,11 @@
  * override). No "first-time caller bypass" branch.
  */
 
-import { Ed25519Signature2020 } from '@digitalcredentials/ed25519-signature-2020';
-import { DataIntegrityProof } from '@digitalcredentials/data-integrity';
-import { cryptosuite as eddsaRdfc2022CryptoSuite } from '@digitalcredentials/eddsa-rdfc-2022-cryptosuite';
+import {
+  Ed25519Signature2020,
+  eddsaRdfc2022
+} from '@interop/ed25519-signature';
+import { DataIntegrityProof } from '@interop/data-integrity-proof';
 import { DataIntegrityCryptoService } from '../../../src/services/data-integrity-crypto.js';
 import { createRegistryLookup } from '../../../src/services/registry-lookup.js';
 import { BuiltinHttpGetService } from '../../../src/services/http-get-service/builtin-http-get-service.js';
@@ -26,7 +28,7 @@ import type { VerificationContext } from '../../../src/types/context.js';
 import type { CryptoSuite } from '../../../src/types/crypto-suite.js';
 
 const eddsaSuite = new DataIntegrityProof({
-  cryptosuite: eddsaRdfc2022CryptoSuite
+  cryptosuite: eddsaRdfc2022
 });
 const ed25519Suite = new Ed25519Signature2020();
 

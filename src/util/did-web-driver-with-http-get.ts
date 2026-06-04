@@ -1,16 +1,13 @@
 /**
  * did:web resolution using caller-provided {@link HttpGetService} so DID document
  * fetches share the same cache as JSON-LD context loads (e.g. Keyv in
- * transaction-service). The stock {@link DidWebDriver} uses
- * `@digitalcredentials/http-client` and bypasses that cache.
+ * transaction-service). The stock {@link DidWebResolver} uses
+ * `@interop/http-client` and bypasses that cache.
  *
- * Fragment dereference logic matches `@digitalcredentials/did-method-web`
+ * Fragment dereference logic matches `@interop/did-web-resolver`
  * `getNode` (suite context map aligned with that package).
  */
-import {
-  DidWebDriver,
-  didUrlToHttpsUrl
-} from '@digitalcredentials/did-method-web';
+import { DidWebResolver, urlFromDid } from '@interop/did-web-resolver';
 import { klona } from 'klona';
 import type { HttpGetService } from '../services/http-get-service/http-get-service.js';
 
@@ -101,7 +98,7 @@ function getNodeFromDidDocument(
 
 export interface DidWebDriverLike {
   method: 'web';
-  use: DidWebDriver['use'];
+  use: DidWebResolver['use'];
   get: (opts?: {
     did?: string;
     url?: string;
@@ -110,14 +107,14 @@ export interface DidWebDriverLike {
 }
 
 /**
- * did-io driver: same surface as {@link DidWebDriver} for `get` / `use`, but
+ * did-io driver: same surface as {@link DidWebResolver} for `get` / `use`, but
  * `get` loads documents via `httpGetService`.
  */
 export function didWebDriverWithHttpGet(
   httpGetService: HttpGetService,
-  options?: ConstructorParameters<typeof DidWebDriver>[0]
+  options?: ConstructorParameters<typeof DidWebResolver>[0]
 ): DidWebDriverLike {
-  const inner = new DidWebDriver(options);
+  const inner = new DidWebResolver(options);
   return {
     method: 'web',
     use: inner.use.bind(inner),
@@ -134,7 +131,14 @@ export function didWebDriverWithHttpGet(
       if (!didOrUrl) {
         throw new TypeError('A DID or URL is required.');
       }
-      const { baseUrl, fragment } = didUrlToHttpsUrl(didOrUrl);
+      const resolvedUrl = new URL(
+        didOrUrl.startsWith('did:')
+          ? urlFromDid({ did: didOrUrl })
+          : didOrUrl
+      );
+      const fragment = resolvedUrl.hash;
+      resolvedUrl.hash = '';
+      const baseUrl = resolvedUrl.toString();
       assertDomainAllowList(inner.allowList, baseUrl);
       const { body, status } = await httpGetService.get(baseUrl);
       if (status < 200 || status >= 300) {

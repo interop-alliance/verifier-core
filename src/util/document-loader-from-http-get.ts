@@ -1,7 +1,7 @@
-import { securityLoader } from '@digitalcredentials/security-document-loader';
+import { securityLoader } from '@interop/security-document-loader';
 import { CachedResolver } from '@digitalcredentials/did-io';
 import * as didKey from '@digitalcredentials/did-method-key';
-import * as Ed25519Multikey from '@digitalcredentials/ed25519-multikey';
+import { Ed25519VerificationKey } from '@interop/ed25519-verification-key';
 import type { DocumentLoader } from '../types/context.js';
 import type { HttpGetService } from '../services/http-get-service/http-get-service.js';
 import { didWebDriverWithHttpGet } from './did-web-driver-with-http-get.js';
@@ -11,7 +11,7 @@ import { didWebDriverWithHttpGet } from './did-web-driver-with-http-get.js';
  * contexts and DID resolution, delegating http(s) remote documents to `httpGetService`.
  *
  * did:web resolution also uses `httpGetService` (stock `securityLoader` wires
- * `DidWebDriver` to `http-client`, which bypasses caller caching).
+ * `DidWebResolver` to `http-client`, which bypasses caller caching).
  */
 export function documentLoaderFromHttpGet(
   httpGetService: HttpGetService
@@ -25,11 +25,11 @@ export function documentLoaderFromHttpGet(
   resolver.use(didWebDriver);
   didWebDriver.use({
     multibaseMultikeyHeader: 'z6Mk',
-    fromMultibase: Ed25519Multikey.from
+    fromMultibase: Ed25519VerificationKey.from
   });
   didKeyDriver.use({
     multibaseMultikeyHeader: 'z6Mk',
-    fromMultibase: Ed25519Multikey.from
+    fromMultibase: Ed25519VerificationKey.from
   });
   loader.setDidResolver(resolver);
 
@@ -44,11 +44,11 @@ export function documentLoaderFromHttpGet(
         if (status < 200 || status >= 300) {
           throw new Error(`HTTP ${status}`);
         }
-        return {
-          contextUrl: null,
-          document: body,
-          documentUrl: url
-        };
+        // `@interop/security-document-loader` (jsonld-document-loader >= 2)
+        // expects a protocol handler to return the bare document and wraps it
+        // in `{ contextUrl, document, documentUrl }` itself. Returning the
+        // wrapper here would double-nest it (`document.document`).
+        return body;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         throw new Error(`NotFoundError loading "${url}": ${msg}`, { cause: e });
