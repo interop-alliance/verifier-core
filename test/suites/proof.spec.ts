@@ -1,4 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import { driver } from '@interop/did-method-key';
+import { Ed25519VerificationKey } from '@interop/ed25519-verification-key';
+import { createSigner, eddsaRdfc2022 } from '@interop/ed25519-signature';
+import { DataIntegrityProof } from '@interop/data-integrity-proof';
+import { securityLoader } from '@interop/security-document-loader';
+import { issue } from '@interop/vc';
 import { runSuites } from '../../src/run-suites.js';
 import { defaultCryptoServices } from '../../src/default-services.js';
 import { proofSuite } from '../../src/suites/proof/index.js';
@@ -8,7 +14,28 @@ import { VerificationSubject } from '../../src/types/subject.js';
 import { CredentialFactory } from '../factories/data/credential-factory.js';
 import { PresentationFactory } from '../factories/data/presentation-factory.js';
 import { FakeCryptoService } from '../factories/services/fake-crypto-service.js';
+import { ProblemTypes } from '../../src/problem-types.js';
 import { v2WithValidStatus } from '../fixtures/v2-with-valid-status.js';
+
+/** Generate a did:key and return its id, key id, and an eddsa signer. */
+async function generateDidKey(): Promise<{
+  did: string;
+  keyId: string;
+  // The signer is intentionally typed loosely; it is only handed back to
+  // `createSigner`'s consumers in this test file.
+  signer: ReturnType<typeof createSigner>;
+}> {
+  const keyPair = await Ed25519VerificationKey.generate();
+  const didDriver = driver();
+  didDriver.use({ keyPairClass: Ed25519VerificationKey });
+  const { didDocument } = await didDriver.fromKeyPair({
+    verificationKeyPair: keyPair
+  });
+  const did = didDocument.id as string;
+  keyPair.controller = did;
+  keyPair.id = `${did}#${keyPair.fingerprint()}`;
+  return { did, keyId: keyPair.id, signer: createSigner(keyPair) };
+}
 
 function subjectHasLinkedDataProof(subject: VerificationSubject): boolean {
   const doc = subject.verifiablePresentation ?? subject.verifiableCredential;
@@ -258,6 +285,44 @@ describe('Proof Verification Suite', () => {
       );
       expect(outcome.status).toBe('success');
       expect(JSON.stringify(outcome)).not.toContain('checkStatus');
+    });
+
+    it('reports ISSUER_PROOF_MISMATCH when issuer differs from proof controller (real crypto)', async () => {
+      // A cryptographically valid proof from one DID, on a credential that
+      // names a different DID as its issuer. The signature itself verifies; it
+      // is the proof-purpose validation that rejects the mismatch -- so the
+      // problem must be surfaced as a mismatch, not as INVALID_SIGNATURE.
+      const signerKey = await generateDidKey();
+      const issuerKey = await generateDidKey();
+      const documentLoader = securityLoader().build();
+      const suite = new DataIntegrityProof({
+        signer: signerKey.signer,
+        cryptosuite: eddsaRdfc2022
+      });
+      const credential = await issue({
+        credential: {
+          '@context': ['https://www.w3.org/ns/credentials/v2'],
+          type: ['VerifiableCredential'],
+          issuer: issuerKey.did,
+          credentialSubject: { description: 'hi' }
+        } as never,
+        suite: suite as never,
+        documentLoader: documentLoader as never
+      });
+
+      const ctx = buildTestContext({ cryptoServices: defaultCryptoServices() });
+      const outcome = await signatureCheck.execute(
+        { verifiableCredential: credential as never },
+        ctx
+      );
+
+      expect(outcome.status).toBe('failure');
+      if (outcome.status === 'failure') {
+        expect(outcome.problems[0].type).toBe(
+          ProblemTypes.ISSUER_PROOF_MISMATCH
+        );
+        expect(outcome.problems[0].detail).toContain(issuerKey.did);
+      }
     });
   });
 });

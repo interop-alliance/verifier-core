@@ -60,6 +60,15 @@ function isHttpError(errors: unknown[]): boolean {
   });
 }
 
+const ISSUER_CONTROLLER_MISMATCH = 'issuer must match the verification method controller';
+
+function isIssuerProofMismatch(errors: unknown[]): boolean {
+  return errors.some(e => {
+    const x = e as { message?: string };
+    return x.message?.includes(ISSUER_CONTROLLER_MISMATCH) ?? false;
+  });
+}
+
 function isJsonLdError(errors: unknown[]): boolean {
   return errors.some(e => {
     const x = e as { name?: string; type?: string };
@@ -135,6 +144,22 @@ function classifySignatureError(
         title: 'HTTP Error',
         detail:
           httpError?.message || 'An HTTP error prevented the signature check.'
+      }
+    ];
+  }
+
+  // An issuer / controller mismatch is not a bad signature: the proof verifies
+  // cryptographically but its purpose validation fails because the credential's
+  // `issuer` differs from the controller of the proof's verification method.
+  // Surface it as a distinct, explicit problem rather than INVALID_SIGNATURE.
+  if (isIssuerProofMismatch(errors)) {
+    const issuer = credential?.issuer as string | { id?: string } | undefined;
+    const issuerId = typeof issuer === 'string' ? issuer : issuer?.id;
+    return [
+      {
+        type: ProblemTypes.ISSUER_PROOF_MISMATCH,
+        title: 'Issuer / Proof Mismatch',
+        detail: `The credential's issuer${issuerId ? ` (${issuerId})` : ''} does not match the controller of the proof's verification method.`
       }
     ];
   }

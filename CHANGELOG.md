@@ -1,5 +1,17 @@
 # @interop/verifier-core CHANGELOG
 
+## Unreleased - TBD
+
+### Added
+
+- `ProblemTypes.ISSUER_PROOF_MISMATCH`: a distinct problem type for credentials
+  whose `issuer` does not match the controller of the proof's verification
+  method. The Data Integrity crypto service now classifies this case explicitly
+  (title `Issuer / Proof Mismatch`, with the offending issuer in the detail)
+  instead of collapsing it into a generic `INVALID_SIGNATURE` -- the signature
+  itself is cryptographically valid; it is the proof-purpose validation that
+  fails, so reporting it as a bad signature was misleading.
+
 ## 3.0.0-3.0.1 - 2026-06-04
 
 ### Changed
