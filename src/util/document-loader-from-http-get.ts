@@ -1,4 +1,7 @@
-import { securityLoader } from '@interop/security-document-loader';
+import {
+  registerDefaultDidKeyHeaders,
+  securityLoader
+} from '@interop/security-document-loader';
 import { CachedResolver } from '@interop/did-io';
 import * as didKey from '@interop/did-method-key';
 import { Ed25519VerificationKey } from '@interop/ed25519-verification-key';
@@ -27,10 +30,11 @@ export function documentLoaderFromHttpGet(
     multibaseMultikeyHeader: 'z6Mk',
     fromMultibase: Ed25519VerificationKey.from
   });
-  didKeyDriver.use({
-    multibaseMultikeyHeader: 'z6Mk',
-    fromMultibase: Ed25519VerificationKey.from
-  });
+  // Register the standard did:key suites (Ed25519 + ECDSA P-256/P-384/P-521) via
+  // the shared helper so this driver stays in sync with `securityLoader`'s own.
+  // Without the ECDSA headers, resolving an ecdsa did:key verification method
+  // (e.g. an `ecdsa-rdfc-2019` proof) throws `Unsupported multibaseMultikeyHeader`.
+  registerDefaultDidKeyHeaders(didKeyDriver);
   loader.setDidResolver(resolver);
 
   const handler = {
