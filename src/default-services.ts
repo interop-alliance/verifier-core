@@ -27,6 +27,7 @@ import {
   Ed25519Signature2020,
   eddsaRdfc2022
 } from '@interop/ed25519-signature';
+import { ecdsaRdfc2019 } from '@interop/ecdsa-signature';
 import { DataIntegrityProof } from '@interop/data-integrity-proof';
 import { BuiltinHttpGetService } from './services/http-get-service/builtin-http-get-service.js';
 import { InMemoryCacheService } from './services/cache-service/in-memory-cache-service.js';
@@ -61,16 +62,20 @@ export function createDefaultCacheService(): CacheService {
 }
 
 /**
- * Default crypto suites: Ed25519Signature2020 + EdDSA/RDFC 2022.
+ * Default crypto suites: Ed25519Signature2020 + EdDSA/RDFC 2022 +
+ * ECDSA/RDFC 2019.
  *
- * Both are included because credentials in the wild use either the older
- * Linked Data Proof or the newer Data Integrity Proof.
+ * Ed25519Signature2020 and eddsa-rdfc-2022 are both included because
+ * credentials in the wild use either the older Linked Data Proof or the newer
+ * Data Integrity Proof. ecdsa-rdfc-2019 covers ECDSA (P-256 / P-384) Data
+ * Integrity credentials.
  */
 export function defaultCryptoSuites(): CryptoSuite[] {
   if (!cachedCryptoSuites) {
     cachedCryptoSuites = [
       new Ed25519Signature2020(),
-      new DataIntegrityProof({ cryptosuite: eddsaRdfc2022 })
+      new DataIntegrityProof({ cryptosuite: eddsaRdfc2022 }),
+      new DataIntegrityProof({ cryptosuite: ecdsaRdfc2019 })
     ];
   }
   return cachedCryptoSuites;

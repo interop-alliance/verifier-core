@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { driver } from '@interop/did-method-key';
 import { Ed25519VerificationKey } from '@interop/ed25519-verification-key';
 import { createSigner, eddsaRdfc2022 } from '@interop/ed25519-signature';
+import * as EcdsaMultikey from '@interop/ecdsa-multikey';
+import { ecdsaRdfc2019 } from '@interop/ecdsa-signature';
 import { DataIntegrityProof } from '@interop/data-integrity-proof';
 import { securityLoader } from '@interop/security-document-loader';
 import { issue } from '@interop/vc';
@@ -35,6 +37,30 @@ async function generateDidKey(): Promise<{
   keyPair.controller = did;
   keyPair.id = `${did}#${keyPair.fingerprint()}`;
   return { did, keyId: keyPair.id, signer: createSigner(keyPair) };
+}
+
+/** Generate an ECDSA (P-256) did:key and return its id, key id, and signer. */
+async function generateEcdsaDidKey(): Promise<{
+  did: string;
+  keyId: string;
+  // The signer is intentionally typed loosely; ECDSA keypairs expose their own
+  // `.signer()` (there is no `createSigner` equivalent in `@interop/ecdsa-signature`).
+  signer: ReturnType<typeof createSigner>;
+}> {
+  const keyPair = await EcdsaMultikey.generate({ curve: 'P-256' });
+  const didDriver = driver();
+  const { didDocument } = await didDriver.fromKeyPair({
+    verificationKeyPair: keyPair
+  });
+  const did = didDocument.id as string;
+  const keyId = (didDocument.assertionMethod as string[])[0];
+  keyPair.controller = did;
+  keyPair.id = keyId;
+  return {
+    did,
+    keyId,
+    signer: keyPair.signer() as ReturnType<typeof createSigner>
+  };
 }
 
 function subjectHasLinkedDataProof(subject: VerificationSubject): boolean {
@@ -323,6 +349,37 @@ describe('Proof Verification Suite', () => {
         );
         expect(outcome.problems[0].detail).toContain(issuerKey.did);
       }
+    });
+
+    it('verifies an ecdsa-rdfc-2019 (P-256) did:key credential (real crypto)', async () => {
+      // Exercises both halves of ECDSA support in the default services: the
+      // `ecdsa-rdfc-2019` cryptosuite must be in `defaultCryptoSuites`, and the
+      // default document loader must resolve the ecdsa did:key verification
+      // method (the ECDSA multibase headers must be registered).
+      const ecdsaKey = await generateEcdsaDidKey();
+      const documentLoader = securityLoader().build();
+      const suite = new DataIntegrityProof({
+        signer: ecdsaKey.signer,
+        cryptosuite: ecdsaRdfc2019
+      });
+      const credential = await issue({
+        credential: {
+          '@context': ['https://www.w3.org/ns/credentials/v2'],
+          type: ['VerifiableCredential'],
+          issuer: ecdsaKey.did,
+          credentialSubject: { description: 'hi' }
+        } as never,
+        suite: suite as never,
+        documentLoader: documentLoader as never
+      });
+
+      const ctx = buildTestContext({ cryptoServices: defaultCryptoServices() });
+      const outcome = await signatureCheck.execute(
+        { verifiableCredential: credential as never },
+        ctx
+      );
+
+      expect(outcome.status).toBe('success');
     });
   });
 });

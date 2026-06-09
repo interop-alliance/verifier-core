@@ -1,5 +1,21 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.2.0 - TBD
+
+### Added
+
+- Verify ECDSA (P-256 / P-384) `ecdsa-rdfc-2019` Data Integrity credentials out
+  of the box. Two changes to the default services:
+  - `defaultCryptoSuites()` now includes `ecdsa-rdfc-2019` (via
+    `@interop/ecdsa-signature`), alongside `Ed25519Signature2020` and
+    `eddsa-rdfc-2022`.
+  - The default document loader (`documentLoaderFromHttpGet`) registers the
+    standard `did:key` suites -- Ed25519 plus ECDSA P-256/P-384/P-521 -- via
+    `@interop/security-document-loader`'s new `registerDefaultDidKeyHeaders`
+    helper, so ECDSA `did:key` verification methods resolve (previously only
+    the Ed25519 `z6Mk` header was registered). Requires
+    `@interop/security-document-loader@^9.3.0`.
+
 ## 3.1.0 - 2026-06-06
 
 ### Added
