@@ -1,5 +1,12 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.2.1 - 2026-06-
+
+### Changed
+
+- Update to `@digitalcredentials/data-integrity-core@8.0.0` and related latest
+  deps.
+
 ## 3.2.0 - 2026-06-09
 
 ### Added
