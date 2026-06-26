@@ -1,5 +1,17 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.3.0 - TBD
+
+### Added
+
+- New `VERIFICATION_METHOD_UNRESOLVED` problem type. When a proof's verification
+  method uses a DID method the document loader has no driver for (did-io throws
+  `Driver for DID ... not found.`), `classifySignatureError` now surfaces a
+  distinct, actionable problem -- "the verifier cannot resolve this DID method;
+  register a resolver/driver in the document loader" -- instead of a misleading
+  `INVALID_SIGNATURE`. The signature was never actually checked, so reporting it
+  as invalid was wrong.
+
 ## 3.2.1 - 2026-06-13
 
 ### Changed

@@ -93,6 +93,35 @@ function didWebToUrlPattern(did: string): string {
   return did.slice(8).replaceAll(':', '/').toLowerCase();
 }
 
+// did-io's `CachedResolver` throws `Driver for DID method "<m>" not found.` /
+// `Driver for DID <did> not found.` when the document loader has no driver for
+// the proof's verification-method DID method. `jsonld-signatures` buries this in
+// its aggregated `errors[]`, so it would otherwise surface as a misleading
+// INVALID_SIGNATURE.
+const DRIVER_NOT_FOUND = /driver for did(?: method)? .* not found/i;
+
+function isVerificationMethodUnresolved(errors: unknown[]): boolean {
+  return errors.some(e => {
+    const x = e as { message?: string; error?: { message?: string } };
+    return (
+      DRIVER_NOT_FOUND.test(x.message ?? '') ||
+      DRIVER_NOT_FOUND.test(x.error?.message ?? '')
+    );
+  });
+}
+
+function proofVerificationMethod(
+  credential: Record<string, unknown> | undefined
+): string | undefined {
+  const proof = credential?.proof as
+    | Record<string, unknown>
+    | Array<Record<string, unknown>>
+    | undefined;
+  const first = Array.isArray(proof) ? proof[0] : proof;
+  const vm = first?.verificationMethod;
+  return typeof vm === 'string' ? vm : undefined;
+}
+
 function classifySignatureError(
   error: unknown,
   credential: Record<string, unknown> | undefined
@@ -160,6 +189,24 @@ function classifySignatureError(
         type: ProblemTypes.ISSUER_PROOF_MISMATCH,
         title: 'Issuer / Proof Mismatch',
         detail: `The credential's issuer${issuerId ? ` (${issuerId})` : ''} does not match the controller of the proof's verification method.`
+      }
+    ];
+  }
+
+  // The verification method's DID method has no driver in the document loader,
+  // so its public key could never be fetched -- the signature was never actually
+  // checked. Distinguish this from a genuine INVALID_SIGNATURE.
+  if (isVerificationMethodUnresolved(errors)) {
+    const vmId = proofVerificationMethod(credential);
+    return [
+      {
+        type: ProblemTypes.VERIFICATION_METHOD_UNRESOLVED,
+        title: 'Verification Method Unresolved',
+        detail:
+          "The signature could not be checked because the proof's verification " +
+          'method uses a DID method the verifier cannot resolve' +
+          `${vmId ? ` (${vmId})` : ''}. Register a resolver/driver for it in ` +
+          'the document loader.'
       }
     ];
   }
