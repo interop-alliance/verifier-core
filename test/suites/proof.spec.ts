@@ -351,6 +351,44 @@ describe('Proof Verification Suite', () => {
       }
     });
 
+    it('reports VERIFICATION_METHOD_UNRESOLVED when the proof DID method has no driver', async () => {
+      // The default document loader registers did:key + did:web only. A proof
+      // whose verification method is did:webvh can never be resolved, so the
+      // signature is never actually checked -- this must surface as an
+      // unresolved verification method, not a misleading INVALID_SIGNATURE.
+      const credential = {
+        '@context': ['https://www.w3.org/ns/credentials/v2'],
+        type: ['VerifiableCredential'],
+        issuer: 'did:webvh:QmExampleScid:example.org',
+        credentialSubject: { description: 'hi' },
+        proof: {
+          type: 'DataIntegrityProof',
+          created: '2026-06-26T00:33:45Z',
+          verificationMethod: 'did:webvh:QmExampleScid:example.org#key-1',
+          cryptosuite: 'eddsa-rdfc-2022',
+          proofPurpose: 'assertionMethod',
+          proofValue:
+            'z4CrgCcporr5zPR4gLAJLUPeb3Pk2znTJnKkup6DxiUeVgZiDsJz1ADtgJjkQ884TDHp97GNn42Y2seQHL48VyMhF'
+        }
+      };
+
+      const ctx = buildTestContext({ cryptoServices: defaultCryptoServices() });
+      const outcome = await signatureCheck.execute(
+        { verifiableCredential: credential as never },
+        ctx
+      );
+
+      expect(outcome.status).toBe('failure');
+      if (outcome.status === 'failure') {
+        expect(outcome.problems[0].type).toBe(
+          ProblemTypes.VERIFICATION_METHOD_UNRESOLVED
+        );
+        expect(outcome.problems[0].detail).toContain(
+          'did:webvh:QmExampleScid:example.org#key-1'
+        );
+      }
+    });
+
     it('verifies an ecdsa-rdfc-2019 (P-256) did:key credential (real crypto)', async () => {
       // Exercises both halves of ECDSA support in the default services: the
       // `ecdsa-rdfc-2019` cryptosuite must be in `defaultCryptoSuites`, and the

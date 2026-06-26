@@ -51,6 +51,9 @@ export const ProblemTypes = {
     'https://www.w3.org/TR/vc-data-model#ISSUER_PROOF_MISMATCH',
   /** Synthesized — a `did:web` document could not be fetched. */
   DID_WEB_UNRESOLVED: 'https://www.w3.org/TR/vc-data-model#DID_WEB_UNRESOLVED',
+  /** Synthesized — the proof's verification method uses a DID method the document loader has no resolver/driver for. */
+  VERIFICATION_METHOD_UNRESOLVED:
+    'https://www.w3.org/TR/vc-data-model#VERIFICATION_METHOD_UNRESOLVED',
   /** Synthesized — HTTP error during signature/issuer resolution. */
   HTTP_ERROR: 'https://www.w3.org/TR/vc-data-model#HTTP_ERROR',
   /** Synthesized — credential `id` is missing or malformed. */
