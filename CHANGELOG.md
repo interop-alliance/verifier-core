@@ -1,5 +1,11 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.3.1 - 2026-06-28
+
+### Changed
+
+- Update to `@interop/data-integrity-core@8.1.0` and related latest deps.
+
 ## 3.3.0 - 2026-06-25
 
 ### Added
