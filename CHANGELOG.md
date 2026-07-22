@@ -1,5 +1,17 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.4.1 - TBD
+
+### Fixed
+
+- The issuer registry check now treats an explicitly empty `registries` list
+  (`registries: []`) as opting out of registry lookup and skips, instead of
+  failing with "issuer not found in any registry" -- e.g. for self-issued
+  credentials.
+- `INVALID_SIGNATURE` problem details now surface the underlying sub-error
+  messages from an aggregate jsonld-signatures error (deduplicated and joined),
+  instead of the unhelpful top-level "Verification error(s)." message.
+
 ## 3.4.0 - 2026-07-22
 
 ### Added

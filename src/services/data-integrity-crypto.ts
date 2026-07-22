@@ -122,7 +122,8 @@ function proofVerificationMethod(
   return typeof vm === 'string' ? vm : undefined;
 }
 
-function classifySignatureError(
+/** Exported for unit testing. */
+export function classifySignatureError(
   error: unknown,
   credential: Record<string, unknown> | undefined
 ): ProblemDetail[] {
@@ -211,12 +212,24 @@ function classifySignatureError(
     ];
   }
 
-  const err = error as { message?: string } | undefined;
+  // Prefer the unpacked sub-error messages: an aggregate jsonld-signatures
+  // error carries only "Verification error(s)." on itself, with the real
+  // causes in its `errors[]`.
+  const messages = [
+    ...new Set(
+      errors
+        .map(e => {
+          const x = e as { message?: string; error?: { message?: string } };
+          return x.error?.message || x.message;
+        })
+        .filter((m): m is string => !!m)
+    )
+  ];
   return [
     {
       type: ProblemTypes.INVALID_SIGNATURE,
       title: 'Invalid Signature',
-      detail: err?.message || 'The signature is not valid.'
+      detail: messages.join('; ') || 'The signature is not valid.'
     }
   ];
 }

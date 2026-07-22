@@ -62,8 +62,9 @@ export const issuerRegistryCheck: VerificationCheck = {
       };
     }
 
-    // Skip if no registries in context
-    if (!context.registries) {
+    // Skip if no registries in context (an explicitly empty list means the
+    // caller opted out of registry lookup, e.g. for self-issued credentials)
+    if (!context.registries || context.registries.length === 0) {
       return {
         status: 'skipped',
         reason: 'No registries configured in verification context.'

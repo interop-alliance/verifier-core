@@ -41,6 +41,28 @@ describe('Registry Suite', () => {
         expect(results[0].outcome.reason).toContain('No registries configured');
       }
     });
+
+    it('skips check when the registries list is empty', async () => {
+      const subject = createSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
+      const context: VerificationContext = {
+        ...baseContext,
+        registries: [],
+        lookupIssuers: FakeRegistryLookup({
+          found: false,
+          matchingRegistries: []
+        })
+      };
+      const results = await runSuites([registrySuite], subject, context);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].check).toBe('registry.issuer');
+      expect(results[0].outcome.status).toBe('skipped');
+      if (results[0].outcome.status === 'skipped') {
+        expect(results[0].outcome.reason).toContain('No registries configured');
+      }
+    });
   });
 
   describe('issuer lookup (fake)', () => {
