@@ -113,7 +113,7 @@ jspm_packages/
 .cursor
 
 # local development notes
-docs/plans 
+docs/plans
 
 # Output
 dist
@@ -126,3 +126,5 @@ dist
 
 # MacOS
 .DS_Store
+
+!CLAUDE.md

@@ -82,6 +82,16 @@ export { statusSuite } from './suites/status/index.js';
 export { registrySuite } from './suites/registry/index.js';
 export { recognitionSuite } from './suites/recognition/index.js';
 
+// Opt-in suites (not part of `defaultSuites`; pass via `additionalSuites`).
+export {
+  expirationSuite,
+  EXPIRED_PROBLEM_TYPE
+} from './suites/validity/index.js';
+export {
+  createIssuerDetailsSuite,
+  createIssuerDetailsCheck
+} from './suites/trust/index.js';
+
 // ==================== Utilities ====================
 
 export { formatJsonPointer } from './util/json-pointer.js';

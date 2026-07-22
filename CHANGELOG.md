@@ -1,5 +1,25 @@
 # @interop/verifier-core CHANGELOG
 
+## Unreleased - TBD
+
+### Added
+
+- Two opt-in verification suites (pass them via a verify call's
+  `additionalSuites`; neither is part of `defaultSuites`):
+  - `expirationSuite` (suite id `validity`, check id `validity.expiration`) -- a
+    non-fatal check that a credential is within its validity period, reading the
+    expiry from VC 2.0 `validUntil` and falling back to VC 1.x `expirationDate`.
+    "Now" comes from the injected time service
+    (`context.timeService.dateNowMs()`) when present, else `Date.now()`. Emits
+    the new exported `EXPIRED_PROBLEM_TYPE` on failure.
+  - `createIssuerDetailsSuite({ lookupDid })` (suite id `trust`, check id
+    `trust.issuer-details`) -- a factory for a non-fatal check that surfaces
+    rich issuer registry metadata on the outcome `payload` for a UI to consume.
+    The registry lookup is injected as `lookupDid`, so the library takes on no
+    concrete registry-client dependency. The individual
+    `createIssuerDetailsCheck` is also exported for a la carte suite
+    composition.
+
 ## 3.3.1 - 2026-06-28
 
 ### Changed
@@ -37,8 +57,8 @@
   - The default document loader (`documentLoaderFromHttpGet`) registers the
     standard `did:key` suites -- Ed25519 plus ECDSA P-256/P-384/P-521 -- via
     `@interop/security-document-loader`'s new `registerDefaultDidKeyHeaders`
-    helper, so ECDSA `did:key` verification methods resolve (previously only
-    the Ed25519 `z6Mk` header was registered). Requires
+    helper, so ECDSA `did:key` verification methods resolve (previously only the
+    Ed25519 `z6Mk` header was registered). Requires
     `@interop/security-document-loader@^9.3.0`.
 
 ## 3.1.0 - 2026-06-06
@@ -57,21 +77,22 @@
 
 ### Changed
 
-- **BREAKING**: Fork from https://github.com/skybridgeskills/dcc-verifier-core (v2 below)
+- **BREAKING**: Fork from https://github.com/skybridgeskills/dcc-verifier-core
+  (v2 below)
 - **Tooling / packaging** (infrastructure aligned with
   `isomorphic-lib-template`, no library behavior change): build is a single-pass
   `tsc` under `moduleResolution: Bundler`; tests run on **vitest** (Node) +
   **playwright** (browser, replacing karma); lint/format on eslint flat config +
   prettier 3; package manager is **pnpm**. `engines.node` raised to `>=24`.
-  `exports` now declare `react-native` / `import` / `default` conditions for
-  `.` and `./openbadges`, and the package is marked `sideEffects: false`.
+  `exports` now declare `react-native` / `import` / `default` conditions for `.`
+  and `./openbadges`, and the package is marked `sideEffects: false`.
 - **Dependencies**: switched `@digitalcredentials/security-document-loader`
   (`^8.0.0`) to the `@interop/security-document-loader` fork (`^9.2.1`). The
   `securityLoader` export and document-loader behavior are unchanged; the fork
   ships its own type declarations, so the module shim in `declarations.d.ts` was
   dropped.
-- **Dependencies**: switched the DCC crypto/DID packages to their
-  TypeScript `@interop/*` forks (which ship their own type declarations, so the
+- **Dependencies**: switched the DCC crypto/DID packages to their TypeScript
+  `@interop/*` forks (which ship their own type declarations, so the
   corresponding `declare module` shims were dropped):
   - `@digitalcredentials/ed25519-multikey` (`^1.4.0`) and
     `@digitalcredentials/ed25519-verification-key-2020` (`^4.0.0`, dev) to
@@ -87,28 +108,28 @@
     `@digitalcredentials/eddsa-rdfc-2022-cryptosuite` (`^1.3.0`) to
     `@interop/ed25519-signature` (`^7.0.1`), which provides both
     `Ed25519Signature2020` and the `eddsaRdfc2022` cryptosuite.
-- **Dependencies**: switched the last remaining DCC packages to their
-  TypeScript `@interop/*` forks: `@digitalcredentials/vc` (`^10.0.0`) →
-  `@interop/vc` (`^11.0.1`); `@digitalcredentials/jsonld-signatures` (`^12.0.1`)
-  → `@interop/jsonld-signatures` (`^11.6.7`);
+- **Dependencies**: switched the last remaining DCC packages to their TypeScript
+  `@interop/*` forks: `@digitalcredentials/vc` (`^10.0.0`) → `@interop/vc`
+  (`^11.0.1`); `@digitalcredentials/jsonld-signatures` (`^12.0.1`) →
+  `@interop/jsonld-signatures` (`^11.6.7`);
   `@digitalcredentials/vc-bitstring-status-list` (`^1.0.0`) →
-  `@interop/vc-bitstring-status-list` (`^3.0.1`);
-  `@digitalcredentials/did-io` (`^1.0.2`) → `@interop/did-io` (`^4.0.2`);
-  `@digitalcredentials/did-method-key` (`^3.0.0`) →
-  `@interop/did-method-key` (`^7.1.1`). Added `@interop/data-integrity-core`
-  (`^6.1.2`) as a direct dependency for the ecosystem's shared types.
-- **Types**: The local `DocumentLoader`,
-  `CryptoSuite`, and `ProofPurpose` types are now thin aliases over the shared
-  `@interop/data-integrity-core` (`IDocumentLoader`/`IRemoteDocument`) and
-  `@interop/jsonld-signatures` (`LinkedDataProof`/`ProofPurpose`) types, so the
-  verifier speaks the ecosystem's vocabulary end-to-end. The unused
-  `LinkedDataSuite` / `DataIntegritySuite` public exports were dropped
-  (`CryptoSuite` is now `LinkedDataProof`).
+  `@interop/vc-bitstring-status-list` (`^3.0.1`); `@digitalcredentials/did-io`
+  (`^1.0.2`) → `@interop/did-io` (`^4.0.2`);
+  `@digitalcredentials/did-method-key` (`^3.0.0`) → `@interop/did-method-key`
+  (`^7.1.1`). Added `@interop/data-integrity-core` (`^6.1.2`) as a direct
+  dependency for the ecosystem's shared types.
+- **Types**: The local `DocumentLoader`, `CryptoSuite`, and `ProofPurpose` types
+  are now thin aliases over the shared `@interop/data-integrity-core`
+  (`IDocumentLoader`/`IRemoteDocument`) and `@interop/jsonld-signatures`
+  (`LinkedDataProof`/`ProofPurpose`) types, so the verifier speaks the
+  ecosystem's vocabulary end-to-end. The unused `LinkedDataSuite` /
+  `DataIntegritySuite` public exports were dropped (`CryptoSuite` is now
+  `LinkedDataProof`).
 - **Fix (status list)**: `@interop/vc-bitstring-status-list` (`v3`) splits the
   `checkStatus` result — `verified` now means "status checked without error" and
   the revoked/suspended bit moved into each `results[].status`. The status suite
-  reads `results[].status` accordingly (previously relied on `verified === false`
-  meaning revoked).
+  reads `results[].status` accordingly (previously relied on
+  `verified === false` meaning revoked).
 - **Removed (`@interop/vc`)**: the `verifyMatchingIssuers` option is gone from
   `@interop/vc`'s verify APIs; the Data Integrity adapter no longer passes it
   (it had always passed `false` to disable that check).

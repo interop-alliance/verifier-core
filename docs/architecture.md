@@ -51,12 +51,14 @@ src/
 │       ├── oidf-handler.ts          OpenID Federation entity-statement registry
 │       ├── vc-recognition-handler.ts Recognition VC registry (recursively verified via the parent Verifier)
 │       └── cache-ttl.ts             TTL helpers (Cache-Control, validUntil)
-├── suites/                          Verification suite implementations (default suites only)
+├── suites/                          Verification suite implementations (default + opt-in suites)
 │   ├── core/                        Structure checks (context, VC context, credential id, proof exists)
 │   ├── recognition/                 Pluggable recognizer dispatch; produces normalized credential form
 │   ├── proof/                       Cryptographic signature verification (dispatches to CryptoService)
 │   ├── status/                      BitstringStatusList revocation/suspension
 │   ├── registry/                    Issuer DID lookup via context.lookupIssuers
+│   ├── trust/                       Opt-in: createIssuerDetailsSuite factory (rich issuer registry metadata via injected lookupDid)
+│   ├── validity/                    Opt-in: expirationSuite (validUntil / expirationDate validity-period check)
 │   └── schema/obv3/                 AJV-backed OBv3 JSON Schema check; consumed by the openBadgesSchemaSuite bundle in the /openbadges submodule
 ├── openbadges/                      Opt-in submodule (published as `@interop/verifier-core/openbadges`)
 │   ├── index.ts                     Curated barrel — suites, individual checks, factory, recognition helpers, problem-type catalog, vocabulary
@@ -314,6 +316,40 @@ Open Badges 3.0 verification (semantic checks and JSON Schema conformance) is no
 longer in the default list; it ships as an opt-in submodule
 (see [Vertical submodules](#vertical-submodules-openbadges-and-beyond)). The OB
 suite bundles are tagged `phase: 'semantic'`.
+
+### Opt-in suites (main entry)
+
+Generic (non-vertical) suites can ship from the **main** entry point while
+staying out of `defaultSuites`: they are exported from `src/index.ts` alongside
+the built-in suites, and a consumer passes them via a verify call's
+`additionalSuites`. Unlike a vertical submodule, they carry no extra
+dependencies, so exporting them from the main entry costs nothing for consumers
+who don't use them.
+
+| Suite           | ID         | Phase           | Checks                 | Fatal | Purpose                                              |
+|-----------------|------------|-----------------|------------------------|-------|------------------------------------------------------|
+| Validity Period | `validity` | `cryptographic` | `validity.expiration`  | No    | Credential is within its validity period             |
+| Issuer Trust    | `trust`    | `trust`         | `trust.issuer-details` | No    | Surfaces rich issuer registry metadata on `payload`  |
+
+- **`expirationSuite`** (`src/suites/validity/`) -- a non-fatal check that the
+  credential has not expired, reading the expiry from VC 2.0 `validUntil` and
+  falling back to VC 1.x `expirationDate`. "Now" comes from the injected
+  `context.timeService.dateNowMs()` when present (deterministic under a fake
+  time service in tests), else `Date.now()`. On failure it emits the exported
+  `EXPIRED_PROBLEM_TYPE` -- kept as a standalone constant next to its suite
+  rather than mirrored into the core `ProblemTypes` map, following the same
+  "problem catalogs live with their suite" convention as the OpenBadges
+  submodule.
+- **`createIssuerDetailsSuite({ lookupDid })`** (`src/suites/trust/`) -- a
+  factory for a non-fatal check that surfaces the full issuer registry metadata
+  (logo, legal name, homepage, registry org, etc.) on the check outcome's
+  `payload` for a UI to consume, unlike the built-in `registry.issuer` check's
+  found/not-found verdict. The lookup is injected as a
+  `(did) => Promise<{ matchingIssuers }>` function, so the library takes on no
+  concrete registry-client dependency; the `matchingIssuers` element type is a
+  generic inferred from the caller's `lookupDid`, letting an app keep its own
+  richer issuer type end-to-end. The individual `createIssuerDetailsCheck` is
+  also exported for a la carte suite composition.
 
 ### Phases and two-pass verification
 
