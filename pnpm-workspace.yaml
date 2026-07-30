@@ -1,3 +1,4 @@
 allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
+  - '@interop/*'

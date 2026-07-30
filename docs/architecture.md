@@ -280,7 +280,7 @@ VerificationCheck.execute(subject, context)
 CheckOutcome
   ├── { status: 'success', message }
   ├── { status: 'failure', problems: ProblemDetail[] }
-  └── { status: 'skipped', reason }
+  └── { status: 'skipped', reason, code? }
        │
        ▼
 CheckResult: { suite, check, outcome, fatal?, timing? }

@@ -22,7 +22,13 @@ import type { TaskTiming } from './timing.js';
  * - **failure** — the check found a problem; `problems` carries one or more
  *   RFC 9457-style `ProblemDetail` entries.
  * - **skipped** — the check was irrelevant to this input (e.g. no
- *   `credentialStatus`); `reason` explains why.
+ *   `credentialStatus`); `reason` explains why. `code`, when present, is a
+ *   stable machine-readable discriminator for the skip cause — consumers
+ *   that need to branch on *why* a check was skipped must use it rather
+ *   than parsing `reason` (which is prose and may be reworded). Each
+ *   check documents and exports its own code catalog (e.g.
+ *   `EXPIRATION_SKIP_CODES`); codes are only comparable within the check
+ *   that emitted them.
  *
  * Checks never throw for verification failures — they return a failure outcome.
  * Throws are reserved for unexpected infrastructure errors.
@@ -30,7 +36,7 @@ import type { TaskTiming } from './timing.js';
 export type CheckOutcome =
   | { status: 'success'; message: string; payload?: unknown }
   | { status: 'failure'; problems: ProblemDetail[] }
-  | { status: 'skipped'; reason: string };
+  | { status: 'skipped'; reason: string; code?: string };
 
 /**
  * Tagged outcome emitted by the suite orchestrator.

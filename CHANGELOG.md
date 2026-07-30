@@ -1,5 +1,18 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.5.0 - TBD
+
+### Added
+
+- `'skipped'` check outcomes can now carry an optional machine-readable
+  `code` alongside the prose `reason`, so consumers can branch on the skip
+  cause without parsing English text. The expiration check
+  (`validity.expiration`) is the first emitter: its three skip causes are
+  tagged `no-credential`, `no-expiration`, and `unparseable-date` (catalog
+  exported as `EXPIRATION_SKIP_CODES`). The distinction matters because a
+  credential whose expiry exists but does not parse is an issuer defect a
+  consumer may want to surface as a warning, not a pass.
+
 ## 3.4.1 - 2026-07-22
 
 ### Fixed

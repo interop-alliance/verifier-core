@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@interop/data-integrity-core':
-        specifier: ^8.3.0
-        version: 8.3.0
+        specifier: ^8.4.0
+        version: 8.4.0
       '@interop/data-integrity-proof':
         specifier: ^3.4.2
         version: 3.4.2
@@ -39,8 +39,8 @@ importers:
         specifier: ^9.4.4
         version: 9.4.4
       '@interop/vc':
-        specifier: ^11.0.5
-        version: 11.0.5
+        specifier: ^11.0.6
+        version: 11.0.6
       '@interop/vc-bitstring-status-list':
         specifier: ^3.0.4
         version: 3.0.4
@@ -244,6 +244,10 @@ packages:
     resolution: {integrity: sha512-8rYHqCHbYub8hh16HvQrJ8ozXHhv+t/gC0f6/JN9CLOdyL3EUTZOyKHjOKDRaelxjIplQG61LIUxGL3ihF1aXQ==}
     engines: {node: '>=24.0'}
 
+  '@interop/data-integrity-core@8.4.0':
+    resolution: {integrity: sha512-j7Y9BthxKWdPx6d3q96jHnDJXj08BWE++JeWJ0jhqJJbdvCMPgenU2g/MUrlZqe3TtF52ULlYJFYRoWwTDVGdg==}
+    engines: {node: '>=24.0'}
+
   '@interop/data-integrity-proof@3.4.2':
     resolution: {integrity: sha512-mB8W+/2LnZouEa4jTfCiN5NCnBsCjXBZfJeKhRfjF58om57VjWcq34Sspd+s67cZHXb1MG85O0yN+Yb2rGocYA==}
     engines: {node: '>=24.0'}
@@ -315,8 +319,8 @@ packages:
     resolution: {integrity: sha512-45lBxtjF+Jn/eQb/8WIEa+047Hv0lKjIlaUH9GPW5sdJqXwHR1OY+VzWCbtwlE3N1nUQ4/LrM6EaVAsUCNNuDQ==}
     engines: {node: '>=24.0'}
 
-  '@interop/vc@11.0.5':
-    resolution: {integrity: sha512-x9FN3VB6T1gG/HvXSRFx2435DAOlUI1O2vodcjKFm7ZZooCACe60Jw2gcLFGk3/752Y7eD6tsAXyHvemB1ydYQ==}
+  '@interop/vc@11.0.6':
+    resolution: {integrity: sha512-3NiJ1Pdb3jfFD9ad0nC5WZcGHtHex0cgfiALR17v+wWnRPjipfXHb1ojHcFPFOHjVMqGEHOgydt8THMfd7movA==}
     engines: {node: '>=24.0'}
 
   '@jridgewell/resolve-uri@3.1.2':
@@ -1411,22 +1415,24 @@ snapshots:
 
   '@interop/data-integrity-core@8.3.0': {}
 
+  '@interop/data-integrity-core@8.4.0': {}
+
   '@interop/data-integrity-proof@3.4.2':
     dependencies:
-      '@interop/data-integrity-core': 8.3.0
+      '@interop/data-integrity-core': 8.4.0
       '@interop/jsonld-signatures': 11.8.3
       '@noble/hashes': 2.2.0
       '@scure/base': 2.2.0
 
   '@interop/did-io@4.1.0':
     dependencies:
-      '@interop/data-integrity-core': 8.3.0
+      '@interop/data-integrity-core': 8.4.0
       '@interop/lru-memoize': 4.0.3
 
   '@interop/did-method-key@7.3.4':
     dependencies:
       '@digitalbazaar/x25519-key-agreement-key-2020': 3.0.1
-      '@interop/data-integrity-core': 8.3.0
+      '@interop/data-integrity-core': 8.4.0
       '@interop/did-io': 4.1.0
       '@interop/ed25519-verification-key': 8.0.3
     transitivePeerDependencies:
@@ -1435,7 +1441,7 @@ snapshots:
   '@interop/did-web-resolver@6.3.0':
     dependencies:
       '@interop/bnid': 6.0.2
-      '@interop/data-integrity-core': 8.3.0
+      '@interop/data-integrity-core': 8.4.0
       '@interop/did-io': 4.1.0
       '@interop/http-client': 1.0.4
       did-context: 3.1.1
@@ -1444,7 +1450,7 @@ snapshots:
 
   '@interop/ecdsa-multikey@2.3.3':
     dependencies:
-      '@interop/data-integrity-core': 8.3.0
+      '@interop/data-integrity-core': 8.4.0
       '@scure/base': 2.2.0
 
   '@interop/ecdsa-signature@2.0.5(@interop/jsonld-signatures@11.8.3)':
@@ -1458,7 +1464,7 @@ snapshots:
 
   '@interop/ed25519-signature@7.1.4(@interop/jsonld-signatures@11.8.3)':
     dependencies:
-      '@interop/data-integrity-core': 8.3.0
+      '@interop/data-integrity-core': 8.4.0
       '@interop/data-integrity-proof': 3.4.2
       '@interop/ed25519-verification-key': 8.0.3
       '@interop/jsonld': 9.0.3
@@ -1472,7 +1478,7 @@ snapshots:
 
   '@interop/ed25519-verification-key@8.0.3':
     dependencies:
-      '@interop/data-integrity-core': 8.3.0
+      '@interop/data-integrity-core': 8.4.0
       '@noble/ed25519': 3.1.0
       '@noble/hashes': 2.2.0
       '@scure/base': 2.2.0
@@ -1485,7 +1491,7 @@ snapshots:
   '@interop/jsonld-signatures@11.8.3':
     dependencies:
       '@digitalbazaar/security-context': 1.0.1
-      '@interop/data-integrity-core': 8.3.0
+      '@interop/data-integrity-core': 8.4.0
       '@interop/jsonld': 9.0.3
       fast-text-encoding: 1.0.6
       rdf-canonize: 5.0.0
@@ -1511,7 +1517,7 @@ snapshots:
       '@digitalbazaar/zcap-context': 2.0.1
       '@digitalcredentials/credentials-v2-context': 1.0.0
       '@digitalcredentials/open-badges-context': 3.0.0
-      '@interop/data-integrity-core': 8.3.0
+      '@interop/data-integrity-core': 8.4.0
       '@interop/did-io': 4.1.0
       '@interop/did-method-key': 7.3.4
       '@interop/did-web-resolver': 6.3.0
@@ -1534,9 +1540,9 @@ snapshots:
       '@digitalbazaar/bitstring': 3.1.0
       '@digitalbazaar/credentials-context': 3.2.0
       '@digitalbazaar/vc-bitstring-status-list-context': 1.1.0
-      '@interop/vc': 11.0.5
+      '@interop/vc': 11.0.6
 
-  '@interop/vc@11.0.5':
+  '@interop/vc@11.0.6':
     dependencies:
       '@digitalcredentials/credentials-v2-context': 1.0.0
       '@interop/data-integrity-core': 8.3.0
