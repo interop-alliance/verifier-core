@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { runSuites } from '../../src/run-suites.js';
 import {
   expirationSuite,
-  EXPIRED_PROBLEM_TYPE
+  EXPIRED_PROBLEM_TYPE,
+  EXPIRATION_SKIP_CODES
 } from '../../src/suites/validity/index.js';
+import { expirationCheck } from '../../src/suites/validity/expiration-check.js';
 import { buildTestContext } from '../factories/services/build-test-context.js';
 import { FakeTimeService } from '../../src/services/time-service/fake-time-service.js';
 import { CredentialFactory } from '../factories/data/credential-factory.js';
@@ -123,6 +125,7 @@ describe('Validity (Expiration) Suite', () => {
     expect(results[0].outcome.status).toBe('skipped');
     if (results[0].outcome.status === 'skipped') {
       expect(results[0].outcome.reason).toContain('no expiration date');
+      expect(results[0].outcome.code).toBe(EXPIRATION_SKIP_CODES.noExpiration);
     }
   });
 
@@ -142,6 +145,23 @@ describe('Validity (Expiration) Suite', () => {
     expect(results[0].outcome.status).toBe('skipped');
     if (results[0].outcome.status === 'skipped') {
       expect(results[0].outcome.reason).toContain('not a valid date');
+      expect(results[0].outcome.code).toBe(
+        EXPIRATION_SKIP_CODES.unparseableDate
+      );
+    }
+  });
+
+  it('tags the no-credential skip with its code', async () => {
+    // Reached via direct execute: runSuites' appliesTo filter drops the
+    // check before this defensive branch when the subject has no credential.
+    const outcome = await expirationCheck.execute(
+      {},
+      contextAt('2023-01-01T00:00:00Z')
+    );
+
+    expect(outcome.status).toBe('skipped');
+    if (outcome.status === 'skipped') {
+      expect(outcome.code).toBe(EXPIRATION_SKIP_CODES.noCredential);
     }
   });
 

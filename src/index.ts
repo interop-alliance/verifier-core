@@ -85,7 +85,8 @@ export { recognitionSuite } from './suites/recognition/index.js';
 // Opt-in suites (not part of `defaultSuites`; pass via `additionalSuites`).
 export {
   expirationSuite,
-  EXPIRED_PROBLEM_TYPE
+  EXPIRED_PROBLEM_TYPE,
+  EXPIRATION_SKIP_CODES
 } from './suites/validity/index.js';
 export {
   createIssuerDetailsSuite,

@@ -17,6 +17,23 @@ export const EXPIRED_PROBLEM_TYPE =
   'https://www.w3.org/TR/vc-data-model#CREDENTIAL_EXPIRED';
 
 /**
+ * Machine-readable `code` values carried on this check's `'skipped'`
+ * outcomes. Branch on these rather than on the prose `reason` -- the three
+ * causes are not interchangeable: `noExpiration` means the credential
+ * genuinely never expires, while `unparseableDate` means an expiry exists
+ * but could not be evaluated (an issuer defect a consumer may well want to
+ * surface as a warning rather than a pass).
+ */
+export const EXPIRATION_SKIP_CODES = {
+  /** The subject carried no verifiable credential. */
+  noCredential: 'no-credential',
+  /** The credential has no `validUntil` / `expirationDate`. */
+  noExpiration: 'no-expiration',
+  /** An expiry value exists but does not parse as a date. */
+  unparseableDate: 'unparseable-date'
+} as const;
+
+/**
  * Reads the credential's expiry instant, preferring the VC 2.0 `validUntil`
  * property and falling back to the VC 1.x `expirationDate`.
  *
@@ -49,10 +66,11 @@ function getExpirationIso(
  * when present, else `Date.now()` -- so the check is deterministic under a
  * fake time service in tests.
  *
- * Skipped when:
- * - No credential in the subject.
- * - Credential has no expiration date.
- * - The expiration date is not a valid date.
+ * Skipped when (each cause tagged with its {@link EXPIRATION_SKIP_CODES}
+ * entry on the outcome's `code`):
+ * - No credential in the subject (`no-credential`).
+ * - Credential has no expiration date (`no-expiration`).
+ * - The expiration date is not a valid date (`unparseable-date`).
  *
  * Success when:
  * - The credential is within its validity period.
@@ -77,7 +95,8 @@ export const expirationCheck: VerificationCheck = {
     if (!credential) {
       return {
         status: 'skipped',
-        reason: 'No verifiable credential found in subject.'
+        reason: 'No verifiable credential found in subject.',
+        code: EXPIRATION_SKIP_CODES.noCredential
       };
     }
 
@@ -85,7 +104,8 @@ export const expirationCheck: VerificationCheck = {
     if (!expirationIso) {
       return {
         status: 'skipped',
-        reason: 'Credential has no expiration date.'
+        reason: 'Credential has no expiration date.',
+        code: EXPIRATION_SKIP_CODES.noExpiration
       };
     }
 
@@ -93,7 +113,8 @@ export const expirationCheck: VerificationCheck = {
     if (Number.isNaN(expiresMs)) {
       return {
         status: 'skipped',
-        reason: 'Credential expiration date is not a valid date.'
+        reason: 'Credential expiration date is not a valid date.',
+        code: EXPIRATION_SKIP_CODES.unparseableDate
       };
     }
 
