@@ -1,5 +1,11 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.5.1 - TBD
+
+### Changed
+
+- Update to latest `@interop/security-document-loader@9.5.0` dep.
+
 ## 3.5.0 - 2026-07-30
 
 ### Added
