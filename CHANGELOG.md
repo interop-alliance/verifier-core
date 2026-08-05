@@ -1,5 +1,18 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.5.3 - TBD
+
+### Fixed
+
+- Presentation verification now derives the proof purpose by scanning every
+  proof in the proof set instead of reading `proof[0]` alone. A presentation
+  carrying an `assertionMethod` proof ahead of its `authentication` proof was
+  verified under `AssertionProofPurpose`, which skips non-matching proofs and
+  aggregates with "any verified" -- so the authentication proof binding the
+  response to the request's challenge and domain was never signature-checked.
+  If any proof declares `authentication` (or `authenticationMethod`),
+  `AuthenticationProofPurpose` is used.
+
 ## 3.5.2 - 2026-08-01
 
 ### Changed

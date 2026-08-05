@@ -234,7 +234,28 @@ export function classifySignatureError(
   ];
 }
 
-function getPresentationPurpose(
+function isAuthenticationPurpose(proofPurpose: unknown): boolean {
+  return (
+    proofPurpose === 'authentication' || proofPurpose === 'authenticationMethod'
+  );
+}
+
+/**
+ * Selects the proof purpose used to verify a presentation's proof set.
+ *
+ * Scans EVERY proof in a proof array, not just the first: under
+ * `AssertionProofPurpose`, jsonld-signatures skips non-matching proofs and
+ * aggregates with `verified = results.some(...)`, so picking the purpose from
+ * `proof[0]` alone would let a presentation whose first proof is an
+ * `assertionMethod` proof verify while its `authentication` proof -- the only
+ * thing binding the response to the request's challenge and domain -- is never
+ * signature-checked. If any proof declares an authentication purpose, verify
+ * under `AuthenticationProofPurpose` so the authentication proof(s) are the
+ * ones checked.
+ *
+ * Exported for unit testing.
+ */
+export function getPresentationPurpose(
   presentation: Record<string, unknown>,
   challenge: string | null | undefined
 ): ProofPurpose {
@@ -243,16 +264,14 @@ function getPresentationPurpose(
     | Array<Record<string, unknown>>
     | undefined;
 
-  let proofPurpose: string | undefined;
+  let useAuthenticationPurpose = false;
   if (Array.isArray(proof)) {
-    proofPurpose = proof[0]?.proofPurpose as string | undefined;
+    useAuthenticationPurpose = proof.some(entry =>
+      isAuthenticationPurpose(entry?.proofPurpose)
+    );
   } else if (proof && typeof proof === 'object') {
-    proofPurpose = proof.proofPurpose as string | undefined;
+    useAuthenticationPurpose = isAuthenticationPurpose(proof.proofPurpose);
   }
-
-  const useAuthenticationPurpose =
-    proofPurpose === 'authentication' ||
-    proofPurpose === 'authenticationMethod';
 
   if (useAuthenticationPurpose) {
     return new purposes.AuthenticationProofPurpose({
