@@ -1,6 +1,6 @@
 # @interop/verifier-core CHANGELOG
 
-## 3.5.4 - TBD
+## 3.5.4 - 2026-08-10
 
 ### Changed
 
