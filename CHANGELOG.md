@@ -1,5 +1,11 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.5.4 - TBD
+
+### Changed
+
+- Update to `security-document-loader@10` (byoe-context unbundled).
+
 ## 3.5.3 - 2026-08-05
 
 ### Fixed
