@@ -1,5 +1,10 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.5.5 - TBD
+
+### Changed
+- Update to latest `@interop/data-integrity-core@8.7.1`.
+
 ## 3.5.4 - 2026-08-10
 
 ### Changed
