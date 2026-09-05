@@ -1,5 +1,10 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.5.6 - TBD
+
+### Changed
+- Update to latest key deps.
+
 ## 3.5.5 - 2026-08-18
 
 ### Changed
