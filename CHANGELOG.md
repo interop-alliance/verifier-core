@@ -1,5 +1,11 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.5.8 - TBD
+
+### Changed
+
+- Update to latest ed25519 key dep (`didKeySigner()`).
+
 ## 3.5.7 - 2026-09-10
 
 ### Fixed
