@@ -177,7 +177,7 @@ describe('Obv3p0AchievementSchema', () => {
     if (parsed.success) {
       expect(parsed.data.image).toEqual({
         id: 'https://example.test/badge.png',
-        type: ['Image']
+        type: 'Image'
       });
     }
   });

@@ -114,7 +114,7 @@ describe('Obv3p0AchievementSubjectSchema (standalone)', () => {
     if (parsed.success) {
       expect(parsed.data.image).toEqual({
         id: 'https://example.test/recipient.png',
-        type: ['Image']
+        type: 'Image'
       });
     }
   });

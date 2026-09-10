@@ -50,12 +50,12 @@ async function validateAgainstSchema(
  * Determine VC version from contexts.
  */
 function getVcVersion(credential: Record<string, unknown>): 'v1' | 'v2' | null {
-  const contexts = credential['@context'] as unknown[] | undefined;
-  if (!Array.isArray(contexts)) {
-    return null;
-  }
+  const contexts = credential['@context'];
+  // String or array: the credential arrives as issued, not Zod-normalized
+  // (see the invariant in `verifier.ts`).
+  const list = Array.isArray(contexts) ? contexts : [contexts];
 
-  const stringContexts = contexts.filter(
+  const stringContexts = list.filter(
     (ctx): ctx is string => typeof ctx === 'string'
   );
 
@@ -75,9 +75,7 @@ function selectObv3Schema(
   credential: Record<string, unknown>
 ): { schema: string | null; obType: string; source: string } | null {
   const credentialSchema = credential.credentialSchema as
-    | Array<{ id: string }>
-    | { id: string }
-    | undefined;
+    Array<{ id: string }> | { id: string } | undefined;
 
   // If credentialSchema is specified, use those URLs directly
   if (credentialSchema) {
@@ -148,8 +146,7 @@ export const obv3SchemaCheck: VerificationCheck = {
     context: VerificationContext
   ): Promise<CheckOutcome> => {
     const credential = subject.verifiableCredential as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
 
     if (!credential) {
       return {

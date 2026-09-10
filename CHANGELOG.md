@@ -1,5 +1,20 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.5.7 - TBD
+
+### Fixed
+
+- `verifyCredential` / `verifyPresentation` now run the suites against the
+  caller's original object instead of the Zod parse output, and return that
+  object as `verifiableCredential` / `verifiablePresentation`. Zod rewrites
+  nested objects (dropping unknown keys such as `issuer.image.caption`), which
+  changed the canonicalized N-Quads and made valid proofs fail as
+  `INVALID_SIGNATURE`.
+- `issuer.image` uses the Open Badges Image schema: unknown keys pass through
+  and `type` accepts `'Image'` or `['Image']`. String-form images normalize to
+  `{ id, type: 'Image' }` (previously `['Image']`).
+- OB 3.0 recognizers and `getVcVersion` accept a string-valued `@context`.
+
 ## 3.5.6 - 2026-09-05
 
 ### Changed

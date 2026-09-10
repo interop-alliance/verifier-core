@@ -49,6 +49,18 @@ describe('Obv3p0ImageSchema (standalone)', () => {
     }
   });
 
+  it('leaves a string type as a string', () => {
+    const parsed = Obv3p0ImageSchema.safeParse({
+      id: 'https://example.test/badge.png',
+      type: 'Image'
+    });
+
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.type).toBe('Image');
+    }
+  });
+
   it('rejects an Image whose type is wrong', () => {
     const parsed = Obv3p0ImageSchema.safeParse({
       id: 'https://example.test/badge.png',
@@ -86,7 +98,7 @@ describe('credential.image (backfilled ImageField)', () => {
     expect(result.status).toBe('recognized');
     if (result.status === 'recognized') {
       const normalized = result.normalized as {
-        image: { id: string; type: string[]; caption?: string };
+        image: { id: string; type: string | string[]; caption?: string };
       };
       expect(normalized.image).toMatchObject({
         id: 'https://example.test/badge.png',
@@ -96,7 +108,7 @@ describe('credential.image (backfilled ImageField)', () => {
     }
   });
 
-  it('normalizes a string-form image to { id, type: ["Image"] }', () => {
+  it("normalizes a string-form image to { id, type: 'Image' }", () => {
     const cred = clone(obv3p0OpenBadgeSpecConforming);
     cred.image = 'https://example.test/string-form.png';
 
@@ -105,11 +117,11 @@ describe('credential.image (backfilled ImageField)', () => {
     expect(result.status).toBe('recognized');
     if (result.status === 'recognized') {
       const normalized = result.normalized as {
-        image: { id: string; type: string[] };
+        image: { id: string; type: string | string[] };
       };
       expect(normalized.image).toEqual({
         id: 'https://example.test/string-form.png',
-        type: ['Image']
+        type: 'Image'
       });
     }
   });

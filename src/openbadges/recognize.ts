@@ -29,10 +29,10 @@ export function isEndorsementCredential(credential: unknown): boolean {
 
 function hasObv3Context(credential: unknown): boolean {
   const contexts = (credential as { '@context'?: unknown })?.['@context'];
-  if (!Array.isArray(contexts)) {
-    return false;
-  }
-  return contexts.some(
+  // String or array: these helpers run against the credential as issued, not
+  // a Zod-normalized copy (see the invariant in `verifier.ts`).
+  const list = Array.isArray(contexts) ? contexts : [contexts];
+  return list.some(
     ctx => typeof ctx === 'string' && ctx.startsWith(OBV3_0_3_CONTEXT_MATCHER)
   );
 }

@@ -168,7 +168,12 @@ to those services, and returns a `Verifier` whose methods share all of the above
 
 **Parse.** Zod schemas (`schemas/credential.ts`) validate the input. A parse failure produces a
 synthetic `parsing.envelope` check result with a `ProblemDetail` describing what went wrong.
-The credential is `unknown` on entry — callers don't need to pre-validate.
+The credential is `unknown` on entry — callers don't need to pre-validate. The parse is a
+validation gate only: its output is discarded, and the caller's original object is what the
+suites verify and what comes back as `verifiableCredential` / `verifiablePresentation`. Zod
+rewrites what it parses (nested objects lose unknown keys, scalars become arrays), and any
+rewrite changes the canonicalized N-Quads and breaks the proof. Suites therefore tolerate raw
+JSON-LD shapes: `@context` and `type` may each be a string or an array.
 
 **Context.** Each `verifyCredential` / `verifyPresentation` call builds an internal
 `VerificationContext` from the verifier's long-lived services plus per-call inputs (the parsed

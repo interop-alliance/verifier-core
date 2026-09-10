@@ -22,16 +22,33 @@ import { IriString, JsonLdTypeField } from './fields-v3p0.js';
  * `'Image'`).
  * Optional: `caption`.
  *
+ * The IMS JSON Schema types `type` as the string `'Image'` (or a
+ * language map). JSON-LD also emits `['Image']`, so both are
+ * accepted. Unlike {@link JsonLdTypeField}, this does not rewrite
+ * a string into an array. The issued form is what parse returns.
+ *
  * `id` uses {@link IriString} rather than `z.string().url()` so
  * `data:image/png;base64,...` URIs (allowed by the spec) and
  * other non-URL IRIs are accepted. Strict format validation is
  * the AJV JSON Schema check's job.
  */
 
+const ImageType = z
+  .union([z.string(), z.array(z.string())])
+  .superRefine((value, ctx) => {
+    const types = Array.isArray(value) ? value : [value];
+    if (!types.includes('Image')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "type must include 'Image'"
+      });
+    }
+  });
+
 export const Obv3p0ImageSchema = z
   .object({
     id: IriString,
-    type: JsonLdTypeField(['Image']),
+    type: ImageType,
     caption: z.string().optional()
   })
   .passthrough();
@@ -46,12 +63,12 @@ export type Obv3p0Image = z.infer<typeof Obv3p0ImageSchema>;
  * - a full Image object.
  *
  * This builder normalizes the string form to
- * `{ id, type: ['Image'] }` so consumers can always treat the
- * field as a normalized object.
+ * `{ id, type: 'Image' }` so consumers can always treat the
+ * field as an object. Object-form `type` is left as issued.
  */
 export function ImageField() {
   return z.union([
-    IriString.transform(id => ({ id, type: ['Image'] })),
+    IriString.transform(id => ({ id, type: 'Image' })),
     Obv3p0ImageSchema
   ]);
 }
