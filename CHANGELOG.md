@@ -1,5 +1,14 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.5.9 - TBD
+
+### Fixed
+
+- The http(s) document loader protocol handler now parses string bodies, so a
+  custom `HttpGetService` that returns raw text (e.g. a `text/plain` status
+  list) no longer passes a string through to `checkStatus`. Unparseable bodies
+  surface as a url-bearing `NotFoundError`.
+
 ## 3.5.8 - 2026-09-10
 
 ### Changed
