@@ -22,8 +22,7 @@ export const vcContextCheck: VerificationCheck = {
     _context: VerificationContext
   ): Promise<CheckOutcome> => {
     const credential = subject.verifiableCredential as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
 
     if (!credential) {
       return {

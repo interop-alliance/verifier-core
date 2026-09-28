@@ -100,8 +100,7 @@ export interface CheckResult {
  * doesn't match the current subject.
  */
 export type VerificationSubjectType =
-  | 'verifiableCredential'
-  | 'verifiablePresentation';
+  'verifiableCredential' | 'verifiablePresentation';
 
 /**
  * Suite-phase classification for the two-pass verification workflow.

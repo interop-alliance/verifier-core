@@ -6,32 +6,24 @@ import type { HttpGetService } from './http-get-service.js';
  *
  * Returns the parsed JSON document as `body`. Most consumers (the JSON-LD
  * document loader, the did:web driver, registry fetches) treat `body` as an
- * already-parsed object, so this adapter normalizes accordingly: it parses on a
- * JSON Content-Type and also attempts to parse a string body when a host serves
- * JSON-LD as `text/plain` (e.g. raw.githubusercontent.com status lists),
- * falling back to the raw text only if parsing fails. Status and headers are
- * returned for the caller to handle non-2xx responses.
+ * already-parsed object, so this adapter normalizes accordingly: it parses the
+ * body as JSON whatever the Content-Type (a host may serve JSON-LD as
+ * `text/plain`, e.g. raw.githubusercontent.com status lists), falling back to
+ * the raw text when parsing fails (e.g. a JSON Lines did:webvh log). Status
+ * and headers are returned for the caller to handle non-2xx responses.
  */
 export function BuiltinHttpGetService(): HttpGetService {
   return {
     async get(url: string): Promise<HttpGetResult> {
       const response = await fetch(url);
-      const contentType = response.headers.get('content-type') ?? '';
-
+      // Read the body once: a stream cannot be consumed twice, so a
+      // `json()` call cannot fall back to `text()`.
+      const text = await response.text();
       let body: unknown;
-      if (/json/i.test(contentType)) {
-        try {
-          body = await response.json();
-        } catch {
-          body = await response.text();
-        }
-      } else {
-        const text = await response.text();
-        try {
-          body = JSON.parse(text);
-        } catch {
-          body = text;
-        }
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = text;
       }
 
       return { body, headers: response.headers, status: response.status };

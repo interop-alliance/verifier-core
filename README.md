@@ -120,7 +120,9 @@ interface VerifyCredentialOptions {
 ```
 
 Only `credential` is required. All other fields override sensible defaults
-(security-document-loader, Ed25519 + EdDSA crypto suites, in-memory cache).
+(security-document-loader, Ed25519 + EdDSA crypto suites, in-memory cache). The
+default document loader resolves `did:key`, `did:web` and `did:webvh` DIDs,
+fetching `did:web` documents and `did:webvh` logs through `httpGetService`.
 `VerifyCredentialOptions` is the type alias
 `VerifierConfig & VerifyCredentialCall`, so callers building the options object
 piece-by-piece can compose against either half.
@@ -285,18 +287,18 @@ with no `credentialStatus` skips the status check:
 
 All failures use `ProblemDetail` with a `type` URI. Common error types:
 
-| Type URI                              | Title                                                              | When                                   |
-| ------------------------------------- | ------------------------------------------------------------------ | -------------------------------------- |
-| `...#PARSING_ERROR`                   | Invalid JSON-LD / No VC Context / Invalid Credential ID / No Proof | Structural problems                    |
-| `...#INVALID_SIGNATURE`               | Invalid Signature                                                  | Signature doesn't match content        |
-| `...#DID_WEB_UNRESOLVED`              | DID Web Unresolved                                                 | `did:web` document couldn't be fetched |
-| `...#HTTP_ERROR`                      | HTTP Error                                                         | Network error during signature check   |
-| `...#CREDENTIAL_REVOKED_OR_SUSPENDED` | Credential Revoked or Suspended                                    | Status list indicates revocation       |
-| `...#STATUS_LIST_NOT_FOUND`           | Status List Not Found                                              | Status list URL unreachable            |
-| `...#STATUS_LIST_EXPIRED`             | Status List Expired                                                | Status list VC has expired             |
-| `...#STATUS_LIST_SIGNATURE_ERROR`     | Status List Signature Error                                        | Status list VC signature invalid       |
-| `...#ISSUER_NOT_REGISTERED`           | Issuer Not Registered                                              | Issuer DID not in any registry         |
-| `...#REGISTRY_UNCHECKED`              | Registry Unchecked                                                 | Some registries couldn't be reached    |
+| Type URI                              | Title                                                              | When                                                                 |
+| ------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `...#PARSING_ERROR`                   | Invalid JSON-LD / No VC Context / Invalid Credential ID / No Proof | Structural problems                                                  |
+| `...#INVALID_SIGNATURE`               | Invalid Signature                                                  | Signature doesn't match content                                      |
+| `...#DID_WEB_UNRESOLVED`              | DID Web Unresolved                                                 | DID document (e.g. `did:web`) or `did:webvh` log couldn't be fetched |
+| `...#HTTP_ERROR`                      | HTTP Error                                                         | Network error during signature check                                 |
+| `...#CREDENTIAL_REVOKED_OR_SUSPENDED` | Credential Revoked or Suspended                                    | Status list indicates revocation                                     |
+| `...#STATUS_LIST_NOT_FOUND`           | Status List Not Found                                              | Status list URL unreachable                                          |
+| `...#STATUS_LIST_EXPIRED`             | Status List Expired                                                | Status list VC has expired                                           |
+| `...#STATUS_LIST_SIGNATURE_ERROR`     | Status List Signature Error                                        | Status list VC signature invalid                                     |
+| `...#ISSUER_NOT_REGISTERED`           | Issuer Not Registered                                              | Issuer DID not in any registry                                       |
+| `...#REGISTRY_UNCHECKED`              | Registry Unchecked                                                 | Some registries couldn't be reached                                  |
 
 #### Problem types
 
@@ -304,10 +306,7 @@ Every built-in problem URI is also exported as a constant. Branch on the const
 map for type-safe checks:
 
 ```typescript
-import {
-  ProblemTypes,
-  type ProblemType
-} from '@interop/verifier-core';
+import { ProblemTypes, type ProblemType } from '@interop/verifier-core';
 
 switch (problem.type as ProblemType) {
   case ProblemTypes.INVALID_SIGNATURE:
@@ -461,10 +460,7 @@ const result = await verifier.verifyPresentation({ presentation });
 Extend the default pipeline with custom verification logic:
 
 ```typescript
-import {
-  verifyCredential,
-  VerificationSuite
-} from '@interop/verifier-core';
+import { verifyCredential, VerificationSuite } from '@interop/verifier-core';
 
 const myCustomSuite: VerificationSuite = {
   id: 'custom.expiry-policy',
@@ -552,11 +548,10 @@ clock-skew windows, key rotation, and status-list freshness — see
 
 ## Open Badges 3.0 verification (opt-in submodule)
 
-Open Badges 3.0 verification ships in
-`@interop/verifier-core/openbadges` as an opt-in submodule. It is not
-part of the default suite list; consumers that want OB checks pass
-`openBadgesSuite` (or one of the bundled variants) via `additionalSuites` on a
-verify call.
+Open Badges 3.0 verification ships in `@interop/verifier-core/openbadges` as an
+opt-in submodule. It is not part of the default suite list; consumers that want
+OB checks pass `openBadgesSuite` (or one of the bundled variants) via
+`additionalSuites` on a verify call.
 
 > [!IMPORTANT] If you were on `1.0.0-beta.x` and relied on `obv3SchemaSuite`
 > running by default, you now need to opt in explicitly. The simplest migration
@@ -786,12 +781,12 @@ This release tightens the public API surface. The following changes may require
 small migrations:
 
 - **Demoted from `index.ts`** — these symbols remain reachable via their module
-  paths (`@interop/verifier-core/dist/...`) but are no longer part of
-  the published 1.0 surface: `runSuites`, `createRegistryLookup`,
-  `DEFAULT_TTL_MS`, `parseCacheControlMaxAge`, `resolveTtl`,
-  `ttlFromValidUntil`, `documentLoaderFromHttpGet`, `fetchJsonFromHttpGet`,
-  `extractCredentialsFrom`, `registryKeyHash`. Most callers should build
-  verifiers via `createVerifier(...)` rather than reach for these directly.
+  paths (`@interop/verifier-core/dist/...`) but are no longer part of the
+  published 1.0 surface: `runSuites`, `createRegistryLookup`, `DEFAULT_TTL_MS`,
+  `parseCacheControlMaxAge`, `resolveTtl`, `ttlFromValidUntil`,
+  `documentLoaderFromHttpGet`, `fetchJsonFromHttpGet`, `extractCredentialsFrom`,
+  `registryKeyHash`. Most callers should build verifiers via
+  `createVerifier(...)` rather than reach for these directly.
 
 - **Result-shape changes:**
   - `CredentialVerificationResult.credential` → `verifiableCredential`

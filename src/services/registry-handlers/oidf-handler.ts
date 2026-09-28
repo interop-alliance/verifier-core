@@ -50,8 +50,7 @@ async function lookupOidfForRegistry(
   const lookupKey = cacheKeyForOidfLookup(lookupUrl);
 
   const cachedIssuerJwt = (await cacheService.get(lookupKey)) as
-    | string
-    | undefined;
+    string | undefined;
   if (cachedIssuerJwt) {
     return issuerJwtToResult(cachedIssuerJwt, registry.name);
   }

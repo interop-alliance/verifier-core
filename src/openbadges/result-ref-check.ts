@@ -34,8 +34,7 @@ export const obv3ResultRefCheck: VerificationCheck = {
     _context: VerificationContext
   ): Promise<CheckOutcome> => {
     const credential = subject.verifiableCredential as
-      | { credentialSubject?: unknown }
-      | undefined;
+      { credentialSubject?: unknown } | undefined;
 
     if (!credential) {
       return {

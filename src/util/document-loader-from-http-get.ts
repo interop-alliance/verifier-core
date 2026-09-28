@@ -8,13 +8,15 @@ import { Ed25519VerificationKey } from '@interop/ed25519-verification-key';
 import type { DocumentLoader } from '../types/context.js';
 import type { HttpGetService } from '../services/http-get-service/http-get-service.js';
 import { didWebDriverWithHttpGet } from './did-web-driver-with-http-get.js';
+import { didWebvhDriverWithHttpGet } from './did-webvh-driver-with-http-get.js';
 
 /**
  * Build a JSON-LD document loader that uses {@link securityLoader} for static
  * contexts and DID resolution, delegating http(s) remote documents to `httpGetService`.
  *
  * did:web resolution also uses `httpGetService` (stock `securityLoader` wires
- * `DidWebResolver` to `http-client`, which bypasses caller caching).
+ * `DidWebResolver` to `http-client`, which bypasses caller caching), and so
+ * does did:webvh resolution (the `did.jsonl` log and `did-witness.json`).
  */
 export function documentLoaderFromHttpGet(
   httpGetService: HttpGetService
@@ -26,6 +28,7 @@ export function documentLoaderFromHttpGet(
   const didWebDriver = didWebDriverWithHttpGet(httpGetService);
   resolver.use(didKeyDriver);
   resolver.use(didWebDriver);
+  resolver.use(didWebvhDriverWithHttpGet(httpGetService));
   didWebDriver.use({
     multibaseMultikeyHeader: 'z6Mk',
     fromMultibase: Ed25519VerificationKey.from

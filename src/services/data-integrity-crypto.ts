@@ -60,7 +60,8 @@ function isHttpError(errors: unknown[]): boolean {
   });
 }
 
-const ISSUER_CONTROLLER_MISMATCH = 'issuer must match the verification method controller';
+const ISSUER_CONTROLLER_MISMATCH =
+  'issuer must match the verification method controller';
 
 function isIssuerProofMismatch(errors: unknown[]): boolean {
   return errors.some(e => {
@@ -86,7 +87,38 @@ function getHttpError(errors: unknown[]): unknown | undefined {
 }
 
 function isDidWeb(did: string): boolean {
-  return did.toLowerCase().startsWith('did:web');
+  return did.toLowerCase().startsWith('did:web:');
+}
+
+// A DID driver throws a `DIDResolutionError` (from
+// `@interop/data-integrity-core`) when the DID could not be resolved. For
+// example, `@interop/did-method-webvh` codes a 404 on the DID log as
+// `notFound`, and any other HTTP error status or transport failure as
+// `internalError`. Matched by `name`, since a duplicate package copy would
+// defeat `instanceof`.
+function isDidUnresolved(errors: unknown[]): boolean {
+  return errors.some(e => {
+    const x = e as {
+      name?: string;
+      code?: string;
+      error?: { name?: string; code?: string };
+    };
+    const inner = x.error ?? x;
+    return (
+      inner.name === 'DIDResolutionError' &&
+      (inner.code === 'notFound' || inner.code === 'internalError')
+    );
+  });
+}
+
+function didUnresolvedProblems(detail: string): ProblemDetail[] {
+  return [
+    {
+      type: ProblemTypes.DID_WEB_UNRESOLVED,
+      title: 'DID Web Unresolved',
+      detail
+    }
+  ];
 }
 
 function didWebToUrlPattern(did: string): string {
@@ -114,9 +146,7 @@ function proofVerificationMethod(
   credential: Record<string, unknown> | undefined
 ): string | undefined {
   const proof = credential?.proof as
-    | Record<string, unknown>
-    | Array<Record<string, unknown>>
-    | undefined;
+    Record<string, unknown> | Array<Record<string, unknown>> | undefined;
   const first = Array.isArray(proof) ? proof[0] : proof;
   const vm = first?.verificationMethod;
   return typeof vm === 'string' ? vm : undefined;
@@ -157,13 +187,9 @@ export function classifySignatureError(
       if (isDidWeb(issuerDid)) {
         const didUrlPattern = didWebToUrlPattern(issuerDid);
         if (requestUrl.toLowerCase().includes(didUrlPattern)) {
-          return [
-            {
-              type: ProblemTypes.DID_WEB_UNRESOLVED,
-              title: 'DID Web Unresolved',
-              detail: `The signature could not be checked because the public signing key could not be retrieved from ${String(requestUrl)}`
-            }
-          ];
+          return didUnresolvedProblems(
+            `The signature could not be checked because the public signing key could not be retrieved from ${String(requestUrl)}`
+          );
         }
       }
     }
@@ -176,6 +202,17 @@ export function classifySignatureError(
           httpError?.message || 'An HTTP error prevented the signature check.'
       }
     ];
+  }
+
+  // A verification method whose DID could not be resolved (e.g. an
+  // unreachable did:webvh log): the same concern as an unreachable did:web
+  // document.
+  const vmId = proofVerificationMethod(credential);
+  if (isDidUnresolved(errors)) {
+    const vmDid = vmId?.split('#')[0] ?? 'the verification method DID';
+    return didUnresolvedProblems(
+      `The signature could not be checked because ${vmDid} could not be resolved.`
+    );
   }
 
   // An issuer / controller mismatch is not a bad signature: the proof verifies
@@ -198,7 +235,6 @@ export function classifySignatureError(
   // so its public key could never be fetched -- the signature was never actually
   // checked. Distinguish this from a genuine INVALID_SIGNATURE.
   if (isVerificationMethodUnresolved(errors)) {
-    const vmId = proofVerificationMethod(credential);
     return [
       {
         type: ProblemTypes.VERIFICATION_METHOD_UNRESOLVED,
@@ -260,9 +296,7 @@ export function getPresentationPurpose(
   challenge: string | null | undefined
 ): ProofPurpose {
   const proof = presentation.proof as
-    | Record<string, unknown>
-    | Array<Record<string, unknown>>
-    | undefined;
+    Record<string, unknown> | Array<Record<string, unknown>> | undefined;
 
   let useAuthenticationPurpose = false;
   if (Array.isArray(proof)) {

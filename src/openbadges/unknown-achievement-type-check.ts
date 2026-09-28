@@ -69,8 +69,7 @@ async function executeForKnownTypes(
   knownTypes: ReadonlySet<string>
 ): Promise<CheckOutcome> {
   const credential = subject.verifiableCredential as
-    | { credentialSubject?: unknown }
-    | undefined;
+    { credentialSubject?: unknown } | undefined;
 
   if (!credential) {
     return {

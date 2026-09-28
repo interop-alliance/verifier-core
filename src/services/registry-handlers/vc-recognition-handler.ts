@@ -39,8 +39,7 @@ async function lookupVcRecognitionForRegistry(
   const { httpGetService, cacheService, verifier } = ctx;
   const key = cacheKeyForVcRecognitionUrl(registry.url);
   let credential = (await cacheService.get(key)) as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
 
   if (!credential) {
     const loaded = await fetchRecognitionCredentialJson(

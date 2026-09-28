@@ -49,7 +49,7 @@ export const ProblemTypes = {
   /** Synthesized — credential `issuer` does not match the controller of the proof's verification method. */
   ISSUER_PROOF_MISMATCH:
     'https://www.w3.org/TR/vc-data-model#ISSUER_PROOF_MISMATCH',
-  /** Synthesized — a `did:web` document could not be fetched. */
+  /** Synthesized -- a `did:web` document could not be fetched, or a DID driver reported the DID as unresolvable (e.g. an unreachable `did:webvh` log). */
   DID_WEB_UNRESOLVED: 'https://www.w3.org/TR/vc-data-model#DID_WEB_UNRESOLVED',
   /** Synthesized — the proof's verification method uses a DID method the document loader has no resolver/driver for. */
   VERIFICATION_METHOD_UNRESOLVED:

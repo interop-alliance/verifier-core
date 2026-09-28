@@ -34,9 +34,7 @@ function statusTypeString(type: unknown): string | undefined {
  */
 function hasBitstringStatusList(credential: Record<string, unknown>): boolean {
   const credentialStatus = credential.credentialStatus as
-    | Record<string, unknown>
-    | Array<Record<string, unknown>>
-    | undefined;
+    Record<string, unknown> | Array<Record<string, unknown>> | undefined;
 
   if (!credentialStatus) {
     return false;
@@ -64,9 +62,7 @@ function getStatusType(
   credential: Record<string, unknown>
 ): string | undefined {
   const credentialStatus = credential.credentialStatus as
-    | Record<string, unknown>
-    | Array<Record<string, unknown>>
-    | undefined;
+    Record<string, unknown> | Array<Record<string, unknown>> | undefined;
 
   if (!credentialStatus) {
     return undefined;
@@ -195,8 +191,7 @@ export const bitstringStatusCheck: VerificationCheck = {
     context: VerificationContext
   ): Promise<CheckOutcome> => {
     const credential = subject.verifiableCredential as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
 
     if (!credential) {
       return {

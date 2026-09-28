@@ -352,19 +352,18 @@ describe('Proof Verification Suite', () => {
     });
 
     it('reports VERIFICATION_METHOD_UNRESOLVED when the proof DID method has no driver', async () => {
-      // The default document loader registers did:key + did:web only. A proof
-      // whose verification method is did:webvh can never be resolved, so the
-      // signature is never actually checked -- this must surface as an
+      // The default document loader has no did:example driver, so the
+      // signature is never actually checked. This must surface as an
       // unresolved verification method, not a misleading INVALID_SIGNATURE.
       const credential = {
         '@context': ['https://www.w3.org/ns/credentials/v2'],
         type: ['VerifiableCredential'],
-        issuer: 'did:webvh:QmExampleScid:example.org',
+        issuer: 'did:example:123',
         credentialSubject: { description: 'hi' },
         proof: {
           type: 'DataIntegrityProof',
           created: '2026-06-26T00:33:45Z',
-          verificationMethod: 'did:webvh:QmExampleScid:example.org#key-1',
+          verificationMethod: 'did:example:123#key-1',
           cryptosuite: 'eddsa-rdfc-2022',
           proofPurpose: 'assertionMethod',
           proofValue:
@@ -383,9 +382,7 @@ describe('Proof Verification Suite', () => {
         expect(outcome.problems[0].type).toBe(
           ProblemTypes.VERIFICATION_METHOD_UNRESOLVED
         );
-        expect(outcome.problems[0].detail).toContain(
-          'did:webvh:QmExampleScid:example.org#key-1'
-        );
+        expect(outcome.problems[0].detail).toContain('did:example:123#key-1');
       }
     });
 

@@ -48,7 +48,10 @@ describe('service factories', () => {
         throwInVerify: new Error('injected fault')
       });
       try {
-        await svc.verifyCredential({}, { documentLoader: async () => ({ document: {} }) });
+        await svc.verifyCredential(
+          {},
+          { documentLoader: async () => ({ document: {} }) }
+        );
         expect.fail('expected throw');
       } catch (e) {
         expect(e).toBeInstanceOf(Error);

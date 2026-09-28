@@ -11,7 +11,12 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { issue, signPresentation, createPresentation } from '@interop/vc';
+import {
+  issue,
+  signPresentation,
+  createPresentation,
+  type VerifiableCredential
+} from '@interop/vc';
 import { Ed25519VerificationKey } from '@interop/ed25519-verification-key';
 import { Ed25519Signature2020 } from '@interop/ed25519-signature';
 import { createVerifier } from '../src/verifier.js';
@@ -31,7 +36,7 @@ const documentLoader = defaultDocumentLoaderFor(offlineHttpGetService as never);
  * The issuer image `caption` is the load-bearing field: it is signed, and it is
  * the key the old schema dropped.
  */
-const credentialTemplate = (issuerDid: string): Record<string, unknown> => ({
+const credentialTemplate = (issuerDid: string): VerifiableCredential => ({
   '@context': [
     'https://www.w3.org/ns/credentials/v2',
     'https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json',
@@ -67,7 +72,7 @@ const credentialTemplate = (issuerDid: string): Record<string, unknown> => ({
 });
 
 describe('signed bytes survive verification', () => {
-  let signedCredential: Record<string, unknown>;
+  let signedCredential: VerifiableCredential;
   let issuerDid: string;
   let key: Ed25519VerificationKey;
 
@@ -80,11 +85,11 @@ describe('signed bytes survive verification', () => {
     key.controller = issuerDid;
     key.id = `${issuerDid}#${key.fingerprint()}`;
 
-    signedCredential = (await issue({
+    signedCredential = await issue({
       credential: credentialTemplate(issuerDid),
       suite: new Ed25519Signature2020({ signer: key.signer() }),
       documentLoader
-    })) as Record<string, unknown>;
+    });
   });
 
   const verifier = () =>

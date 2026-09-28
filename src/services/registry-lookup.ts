@@ -69,8 +69,7 @@ export function createRegistryLookup(
 
     if (!options?.fresh) {
       const cached = (await cacheService.get(cacheKey)) as
-        | RegistryLookupResult
-        | undefined;
+        RegistryLookupResult | undefined;
       if (cached) {
         return cached;
       }
