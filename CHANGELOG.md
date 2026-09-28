@@ -1,5 +1,11 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.5.10 - TBD
+
+### Changed
+
+- Update to latest vc and status list deps.
+
 ## 3.5.9 - 2026-09-25
 
 ### Fixed

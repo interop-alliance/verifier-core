@@ -39,11 +39,11 @@ importers:
         specifier: ^10.1.3
         version: 10.1.3
       '@interop/vc':
-        specifier: ^11.0.9
-        version: 11.0.9
+        specifier: ^11.0.11
+        version: 11.0.11
       '@interop/vc-bitstring-status-list':
-        specifier: ^3.0.8
-        version: 3.0.8
+        specifier: ^3.0.9
+        version: 3.0.9
       ajv:
         specifier: ^8.17.1
         version: 8.20.0
@@ -315,12 +315,12 @@ packages:
     resolution: {integrity: sha512-vidSMPx3BIr2EGBEd1LumyV86USG6FGyabrJCt5B/nuayysM+SmnlEKDEzjCiLn6CBIEQkSoUsNnBfCZwgLdVQ==}
     engines: {node: '>=24.0'}
 
-  '@interop/vc-bitstring-status-list@3.0.8':
-    resolution: {integrity: sha512-YYhFIHKsXYiN1dUJplhXSF0aSn/4puEdfrp3OtIIz8K+r5l1vi9VYDK71TgBeJsP/mq/3KBzVpEEQDLTQYhvRw==}
+  '@interop/vc-bitstring-status-list@3.0.9':
+    resolution: {integrity: sha512-2MejC9r5FQoaARTThCXUa66AlinVIn0yoiwdcnm+Dn7Db0HqXUykarI+oRQBuaYSo2rOCPKmSVlKB/FuZvucIQ==}
     engines: {node: '>=24.0'}
 
-  '@interop/vc@11.0.9':
-    resolution: {integrity: sha512-DiNmq1gKvkVMamiPyCdNZmcaucB3WfHBe9x0F79pLxiGLnxkaW0WN2rvc6TUuWuyvKQN1geu9YTyMPr1cGaJXg==}
+  '@interop/vc@11.0.11':
+    resolution: {integrity: sha512-3bK2Lcs+4WlEJKv9Fl5kiNk4/YW0Qg6amupwEmQ9yN+xZc6vgFtwfLHUM3f/LPohRN8AsiZD7geINXQTE7XBFQ==}
     engines: {node: '>=24.0'}
 
   '@interop/x25519-key-agreement-key@5.4.0':
@@ -1531,14 +1531,14 @@ snapshots:
     transitivePeerDependencies:
       - react-native-get-random-values
 
-  '@interop/vc-bitstring-status-list@3.0.8':
+  '@interop/vc-bitstring-status-list@3.0.9':
     dependencies:
       '@digitalbazaar/bitstring': 3.1.0
       '@digitalbazaar/credentials-context': 3.2.0
       '@digitalbazaar/vc-bitstring-status-list-context': 1.1.0
-      '@interop/vc': 11.0.9
+      '@interop/vc': 11.0.11
 
-  '@interop/vc@11.0.9':
+  '@interop/vc@11.0.11':
     dependencies:
       '@digitalcredentials/credentials-v2-context': 1.0.0
       '@interop/data-integrity-core': 8.8.0
