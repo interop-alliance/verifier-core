@@ -288,6 +288,74 @@ describe('Status Suite', () => {
       }
     });
 
+    it('fails with STATUS_LIST_EXPIRED when the injected service rejects an expired list', async () => {
+      const listUrl = 'https://factory.test/status/list-expired';
+      const { cred, documentLoader } = await credentialWithHostedList(listUrl);
+      const context = buildTestContext({
+        documentLoader,
+        cryptoServices: [
+          FakeCryptoService({
+            verified: false,
+            problems: [
+              {
+                type: ProblemTypes.INVALID_SIGNATURE,
+                title: 'Signature Verification Failed',
+                detail:
+                  'The current date time (2026-09-30T00:00:00.000Z) is after "validUntil" (2026-01-01T00:00:00Z).'
+              }
+            ]
+          })
+        ]
+      });
+
+      const results = await runSuites(
+        [statusSuite],
+        createSubject(cred),
+        context
+      );
+
+      expect(results[0].outcome.status).toBe('failure');
+      if (results[0].outcome.status === 'failure') {
+        expect(results[0].outcome.problems[0].type).toBe(
+          ProblemTypes.STATUS_LIST_EXPIRED
+        );
+      }
+    });
+
+    it('fails with STATUS_LIST_NOT_YET_VALID when the injected service rejects a not-yet-valid list', async () => {
+      const listUrl = 'https://factory.test/status/list-not-yet-valid';
+      const { cred, documentLoader } = await credentialWithHostedList(listUrl);
+      const context = buildTestContext({
+        documentLoader,
+        cryptoServices: [
+          FakeCryptoService({
+            verified: false,
+            problems: [
+              {
+                type: ProblemTypes.INVALID_SIGNATURE,
+                title: 'Signature Verification Failed',
+                detail:
+                  'The current date time (2026-09-30T00:00:00.000Z) is before "validFrom" (2027-01-01T00:00:00Z).'
+              }
+            ]
+          })
+        ]
+      });
+
+      const results = await runSuites(
+        [statusSuite],
+        createSubject(cred),
+        context
+      );
+
+      expect(results[0].outcome.status).toBe('failure');
+      if (results[0].outcome.status === 'failure') {
+        expect(results[0].outcome.problems[0].type).toBe(
+          ProblemTypes.STATUS_LIST_NOT_YET_VALID
+        );
+      }
+    });
+
     it('fails with STATUS_LIST_SIGNATURE_ERROR when the injected service throws', async () => {
       const listUrl = 'https://factory.test/status/list-throws';
       const { cred, documentLoader } = await credentialWithHostedList(listUrl);
@@ -466,6 +534,56 @@ describe('Status Suite', () => {
 
       expect(results[0].outcome.status).toBe('success');
       expect(counts.get(listUrl)).toBe(1);
+      expect(counted.credentialCalls).toBe(1);
+    });
+  });
+
+  describe('non-bitstring entries alongside a BitstringStatusListEntry', () => {
+    it('does not fetch or verify the statusListCredential of a non-bitstring entry', async () => {
+      const listUrl = 'https://factory.test/status/bitstring-only';
+      const otherUrl = 'https://factory.test/status/other-type';
+      const slCred = await StatusListCredentialFactory({
+        id: listUrl,
+        issuer: DEFAULT_TEST_ISSUER_DID,
+        revokedIndexes: [],
+        listLength: 32
+      });
+
+      const { loader, counts } = countingDocumentLoader(
+        FakeDocumentLoader({ [listUrl]: slCred })
+      );
+      const counted = countingCryptoService(FakeCryptoService());
+      const context = buildTestContext({
+        documentLoader: loader,
+        cryptoServices: [counted.service]
+      });
+
+      const cred = CredentialFactory({
+        version: 'v2',
+        credential: {
+          credentialStatus: [
+            BitstringStatusEntry({
+              statusListCredential: listUrl,
+              statusListIndex: '0'
+            }),
+            {
+              id: `${otherUrl}#0`,
+              type: 'SomeOtherStatusEntry',
+              statusListCredential: otherUrl
+            }
+          ]
+        }
+      });
+
+      const results = await runSuites(
+        [statusSuite],
+        createSubject(cred),
+        context
+      );
+
+      expect(results[0].outcome.status).toBe('success');
+      expect(counts.get(listUrl)).toBe(1);
+      expect(counts.has(otherUrl)).toBe(false);
       expect(counted.credentialCalls).toBe(1);
     });
   });

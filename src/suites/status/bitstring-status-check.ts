@@ -84,9 +84,11 @@ function getStatusType(
 }
 
 /**
- * Distinct `statusListCredential` URLs named by the credential, in first-seen
- * order. Entries without a non-empty string URL are ignored so `checkStatus`
- * can reject that input itself.
+ * Distinct `statusListCredential` URLs named by the credential's
+ * `BitstringStatusListEntry` entries, in first-seen order. Entries of any
+ * other status type are ignored, matching what `checkStatus` reads. Entries
+ * without a non-empty string URL are ignored so `checkStatus` can reject that
+ * input itself.
  */
 function statusListCredentialUrls(
   credential: Record<string, unknown>
@@ -94,6 +96,9 @@ function statusListCredentialUrls(
   const urls: string[] = [];
   const seen = new Set<string>();
   for (const entry of credentialStatusEntries(credential)) {
+    if (statusTypeString(entry.type) !== 'BitstringStatusListEntry') {
+      continue;
+    }
     const url = entry.statusListCredential;
     if (typeof url !== 'string' || url.length === 0) {
       continue;
@@ -190,7 +195,47 @@ function coerceStatusListDocument(raw: unknown, url: string): unknown {
 }
 
 /**
- * Map a non-verified dispatch onto `STATUS_LIST_SIGNATURE_ERROR`.
+ * Map a rejected dispatch onto a status list problem.
+ *
+ * The crypto service also enforces the list credential's validity period,
+ * and reports an expired or not-yet-valid list as a rejection whose problem
+ * detail carries the library's date message. Those are surfaced as
+ * `STATUS_LIST_EXPIRED` / `STATUS_LIST_NOT_YET_VALID` rather than as a
+ * signature error.
+ */
+function rejectedStatusListProblems(
+  problems: ProblemDetail[]
+): ProblemDetail[] {
+  const details = problems.map(problem => problem.detail);
+  if (details.some(detail => detail.includes(EXPIRED_ERROR))) {
+    return [
+      {
+        type: ProblemTypes.STATUS_LIST_EXPIRED,
+        title: 'Status List Expired',
+        detail: 'The status list credential has expired.'
+      }
+    ];
+  }
+  if (details.some(detail => detail.includes(STATUS_NOT_YET_VALID_ERROR))) {
+    return [
+      {
+        type: ProblemTypes.STATUS_LIST_NOT_YET_VALID,
+        title: 'Status List Not Yet Valid',
+        detail: 'The status list credential is not yet valid.'
+      }
+    ];
+  }
+  return [
+    {
+      type: ProblemTypes.STATUS_LIST_SIGNATURE_ERROR,
+      title: STATUS_LIST_SIGNATURE_TITLE,
+      detail: 'The status list credential signature could not be verified.'
+    }
+  ];
+}
+
+/**
+ * Map a non-verified dispatch onto a status list problem.
  *
  * `no-service` is a failure, not a skip: `DataIntegrityCryptoService.canVerify`
  * returns false for a document with no proof, so an unsigned status list
@@ -211,13 +256,7 @@ function statusListProofProblems(
         }
       ];
     case 'rejected':
-      return [
-        {
-          type: ProblemTypes.STATUS_LIST_SIGNATURE_ERROR,
-          title: STATUS_LIST_SIGNATURE_TITLE,
-          detail: 'The status list credential signature could not be verified.'
-        }
-      ];
+      return rejectedStatusListProblems(dispatched.problems);
     case 'threw':
       return [
         {
