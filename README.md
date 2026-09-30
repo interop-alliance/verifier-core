@@ -141,17 +141,20 @@ interface CredentialVerificationResult {
 }
 ```
 
-`verified` is `true` when no check returned a failure. By default (since v2.0.0)
-`results` carries only failures and explicit `<suite>.applies` skips, while
-`summary` provides the per-suite rollup (see
+`verified` is `true` when no check marked `fatal` returned a failure. Non-fatal
+failures (for example `recognition.profile` or `registry.issuer`) leave it
+`true`. They still appear in `results[]` and in `summary[].status` and `counts`.
+By default (since v2.0.0) `results` carries only failures and explicit
+`<suite>.applies` skips, while `summary` provides the per-suite rollup (see
 [Verbose mode and folded summaries](#verbose-mode-and-folded-summaries)). Pass
-`verbose: true` to receive every check that ran in `results`.
+`verbose: true` to receive every check that ran in `results`. `CheckResult.id`
+is required and is populated by `runSuites`.
 
 Each `CheckResult` contains a discriminated `CheckOutcome`:
 
 ```typescript
 type CheckOutcome =
-  | { status: 'success'; message: string }
+  | { status: 'success'; message: string; payload?: unknown }
   | { status: 'failure'; problems: ProblemDetail[] }
   | { status: 'skipped'; reason: string };
 ```
@@ -174,13 +177,13 @@ interface ProblemDetail {
   "verified": true,
   "verifiableCredential": { "...parsed credential..." },
   "results": [
-    { "suite": "core",   "check": "core.context-exists", "outcome": { "status": "success", "message": "Credential has a valid @context property." } },
-    { "suite": "core",   "check": "core.vc-context",     "outcome": { "status": "success", "message": "..." } },
-    { "suite": "core",   "check": "core.credential-id",  "outcome": { "status": "success", "message": "..." } },
-    { "suite": "core",   "check": "core.proof-exists",   "outcome": { "status": "success", "message": "..." } },
-    { "suite": "proof",  "check": "proof.signature",     "outcome": { "status": "success", "message": "Signature verified successfully." } },
-    { "suite": "status", "check": "status.bitstring",    "outcome": { "status": "success", "message": "Credential status is valid (not revoked or suspended)." } },
-    { "suite": "registry", "check": "registry.issuer",   "outcome": { "status": "success", "message": "Issuer found in registry: DCC Sandbox Registry" } }
+    { "id": "cryptographic.core.context-exists", "suite": "core",   "check": "core.context-exists", "outcome": { "status": "success", "message": "Credential has a valid @context property." } },
+    { "id": "cryptographic.core.vc-context", "suite": "core",   "check": "core.vc-context",     "outcome": { "status": "success", "message": "..." } },
+    { "id": "cryptographic.core.credential-id", "suite": "core",   "check": "core.credential-id",  "outcome": { "status": "success", "message": "..." } },
+    { "id": "cryptographic.core.proof-exists", "suite": "core",   "check": "core.proof-exists",   "outcome": { "status": "success", "message": "..." } },
+    { "id": "cryptographic.proof.signature", "suite": "proof",  "check": "proof.signature",     "outcome": { "status": "success", "message": "Signature verified successfully." } },
+    { "id": "cryptographic.status.bitstring", "suite": "status", "check": "status.bitstring",    "outcome": { "status": "success", "message": "Credential status is valid (not revoked or suspended)." } },
+    { "id": "trust.registry.issuer", "suite": "registry", "check": "registry.issuer",   "outcome": { "status": "success", "message": "Issuer found in registry: DCC Sandbox Registry", "payload": { "found": true, "matchingRegistries": ["DCC Sandbox Registry"], "uncheckedRegistries": [] } } }
   ]
 }
 ```
@@ -515,6 +518,12 @@ const verbose = await verifier.verifyCredential({ credential, verbose: true });
 // verbose.results[] carries every check that ran, with .id populated.
 ```
 
+With `verbose: false` (the default), a check that passed cannot be told apart
+from a check that never ran. Only failures and applies-skips are in `results[]`,
+and `summary[].counts` is per suite. A UI that must state per check "checked and
+passed" versus "not checked" should use `verbose: true`. The folded default
+suits size-sensitive responses where the per-suite rollup is enough.
+
 `verbose` is also accepted on `createVerifier(...)` as an instance default;
 per-call values win when both are set.
 
@@ -578,6 +587,22 @@ const result = await verifier.verifyCredential({
   additionalSuites: [openBadgesSuite]
 });
 ```
+
+With no recognizers configured, `recognition.profile` is skipped with the reason
+`no recognizers configured`. When recognizers exist but none applies, the reason
+is `no recognizer matched`.
+
+### Strict parser versus JSON Schema
+
+The strict Zod parser behind `recognition.profile` enforces spec MUST rules that
+the published OB 3.0 JSON Schema cannot express. One example is
+AchievementSubject: "Either id or at least one identifier MUST be supplied." So
+`recognition.profile` can fail while `schema.obv3.json` passes for the same
+credential.
+
+This is deliberate. The parser is the authority on conformance. The AJV schema
+check is the published-schema baseline. Treat a parser failure as the stronger
+signal.
 
 ### Bundle variants
 

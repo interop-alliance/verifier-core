@@ -3,6 +3,7 @@ import { ProblemDetail } from '../../types/problem-detail.js';
 import { VerificationSubject } from '../../types/subject.js';
 import { VerificationContext } from '../../types/context.js';
 import { ProblemTypes } from '../../problem-types.js';
+import type { RegistryLookupResult } from '../../types/registry.js';
 
 /**
  * Extract issuer DID from credential.
@@ -36,7 +37,10 @@ function getIssuerDid(credential: Record<string, unknown>): string | undefined {
  * - No `lookupIssuers` in VerificationContext
  *
  * Success when:
- * - Issuer found in at least one registry
+ * - Issuer found in at least one registry. The outcome `payload` is the
+ *   {@link RegistryLookupResult} (`matchingRegistries`,
+ *   `uncheckedRegistries`) so consumers read registry names as data
+ *   rather than from `message`.
  *
  * Failure when:
  * - Issuer not found in any registry
@@ -94,7 +98,10 @@ export const issuerRegistryCheck: VerificationCheck = {
     }
 
     try {
-      const result = await lookupIssuers(issuerDid, context.registries);
+      const result: RegistryLookupResult = await lookupIssuers(
+        issuerDid,
+        context.registries
+      );
 
       if (result.found) {
         const message =
@@ -110,7 +117,8 @@ export const issuerRegistryCheck: VerificationCheck = {
 
         return {
           status: 'success',
-          message: fullMessage
+          message: fullMessage,
+          payload: result
         };
       }
 

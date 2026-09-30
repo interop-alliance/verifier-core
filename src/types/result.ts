@@ -5,7 +5,13 @@ import { VerifiableCredential } from '../schemas/credential.js';
 import { VerifiablePresentation } from '../schemas/presentation.js';
 
 export interface CredentialVerificationResult {
-  /** True if no check returned a failure outcome. */
+  /**
+   * True iff no check marked `fatal` returned a failure outcome. A
+   * non-fatal check (e.g. `recognition.profile`, `registry.issuer`)
+   * can fail and leave `verified` true; such failures still appear
+   * in {@link results} and in the owning {@link summary} entry's
+   * `status` / `counts`. See {@link CheckResult.fatal}.
+   */
   verified: boolean;
 
   /**
@@ -85,7 +91,12 @@ export interface CredentialVerificationResult {
 }
 
 export interface PresentationVerificationResult {
-  /** True if no failures in presentation checks or any credential checks. */
+  /**
+   * True iff no fatal check failed at the presentation level and
+   * every {@link credentialResults} entry is itself `verified`.
+   * Non-fatal failures do not affect it; see
+   * {@link CredentialVerificationResult.verified}.
+   */
   verified: boolean;
 
   /**

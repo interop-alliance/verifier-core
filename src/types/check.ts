@@ -53,13 +53,10 @@ export interface CheckResult {
    * (e.g. `"cryptographic.proof.signature"`). When `phase === suite`
    * the duplicate segment collapses (e.g. `"recognition.profile"`).
    *
-   * Computed by the verifier post-`runSuites`. Prefer this over the
-   * legacy `check` / `suite` pair when consuming results.
-   *
-   * Optional today for backwards compatibility with hand-constructed
-   * `CheckResult` literals; will become required in a future major.
+   * Populated by `runSuites`. Prefer this over the legacy `check` /
+   * `suite` pair when consuming results.
    */
-  id?: string;
+  id: string;
 
   /**
    * @deprecated Use {@link CheckResult.id}. Will be removed in the
@@ -80,8 +77,10 @@ export interface CheckResult {
   outcome: CheckOutcome;
   /**
    * Whether this check was marked fatal in its suite definition.
-   * Fatal failures affect the overall `verified` status; non-fatal ones
-   * are informational/warnings only.
+   * Only a fatal failure makes the overall `verified` (and the owning
+   * `SuiteSummary.verified`) false; a non-fatal failure is reported in
+   * `results[]` and `SuiteSummary.status` / `counts` but leaves
+   * `verified` untouched.
    */
   fatal?: boolean;
   /**

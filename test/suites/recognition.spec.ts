@@ -30,7 +30,7 @@ describe('recognitionSuite', () => {
     expect(results[0].check).toBe('recognition.profile');
     expect(results[0].outcome.status).toBe('skipped');
     if (results[0].outcome.status === 'skipped') {
-      expect(results[0].outcome.reason).toBe('no recognizer matched');
+      expect(results[0].outcome.reason).toBe('no recognizers configured');
     }
   });
 

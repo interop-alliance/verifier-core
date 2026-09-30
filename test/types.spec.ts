@@ -82,6 +82,7 @@ describe('Foundation types', () => {
   describe('CheckResult', () => {
     it('tags outcome with suite and check ids', () => {
       const result: CheckResult = {
+        id: 'cryptographic.core.proof-exists',
         check: 'core.proof-exists',
         suite: 'core',
         outcome: { status: 'success', message: 'Proof exists.' }
@@ -91,7 +92,7 @@ describe('Foundation types', () => {
       expect(result.outcome.status).toBe('success');
     });
 
-    it('accepts an optional namespaced id', () => {
+    it('carries a namespaced id', () => {
       const result: CheckResult = {
         id: 'cryptographic.core.proof-exists',
         check: 'core.proof-exists',
@@ -124,7 +125,7 @@ describe('Foundation types', () => {
         suite: 'proof',
         status: 'failure',
         verified: false,
-        message: '1 of 3 checks failed (0 passed)',
+        message: '0 of 3 checks passed (1 failed, 2 not run after fatal)',
         counts: { passed: 0, failed: 1, skipped: 0 },
         fatalFailureAt: 'proof.signature'
       };
@@ -139,7 +140,7 @@ describe('Foundation types', () => {
         suite: 'custom',
         status: 'success',
         verified: true,
-        message: '1 of 1 checks passed',
+        message: '1 of 1 check passed',
         counts: { passed: 1, failed: 0, skipped: 0 }
       };
       expect(summary.phase).toBe('unknown');
@@ -155,7 +156,7 @@ describe('Foundation types', () => {
         suite: 'recognition',
         status: 'skipped',
         verified: true,
-        message: 'no recognizer matched',
+        message: '0 of 1 check passed (1 skipped)',
         counts: { passed: 0, failed: 0, skipped: 1 }
       };
       expect(summary.id).toBe('recognition');

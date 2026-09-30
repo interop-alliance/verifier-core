@@ -64,15 +64,26 @@ export interface SuiteSummary {
    */
   status: 'success' | 'failure' | 'skipped' | 'mixed';
 
-  /** True iff no child check returned `'failure'`. */
+  /**
+   * True iff no child check marked `fatal` returned `'failure'`.
+   * Same rule as the top-level `verified`, applied to this suite
+   * alone, so a suite can have `status: 'failure'` (a non-fatal
+   * check failed) and still be `verified: true`. Use `status` and
+   * `counts` to render what the suite found; use `verified` to
+   * know whether it affected the overall result.
+   */
   verified: boolean;
 
   /**
-   * Human-readable rollup message. Conventions:
+   * Human-readable rollup message. Always reads in the same
+   * direction, `<passed> of <total> checks passed`, with non-zero
+   * failed / skipped / not-run counts in parentheses:
    *  - `"<n> of <m> checks passed"`
-   *  - `"<n> of <m> checks failed (<k> passed)"`
-   *  - `"<n> of <m> checks failed (<k> not run after fatal)"`
+   *  - `"<n> of <m> checks passed (<k> failed)"`
+   *  - `"<n> of <m> checks passed (<k> failed, <r> not run after fatal)"`
+   *  - `"0 of <m> checks passed (<m> skipped)"`
    *  - `"<suite> not applicable: <reason>"`
+   * `counts` carries the same numbers as data.
    */
   message: string;
 

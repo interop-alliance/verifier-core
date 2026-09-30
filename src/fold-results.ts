@@ -154,12 +154,10 @@ function summarizeSuite(
   const fatalCheck = suiteChecks.find(
     c => c.fatal === true && c.outcome.status === 'failure'
   );
-  const fatalFailureAt = fatalCheck
-    ? (fatalCheck.id ?? computeId(phase, suiteId, fatalCheck.check))
-    : undefined;
+  const fatalFailureAt = fatalCheck?.id;
 
   const status = deriveStatus(counts);
-  const verified = counts.failed === 0;
+  const verified = fatalCheck === undefined;
 
   const totalDefined = suiteDef?.checks.length ?? 0;
   const message = formatMessage(
@@ -270,6 +268,10 @@ function pickAppliesSkipReason(
 /**
  * Build the human-readable `SuiteSummary.message`. See
  * `SuiteSummary.message` TSDoc for the exact wording conventions.
+ *
+ * The message always reads in one direction, `<passed> of <total>
+ * checks passed`, so a column of suite rows compares at a glance.
+ * Non-zero failed / skipped / not-run counts follow in parentheses.
  */
 function formatMessage(
   suiteId: string,
@@ -282,33 +284,22 @@ function formatMessage(
     return `${suiteId} not applicable: ${appliesSkipReason}`;
   }
 
-  const ran = counts.passed + counts.failed;
+  const recorded = counts.passed + counts.failed + counts.skipped;
+  const notRun = fatalShortCircuited ? Math.max(0, totalDefined - recorded) : 0;
+  const total = recorded + notRun;
 
-  if (counts.failed === 0) {
-    if (counts.passed > 0) {
-      return `${counts.passed} of ${ran} ${pluralCheck(ran)} passed`;
-    }
-    const total = counts.skipped;
-    return `${counts.skipped} of ${total} ${pluralCheck(total)} skipped`;
+  const tail: string[] = [];
+  if (counts.failed > 0) {
+    tail.push(`${counts.failed} failed`);
   }
-
-  // counts.failed > 0
-  if (fatalShortCircuited) {
-    const notRun = Math.max(0, totalDefined - ran - counts.skipped);
-    const total = ran + notRun;
-    const tail: string[] = [];
-    if (counts.passed > 0) {
-      tail.push(`${counts.passed} passed`);
-    }
-    if (notRun > 0) {
-      tail.push(`${notRun} not run after fatal`);
-    }
-    const tailStr = tail.length > 0 ? ` (${tail.join(', ')})` : '';
-    return `${counts.failed} of ${total} ${pluralCheck(total)} failed${tailStr}`;
+  if (counts.skipped > 0) {
+    tail.push(`${counts.skipped} skipped`);
   }
-
-  const tail = counts.passed > 0 ? ` (${counts.passed} passed)` : '';
-  return `${counts.failed} of ${ran} ${pluralCheck(ran)} failed${tail}`;
+  if (notRun > 0) {
+    tail.push(`${notRun} not run after fatal`);
+  }
+  const tailStr = tail.length > 0 ? ` (${tail.join(', ')})` : '';
+  return `${counts.passed} of ${total} ${pluralCheck(total)} passed${tailStr}`;
 }
 
 function pluralCheck(n: number): 'check' | 'checks' {

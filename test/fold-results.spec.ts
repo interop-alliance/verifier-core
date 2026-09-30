@@ -53,10 +53,12 @@ function mkResult(
   suite: string,
   check: string,
   status: 'success' | 'failure' | 'skipped',
-  options: { fatal?: boolean; reason?: string } = {}
+  options: { fatal?: boolean; reason?: string; phase?: SuitePhase } = {}
 ): CheckResult {
+  const id = computeId(options.phase, suite, check);
   if (status === 'success') {
     return {
+      id,
       suite,
       check,
       outcome: { status: 'success', message: 'ok' },
@@ -65,6 +67,7 @@ function mkResult(
   }
   if (status === 'failure') {
     return {
+      id,
       suite,
       check,
       outcome: { status: 'failure', problems: [stubProblem] },
@@ -72,6 +75,7 @@ function mkResult(
     };
   }
   return {
+    id,
     suite,
     check,
     outcome: { status: 'skipped', reason: options.reason ?? 'n/a' }
@@ -120,8 +124,8 @@ describe('foldCheckResults', () => {
       { phase: 'cryptographic' }
     );
     const checks: CheckResult[] = [
-      mkResult('proof', 'proof.sig', 'failure'),
-      mkResult('proof', 'proof.kid', 'failure')
+      mkResult('proof', 'proof.sig', 'failure', { fatal: true }),
+      mkResult('proof', 'proof.kid', 'failure', { fatal: true })
     ];
 
     const { results, summaries } = foldCheckResults(checks, [suite]);
@@ -134,7 +138,23 @@ describe('foldCheckResults', () => {
       failed: 2,
       skipped: 0
     });
-    expect(summaries[0].message).toBe('2 of 2 checks failed');
+    expect(summaries[0].message).toBe('0 of 2 checks passed (2 failed)');
+  });
+
+  it('2b. non-fatal failures leave summary.verified true', () => {
+    const suite = mkSuite('registry', [mkCheck('registry.issuer', 'failure')], {
+      phase: 'trust'
+    });
+    const checks: CheckResult[] = [
+      mkResult('registry', 'registry.issuer', 'failure', { fatal: false })
+    ];
+
+    const { summaries } = foldCheckResults(checks, [suite]);
+
+    expect(summaries[0].status).toBe('failure');
+    expect(summaries[0].verified).toBe(true);
+    expect(summaries[0].fatalFailureAt).toBeUndefined();
+    expect(summaries[0].message).toBe('0 of 1 check passed (1 failed)');
   });
 
   it('3. mixed: 1 fail + 3 pass surfaces 1 failure, summary status="mixed"', () => {
@@ -160,13 +180,13 @@ describe('foldCheckResults', () => {
     expect(results).toHaveLength(1);
     expect(results[0].check).toBe('core.b');
     expect(summaries[0].status).toBe('mixed');
-    expect(summaries[0].verified).toBe(false);
+    expect(summaries[0].verified).toBe(true);
     expect(summaries[0].counts).toEqual({
       passed: 3,
       failed: 1,
       skipped: 0
     });
-    expect(summaries[0].message).toBe('1 of 4 checks failed (3 passed)');
+    expect(summaries[0].message).toBe('3 of 4 checks passed (1 failed)');
   });
 
   it('4. all-skipped: explicit `<suite>.applies` skip kept, summary status="skipped"', () => {
@@ -207,8 +227,11 @@ describe('foldCheckResults', () => {
       { phase: 'cryptographic' }
     );
     const checks: CheckResult[] = [
-      mkResult('proof', 'proof.a', 'success'),
-      mkResult('proof', 'proof.b', 'failure', { fatal: true })
+      mkResult('proof', 'proof.a', 'success', { phase: 'cryptographic' }),
+      mkResult('proof', 'proof.b', 'failure', {
+        fatal: true,
+        phase: 'cryptographic'
+      })
     ];
 
     const { results, summaries } = foldCheckResults(checks, [suite]);
@@ -224,7 +247,7 @@ describe('foldCheckResults', () => {
     });
     expect(summaries[0].fatalFailureAt).toBe('cryptographic.proof.b');
     expect(summaries[0].message).toBe(
-      '1 of 4 checks failed (1 passed, 2 not run after fatal)'
+      '1 of 4 checks passed (1 failed, 2 not run after fatal)'
     );
   });
 
