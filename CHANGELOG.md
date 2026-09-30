@@ -6,9 +6,13 @@
 
 - Status list credential proofs are verified through the `cryptoServices`
   configured on `createVerifier`, so injected custom crypto services apply to
-  `BitstringStatusListCredential`s as well as to VC and VP proofs. The internal
-  `cryptoSuites` and `verifyBitstringStatusListCredential` fields are removed
-  from `VerificationContext`.
+  `BitstringStatusListCredential`s as well as to VC and VP proofs.
+- **BREAKING**: The `cryptoSuites` and `verifyBitstringStatusListCredential`
+  fields are removed from the exported `VerificationContext` type. Custom suites
+  that build a context by hand must drop them.
+- Only `BitstringStatusListEntry` entries in `credentialStatus` have their
+  `statusListCredential` fetched and proof-verified; entries of other status
+  types are ignored.
 
 ### Fixed
 
