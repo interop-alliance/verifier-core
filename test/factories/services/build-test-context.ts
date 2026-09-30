@@ -32,15 +32,14 @@ const eddsaSuite = new DataIntegrityProof({
 });
 const ed25519Suite = new Ed25519Signature2020();
 
-const defaultCryptoSuites: CryptoSuite[] = [ed25519Suite, eddsaSuite];
+const defaultSuitesForService: CryptoSuite[] = [ed25519Suite, eddsaSuite];
 
 /** Build a {@link VerificationContext} for tests, optionally overridden. */
 export function buildTestContext(
   overrides?: Partial<VerificationContext>
 ): VerificationContext {
-  const cryptoSuites = overrides?.cryptoSuites ?? defaultCryptoSuites;
   const cryptoServices = overrides?.cryptoServices ?? [
-    DataIntegrityCryptoService({ suites: cryptoSuites })
+    DataIntegrityCryptoService({ suites: defaultSuitesForService })
   ];
 
   const effectiveHttpGetService =
@@ -60,15 +59,12 @@ export function buildTestContext(
     fetchJson,
     httpGetService: effectiveHttpGetService,
     cacheService: effectiveCacheService,
-    cryptoSuites,
     cryptoServices,
     registries: overrides?.registries,
     lookupIssuers:
       overrides?.lookupIssuers ??
       createRegistryLookup(effectiveHttpGetService, effectiveCacheService),
     challenge: overrides?.challenge ?? null,
-    unsignedPresentation: overrides?.unsignedPresentation ?? false,
-    verifyBitstringStatusListCredential:
-      overrides?.verifyBitstringStatusListCredential ?? true
+    unsignedPresentation: overrides?.unsignedPresentation ?? false
   };
 }

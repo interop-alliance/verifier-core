@@ -99,11 +99,11 @@ crypto/JSON-LD stack (`@digitalcredentials/vc`, `jsonld-signatures`,
 From a DCC-specific verifier -> a general-purpose, composable VC verification
 _framework_: environment-agnostic, network-free testability, consumers wire in
 only what they need. Stated remaining hexagonal work (`docs/architecture.md`
-§Direction): route the bitstring-status check through
-`Verifier.verifyCredential` (drop the `cryptoSuites` dependency on
-`VerificationContext`), wrap AJV behind a `JsonSchemaValidator` port, and add a
-`Clock` port. Server-fit signals: per-verifier cache sharing, lean serializable
-results (Redis-friendly), timing instrumentation, OIDF.
+§Direction): wrap AJV behind a `JsonSchemaValidator` port, and add a `Clock`
+port. (The bitstring-status check already verifies status list credential proofs
+through the injected `cryptoServices`.) Server-fit signals: per-verifier cache
+sharing, lean serializable results (Redis-friendly), timing instrumentation,
+OIDF.
 
 ## v2.0.0 is NOT a drop-in for pre-Nate consumers
 

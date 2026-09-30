@@ -1,5 +1,20 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.7.0 - TBD
+
+### Changed
+
+- Status list credential proofs are verified through the `cryptoServices`
+  configured on `createVerifier`, so injected custom crypto services apply to
+  `BitstringStatusListCredential`s as well as to VC and VP proofs. The internal
+  `cryptoSuites` and `verifyBitstringStatusListCredential` fields are removed
+  from `VerificationContext`.
+
+### Fixed
+
+- Presentation `holder` accepts an object with an `id` as well as a URL string,
+  per VCDM 2.0.
+
 ## 3.6.0 - 2026-09-28
 
 ### Added
