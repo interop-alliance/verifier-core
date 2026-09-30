@@ -12,7 +12,7 @@
   that build a context by hand must drop them.
 - Only `BitstringStatusListEntry` entries in `credentialStatus` have their
   `statusListCredential` fetched and proof-verified; entries of other status
-  types are ignored.
+  types are ignored. Distinct lists are loaded and verified concurrently.
 
 ### Fixed
 

@@ -18,15 +18,41 @@ const LEGACY_STATUS_TYPES: string[] = [
   '1EdTechRevocationList'
 ];
 
-// Error patterns from constants/external.ts
+// Error patterns from the document loader and the crypto service.
 const NOT_FOUND_ERROR = 'NotFoundError';
 const EXPIRED_ERROR = 'is after "validUntil"';
-const STATUS_SIGNATURE_ERROR = 'Verification error';
+const NOT_YET_VALID_ERROR = 'is before "validFrom"';
+// Error pattern from `checkStatus`.
 const STATUS_TYPE_ERROR =
   'Status list credential type must include "BitstringStatusListCredential".';
-const STATUS_NOT_YET_VALID_ERROR = 'is before "validFrom"';
 
-const STATUS_LIST_SIGNATURE_TITLE = 'Status List Signature Error';
+const STATUS_LIST_EXPIRED_PROBLEM: ProblemDetail = {
+  type: ProblemTypes.STATUS_LIST_EXPIRED,
+  title: 'Status List Expired',
+  detail: 'The status list credential has expired.'
+};
+
+const STATUS_LIST_NOT_YET_VALID_PROBLEM: ProblemDetail = {
+  type: ProblemTypes.STATUS_LIST_NOT_YET_VALID,
+  title: 'Status List Not Yet Valid',
+  detail: 'The status list credential is not yet valid.'
+};
+
+function statusListSignatureProblem(detail: string): ProblemDetail {
+  return {
+    type: ProblemTypes.STATUS_LIST_SIGNATURE_ERROR,
+    title: 'Status List Signature Error',
+    detail
+  };
+}
+
+function statusListErrorProblem(detail: string): ProblemDetail {
+  return {
+    type: ProblemTypes.STATUS_LIST_ERROR,
+    title: 'Status List Error',
+    detail
+  };
+}
 
 function statusTypeString(type: unknown): string | undefined {
   if (typeof type === 'string') {
@@ -54,36 +80,6 @@ function credentialStatusEntries(
 }
 
 /**
- * Check if the credential has a valid status type that we can check.
- */
-function hasBitstringStatusList(credential: Record<string, unknown>): boolean {
-  const statuses = credentialStatusEntries(credential);
-
-  if (statuses.length === 0) {
-    return false;
-  }
-
-  const [firstStatus] = statuses;
-  const statusType = statusTypeString(firstStatus?.type);
-
-  return statusType === 'BitstringStatusListEntry';
-}
-
-/**
- * Get the status type for skip reason messages.
- */
-function getStatusType(
-  credential: Record<string, unknown>
-): string | undefined {
-  const statuses = credentialStatusEntries(credential);
-  if (statuses.length === 0) {
-    return undefined;
-  }
-
-  return statusTypeString(statuses[0]?.type);
-}
-
-/**
  * Distinct `statusListCredential` URLs named by the credential's
  * `BitstringStatusListEntry` entries, in first-seen order. Entries of any
  * other status type are ignored, matching what `checkStatus` reads. Entries
@@ -93,145 +89,60 @@ function getStatusType(
 function statusListCredentialUrls(
   credential: Record<string, unknown>
 ): string[] {
-  const urls: string[] = [];
-  const seen = new Set<string>();
-  for (const entry of credentialStatusEntries(credential)) {
-    if (statusTypeString(entry.type) !== 'BitstringStatusListEntry') {
-      continue;
-    }
-    const url = entry.statusListCredential;
-    if (typeof url !== 'string' || url.length === 0) {
-      continue;
-    }
-    if (seen.has(url)) {
-      continue;
-    }
-    seen.add(url);
-    urls.push(url);
-  }
-  return urls;
+  const urls = credentialStatusEntries(credential)
+    .filter(
+      entry => statusTypeString(entry.type) === 'BitstringStatusListEntry'
+    )
+    .map(entry => entry.statusListCredential)
+    .filter((url): url is string => typeof url === 'string' && url.length > 0);
+  return [...new Set(urls)];
 }
 
 /**
  * Load a status list credential through the JSON-LD document loader.
  *
- * Load failures are wrapped with the same message/`cause` shape the
- * third-party `checkStatus` uses, so {@link classifyStatusError} still
- * maps unreachable lists to `STATUS_LIST_NOT_FOUND` (or the generic
- * status error, when the loader's own message is what the tests match).
+ * The loader contract is `{ document }` with an already-parsed object
+ * (`documentLoaderFromHttpGet` parses string bodies). An unreachable list
+ * maps to `STATUS_LIST_NOT_FOUND`; anything else the loader raises, or a
+ * non-object document, maps to the generic `STATUS_LIST_ERROR`.
  */
 async function loadStatusListCredential(
   url: string,
   documentLoader: DocumentLoader
-): Promise<{ document: unknown }> {
-  let result: unknown;
+): Promise<{ document: object } | { problems: ProblemDetail[] }> {
+  let document: unknown;
   try {
-    result = await documentLoader(url);
+    ({ document } = await documentLoader(url));
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `Could not load "BitstringStatusListCredential"; reason: ${reason}`,
-      { cause: error }
-    );
+    const err = error as { name?: string; message?: string };
+    const message = err?.message || String(error);
+    const detail = `Could not load "BitstringStatusListCredential"; reason: ${message}`;
+    const notFound =
+      err?.name === NOT_FOUND_ERROR || message.startsWith(NOT_FOUND_ERROR);
+    return {
+      problems: [
+        notFound
+          ? {
+              type: ProblemTypes.STATUS_LIST_NOT_FOUND,
+              title: 'Status List Not Found',
+              detail
+            }
+          : statusListErrorProblem(detail)
+      ]
+    };
   }
 
-  if (result === null || typeof result !== 'object') {
-    throw new Error(
-      `Could not load "BitstringStatusListCredential"; reason: loader returned no document for ${url}`
-    );
+  if (document === null || typeof document !== 'object') {
+    return {
+      problems: [
+        statusListErrorProblem(
+          `Could not load "BitstringStatusListCredential"; reason: loader returned no document for ${url}`
+        )
+      ]
+    };
   }
 
-  const document = coerceStatusListDocument(
-    (result as { document?: unknown }).document,
-    url
-  );
   return { document };
-}
-
-/**
- * Turn a JSON-LD loader's `document` field into a credential object.
- *
- * `JsonLdDocumentLoader` already wraps the protocol-handler return value
- * in `{ document }`. If a handler also returned an envelope, or if the
- * HTTP body was a JSON string (`text/plain`), the credential is nested
- * or unparsed. Unwrap/parse so `cryptoServices` and `checkStatus` see
- * the BitstringStatusListCredential, not the envelope.
- */
-function coerceStatusListDocument(raw: unknown, url: string): unknown {
-  let document = raw;
-
-  if (
-    document !== null &&
-    typeof document === 'object' &&
-    'document' in document &&
-    !('@context' in document) &&
-    !('type' in document)
-  ) {
-    document = (document as { document: unknown }).document;
-  }
-
-  if (typeof document === 'string') {
-    try {
-      document = JSON.parse(document);
-    } catch (error) {
-      throw new Error(
-        `Could not load "BitstringStatusListCredential"; reason: loader returned non-JSON for ${url}`,
-        { cause: error }
-      );
-    }
-  }
-
-  if (
-    document === undefined ||
-    document === null ||
-    typeof document !== 'object'
-  ) {
-    throw new Error(
-      `Could not load "BitstringStatusListCredential"; reason: loader returned no document for ${url}`
-    );
-  }
-
-  return document;
-}
-
-/**
- * Map a rejected dispatch onto a status list problem.
- *
- * The crypto service also enforces the list credential's validity period,
- * and reports an expired or not-yet-valid list as a rejection whose problem
- * detail carries the library's date message. Those are surfaced as
- * `STATUS_LIST_EXPIRED` / `STATUS_LIST_NOT_YET_VALID` rather than as a
- * signature error.
- */
-function rejectedStatusListProblems(
-  problems: ProblemDetail[]
-): ProblemDetail[] {
-  const details = problems.map(problem => problem.detail);
-  if (details.some(detail => detail.includes(EXPIRED_ERROR))) {
-    return [
-      {
-        type: ProblemTypes.STATUS_LIST_EXPIRED,
-        title: 'Status List Expired',
-        detail: 'The status list credential has expired.'
-      }
-    ];
-  }
-  if (details.some(detail => detail.includes(STATUS_NOT_YET_VALID_ERROR))) {
-    return [
-      {
-        type: ProblemTypes.STATUS_LIST_NOT_YET_VALID,
-        title: 'Status List Not Yet Valid',
-        detail: 'The status list credential is not yet valid.'
-      }
-    ];
-  }
-  return [
-    {
-      type: ProblemTypes.STATUS_LIST_SIGNATURE_ERROR,
-      title: STATUS_LIST_SIGNATURE_TITLE,
-      detail: 'The status list credential signature could not be verified.'
-    }
-  ];
 }
 
 /**
@@ -241,6 +152,12 @@ function rejectedStatusListProblems(
  * returns false for a document with no proof, so an unsigned status list
  * lands here. Passing that through as success would silently accept lists
  * the previous `vcVerifyCredential` path rejected.
+ *
+ * The crypto service also enforces the list credential's validity period,
+ * and reports an expired or not-yet-valid list as a rejection whose problem
+ * detail carries the library's date message. Those are surfaced as
+ * `STATUS_LIST_EXPIRED` / `STATUS_LIST_NOT_YET_VALID` rather than as a
+ * signature error.
  */
 function statusListProofProblems(
   dispatched: Exclude<CryptoDispatchResult, { kind: 'verified' }>
@@ -248,26 +165,26 @@ function statusListProofProblems(
   switch (dispatched.kind) {
     case 'no-service':
       return [
-        {
-          type: ProblemTypes.STATUS_LIST_SIGNATURE_ERROR,
-          title: STATUS_LIST_SIGNATURE_TITLE,
-          detail:
-            "No registered crypto service can verify the status list credential's proof (unsigned list, or suite missing from cryptoServices)."
-        }
+        statusListSignatureProblem(
+          "No registered crypto service can verify the status list credential's proof (unsigned list, or suite missing from cryptoServices)."
+        )
       ];
-    case 'rejected':
-      return rejectedStatusListProblems(dispatched.problems);
     case 'threw':
+      return [statusListSignatureProblem(dispatched.message)];
+    case 'rejected': {
+      const { problems } = dispatched;
+      if (problems.some(p => p.detail.includes(EXPIRED_ERROR))) {
+        return [STATUS_LIST_EXPIRED_PROBLEM];
+      }
+      if (problems.some(p => p.detail.includes(NOT_YET_VALID_ERROR))) {
+        return [STATUS_LIST_NOT_YET_VALID_PROBLEM];
+      }
       return [
-        {
-          type: ProblemTypes.STATUS_LIST_SIGNATURE_ERROR,
-          title: STATUS_LIST_SIGNATURE_TITLE,
-          detail:
-            dispatched.error instanceof Error
-              ? dispatched.error.message
-              : 'An unexpected error occurred during signature verification.'
-        }
+        statusListSignatureProblem(
+          'The status list credential signature could not be verified.'
+        )
       ];
+    }
   }
 }
 
@@ -277,7 +194,7 @@ function statusListProofProblems(
  * contexts, DID documents) delegates to the original loader.
  */
 function preloadedLoader(
-  loaded: Map<string, unknown>,
+  loaded: Map<string, object>,
   delegate: DocumentLoader
 ): DocumentLoader {
   return async (url: string) => {
@@ -289,57 +206,15 @@ function preloadedLoader(
 }
 
 /**
- * Classify status check error into ProblemDetail.
+ * Classify an error raised by `checkStatus` itself. List loading and proof
+ * verification happen before `checkStatus` runs, so only its own structural
+ * errors (wrong list type, purpose mismatch, bad index) land here.
  */
 function classifyStatusError(error: unknown): ProblemDetail[] {
-  const err = error as {
-    message?: string;
-    cause?: { message?: string };
-    name?: string;
-  };
+  const err = error as { message?: string; cause?: { message?: string } };
   const errorMessage = err?.message || String(error);
   const causeMessage = err?.cause?.message || '';
 
-  // Not found error
-  if (
-    err?.name === NOT_FOUND_ERROR ||
-    causeMessage.startsWith(NOT_FOUND_ERROR)
-  ) {
-    return [
-      {
-        type: ProblemTypes.STATUS_LIST_NOT_FOUND,
-        title: 'Status List Not Found',
-        detail: errorMessage
-      }
-    ];
-  }
-
-  // Expired error
-  if (
-    causeMessage.includes(EXPIRED_ERROR) ||
-    errorMessage.includes(EXPIRED_ERROR.toLowerCase())
-  ) {
-    return [
-      {
-        type: ProblemTypes.STATUS_LIST_EXPIRED,
-        title: 'Status List Expired',
-        detail: 'The status list credential has expired.'
-      }
-    ];
-  }
-
-  // Signature verification error
-  if (causeMessage.startsWith(STATUS_SIGNATURE_ERROR)) {
-    return [
-      {
-        type: ProblemTypes.STATUS_LIST_SIGNATURE_ERROR,
-        title: 'Status List Signature Error',
-        detail: 'The status list credential signature could not be verified.'
-      }
-    ];
-  }
-
-  // Type error
   if (causeMessage.startsWith(STATUS_TYPE_ERROR)) {
     return [
       {
@@ -350,25 +225,10 @@ function classifyStatusError(error: unknown): ProblemDetail[] {
     ];
   }
 
-  // Not yet valid error
-  if (causeMessage.includes(STATUS_NOT_YET_VALID_ERROR)) {
-    return [
-      {
-        type: ProblemTypes.STATUS_LIST_NOT_YET_VALID,
-        title: 'Status List Not Yet Valid',
-        detail: 'The status list credential is not yet valid.'
-      }
-    ];
-  }
-
-  // Generic status error
   return [
-    {
-      type: ProblemTypes.STATUS_LIST_ERROR,
-      title: 'Status List Error',
-      detail:
-        errorMessage || 'An error occurred while checking credential status.'
-    }
+    statusListErrorProblem(
+      errorMessage || 'An error occurred while checking credential status.'
+    )
   ];
 }
 
@@ -425,8 +285,9 @@ export const bitstringStatusCheck: VerificationCheck = {
       };
     }
 
-    // Check for legacy status types that we skip
-    const statusType = getStatusType(credential);
+    const statusType = statusTypeString(
+      credentialStatusEntries(credential)[0]?.type
+    );
     if (statusType && LEGACY_STATUS_TYPES.includes(statusType)) {
       return {
         status: 'skipped',
@@ -434,8 +295,7 @@ export const bitstringStatusCheck: VerificationCheck = {
       };
     }
 
-    // Check if it's a BitstringStatusListEntry
-    if (!hasBitstringStatusList(credential)) {
+    if (statusType !== 'BitstringStatusListEntry') {
       return {
         status: 'skipped',
         reason: `Status type "${String(statusType)}" is not BitstringStatusListEntry.`
@@ -443,25 +303,41 @@ export const bitstringStatusCheck: VerificationCheck = {
     }
 
     try {
-      const urls = statusListCredentialUrls(credential);
-      const loaded = new Map<string, unknown>();
-      for (const url of urls) {
-        const { document } = await loadStatusListCredential(
-          url,
-          context.documentLoader
-        );
-        const dispatched = await dispatchProofVerification({
-          services: context.cryptoServices,
-          subject: { verifiableCredential: document },
-          options: { documentLoader: context.documentLoader }
-        });
-        if (dispatched.kind !== 'verified') {
-          return {
-            status: 'failure',
-            problems: statusListProofProblems(dispatched)
-          };
+      // Load and proof-verify every named list concurrently; report the
+      // first failure in entry order.
+      const lists = await Promise.all(
+        statusListCredentialUrls(credential).map(
+          async (
+            url
+          ): Promise<
+            { url: string; document: object } | { problems: ProblemDetail[] }
+          > => {
+            const loaded = await loadStatusListCredential(
+              url,
+              context.documentLoader
+            );
+            if ('problems' in loaded) {
+              return { problems: loaded.problems };
+            }
+            const dispatched = await dispatchProofVerification({
+              services: context.cryptoServices,
+              subject: { verifiableCredential: loaded.document },
+              options: { documentLoader: context.documentLoader }
+            });
+            if (dispatched.kind !== 'verified') {
+              return { problems: statusListProofProblems(dispatched) };
+            }
+            return { url, document: loaded.document };
+          }
+        )
+      );
+
+      const loaded = new Map<string, object>();
+      for (const list of lists) {
+        if ('problems' in list) {
+          return { status: 'failure', problems: list.problems };
         }
-        loaded.set(url, document);
+        loaded.set(list.url, list.document);
       }
 
       const statusResult = await checkStatus({

@@ -26,12 +26,7 @@ export const signatureCheck: VerificationCheck = {
     subject: VerificationSubject,
     context: VerificationContext
   ): Promise<CheckOutcome> => {
-    const credential = subject.verifiableCredential as
-      Record<string, unknown> | undefined;
-    const presentation = subject.verifiablePresentation as
-      Record<string, unknown> | undefined;
-
-    if (!credential && !presentation) {
+    if (!subject.verifiableCredential && !subject.verifiablePresentation) {
       return {
         status: 'failure',
         problems: [
@@ -71,10 +66,7 @@ export const signatureCheck: VerificationCheck = {
             {
               type: ProblemTypes.PROOF_VERIFICATION_ERROR,
               title: 'Verification Error',
-              detail:
-                dispatched.error instanceof Error
-                  ? dispatched.error.message
-                  : 'An unexpected error occurred during signature verification.'
+              detail: dispatched.message
             }
           ]
         };
