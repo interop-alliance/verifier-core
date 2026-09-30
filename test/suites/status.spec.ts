@@ -588,6 +588,88 @@ describe('Status Suite', () => {
     });
   });
 
+  describe('mixed credentialStatus arrays', () => {
+    it('checks a Bitstring entry that follows a legacy entry', async () => {
+      const listUrl = 'https://factory.test/status/after-legacy';
+      const slCred = await StatusListCredentialFactory({
+        id: listUrl,
+        issuer: DEFAULT_TEST_ISSUER_DID,
+        revokedIndexes: [],
+        listLength: 32
+      });
+      const { loader, counts } = countingDocumentLoader(
+        FakeDocumentLoader({ [listUrl]: slCred })
+      );
+      const counted = countingCryptoService(FakeCryptoService());
+      const context = buildTestContext({
+        documentLoader: loader,
+        cryptoServices: [counted.service]
+      });
+
+      const cred = CredentialFactory({
+        version: 'v2',
+        credential: {
+          credentialStatus: [
+            {
+              id: 'https://example.com/legacy#1',
+              type: 'StatusList2021Entry',
+              statusPurpose: 'revocation',
+              statusListIndex: '1',
+              statusListCredential: 'https://example.com/legacy'
+            },
+            BitstringStatusEntry({
+              statusListCredential: listUrl,
+              statusListIndex: '0'
+            })
+          ]
+        }
+      });
+
+      const results = await runSuites(
+        [statusSuite],
+        createSubject(cred),
+        context
+      );
+
+      expect(results[0].outcome.status).toBe('success');
+      expect(counts.get(listUrl)).toBe(1);
+      expect(counted.credentialCalls).toBe(1);
+    });
+
+    it('skips and names every unchecked type when no Bitstring entry is present', async () => {
+      const cred = CredentialFactory({
+        version: 'v2',
+        credential: {
+          credentialStatus: [
+            {
+              id: 'https://example.com/legacy#1',
+              type: 'StatusList2021Entry',
+              statusPurpose: 'revocation'
+            },
+            {
+              id: 'https://example.com/other#1',
+              type: 'UnknownStatusType',
+              statusPurpose: 'revocation'
+            }
+          ]
+        }
+      });
+
+      const results = await runSuites(
+        [statusSuite],
+        createSubject(cred),
+        buildTestContext()
+      );
+
+      expect(results[0].outcome.status).toBe('skipped');
+      if (results[0].outcome.status === 'skipped') {
+        expect(results[0].outcome.reason).toContain('"StatusList2021Entry"');
+        expect(results[0].outcome.reason).toContain('"UnknownStatusType"');
+        expect(results[0].outcome.reason).not.toContain('Legacy');
+      }
+    });
+  });
+
   describe('unknown status types', () => {
     it('skips check for unknown status type', async () => {
       const cred = CredentialFactory({

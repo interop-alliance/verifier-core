@@ -1,4 +1,7 @@
-import { checkStatus } from '@interop/vc-bitstring-status-list';
+import {
+  checkStatus,
+  type VerifyStatusListCredential
+} from '@interop/vc-bitstring-status-list';
 import {
   dispatchProofVerification,
   type CryptoDispatchResult
@@ -6,10 +9,7 @@ import {
 import { VerificationCheck, CheckOutcome } from '../../types/check.js';
 import { ProblemDetail } from '../../types/problem-detail.js';
 import { VerificationSubject } from '../../types/subject.js';
-import {
-  VerificationContext,
-  type DocumentLoader
-} from '../../types/context.js';
+import { VerificationContext } from '../../types/context.js';
 import { ProblemTypes } from '../../problem-types.js';
 
 // Legacy status types that are skipped
@@ -17,6 +17,8 @@ const LEGACY_STATUS_TYPES: string[] = [
   'StatusList2021Entry',
   '1EdTechRevocationList'
 ];
+
+const BITSTRING_ENTRY_TYPE = 'BitstringStatusListEntry';
 
 // Error patterns from the document loader and the crypto service.
 const NOT_FOUND_ERROR = 'NotFoundError';
@@ -46,12 +48,15 @@ function statusListSignatureProblem(detail: string): ProblemDetail {
   };
 }
 
-function statusListErrorProblem(detail: string): ProblemDetail {
-  return {
-    type: ProblemTypes.STATUS_LIST_ERROR,
-    title: 'Status List Error',
-    detail
-  };
+/**
+ * Carries the already-classified problems of a failed status list proof
+ * out of the `verifyStatusListCredential` hook. `checkStatus` wraps the
+ * hook's error as `cause`, and {@link classifyStatusError} unwraps it.
+ */
+class StatusListProofError extends Error {
+  constructor(readonly problems: ProblemDetail[]) {
+    super(problems[0].detail);
+  }
 }
 
 function statusTypeString(type: unknown): string | undefined {
@@ -64,9 +69,7 @@ function statusTypeString(type: unknown): string | undefined {
   return undefined;
 }
 
-function credentialStatusEntries(
-  credential: Record<string, unknown>
-): Array<Record<string, unknown>> {
+function credentialStatusTypes(credential: Record<string, unknown>): string[] {
   const credentialStatus = credential.credentialStatus as
     Record<string, unknown> | Array<Record<string, unknown>> | undefined;
 
@@ -74,75 +77,10 @@ function credentialStatusEntries(
     return [];
   }
 
-  return Array.isArray(credentialStatus)
+  const entries = Array.isArray(credentialStatus)
     ? credentialStatus
     : [credentialStatus];
-}
-
-/**
- * Distinct `statusListCredential` URLs named by the credential's
- * `BitstringStatusListEntry` entries, in first-seen order. Entries of any
- * other status type are ignored, matching what `checkStatus` reads. Entries
- * without a non-empty string URL are ignored so `checkStatus` can reject that
- * input itself.
- */
-function statusListCredentialUrls(
-  credential: Record<string, unknown>
-): string[] {
-  const urls = credentialStatusEntries(credential)
-    .filter(
-      entry => statusTypeString(entry.type) === 'BitstringStatusListEntry'
-    )
-    .map(entry => entry.statusListCredential)
-    .filter((url): url is string => typeof url === 'string' && url.length > 0);
-  return [...new Set(urls)];
-}
-
-/**
- * Load a status list credential through the JSON-LD document loader.
- *
- * The loader contract is `{ document }` with an already-parsed object
- * (`documentLoaderFromHttpGet` parses string bodies). An unreachable list
- * maps to `STATUS_LIST_NOT_FOUND`; anything else the loader raises, or a
- * non-object document, maps to the generic `STATUS_LIST_ERROR`.
- */
-async function loadStatusListCredential(
-  url: string,
-  documentLoader: DocumentLoader
-): Promise<{ document: object } | { problems: ProblemDetail[] }> {
-  let document: unknown;
-  try {
-    ({ document } = await documentLoader(url));
-  } catch (error) {
-    const err = error as { name?: string; message?: string };
-    const message = err?.message || String(error);
-    const detail = `Could not load "BitstringStatusListCredential"; reason: ${message}`;
-    const notFound =
-      err?.name === NOT_FOUND_ERROR || message.startsWith(NOT_FOUND_ERROR);
-    return {
-      problems: [
-        notFound
-          ? {
-              type: ProblemTypes.STATUS_LIST_NOT_FOUND,
-              title: 'Status List Not Found',
-              detail
-            }
-          : statusListErrorProblem(detail)
-      ]
-    };
-  }
-
-  if (document === null || typeof document !== 'object') {
-    return {
-      problems: [
-        statusListErrorProblem(
-          `Could not load "BitstringStatusListCredential"; reason: loader returned no document for ${url}`
-        )
-      ]
-    };
-  }
-
-  return { document };
+  return entries.map(entry => String(statusTypeString(entry.type)));
 }
 
 /**
@@ -189,31 +127,61 @@ function statusListProofProblems(
 }
 
 /**
- * Serves already-fetched status list credentials so `checkStatus` does
- * not issue a second GET for the same URL. Anything else (JSON-LD
- * contexts, DID documents) delegates to the original loader.
+ * The `verifyStatusListCredential` hook handed to `checkStatus`: routes
+ * each fetched BitstringStatusListCredential through
+ * {@link dispatchProofVerification} against `context.cryptoServices`.
+ * `checkStatus` itself loads and verifies each distinct list URL once.
  */
-function preloadedLoader(
-  loaded: Map<string, object>,
-  delegate: DocumentLoader
-): DocumentLoader {
-  return async (url: string) => {
-    if (loaded.has(url)) {
-      return { document: loaded.get(url), documentUrl: url };
+function verifyStatusListVia(
+  context: VerificationContext
+): VerifyStatusListCredential {
+  return async ({ credential, documentLoader }) => {
+    const dispatched = await dispatchProofVerification({
+      services: context.cryptoServices,
+      subject: { verifiableCredential: credential },
+      options: { documentLoader }
+    });
+    if (dispatched.kind === 'verified') {
+      return { verified: true };
     }
-    return delegate(url);
+    return {
+      verified: false,
+      error: new StatusListProofError(statusListProofProblems(dispatched))
+    };
   };
 }
 
 /**
- * Classify an error raised by `checkStatus` itself. List loading and proof
- * verification happen before `checkStatus` runs, so only its own structural
- * errors (wrong list type, purpose mismatch, bad index) land here.
+ * Classify an error raised by `checkStatus` into a ProblemDetail.
+ *
+ * A failed proof surfaces as a wrapped {@link StatusListProofError}. An
+ * unreachable list surfaces with the loader's `NotFoundError` as `cause`.
  */
 function classifyStatusError(error: unknown): ProblemDetail[] {
-  const err = error as { message?: string; cause?: { message?: string } };
+  const err = error as {
+    message?: string;
+    cause?: { message?: string; name?: string };
+  };
   const errorMessage = err?.message || String(error);
-  const causeMessage = err?.cause?.message || '';
+  const cause = err?.cause;
+  const causeMessage = cause?.message || '';
+
+  if (cause instanceof StatusListProofError) {
+    return cause.problems;
+  }
+
+  if (
+    cause?.name === NOT_FOUND_ERROR ||
+    causeMessage.startsWith(NOT_FOUND_ERROR)
+  ) {
+    return [
+      {
+        type: ProblemTypes.STATUS_LIST_NOT_FOUND,
+        title: 'Status List Not Found',
+        detail: errorMessage
+      }
+    ];
+  }
 
   if (causeMessage.startsWith(STATUS_TYPE_ERROR)) {
     return [
@@ -226,9 +194,12 @@ function classifyStatusError(error: unknown): ProblemDetail[] {
   }
 
   return [
-    statusListErrorProblem(
-      errorMessage || 'An error occurred while checking credential status.'
-    )
+    {
+      type: ProblemTypes.STATUS_LIST_ERROR,
+      title: 'Status List Error',
+      detail:
+        errorMessage || 'An error occurred while checking credential status.'
+    }
   ];
 }
 
@@ -241,20 +212,20 @@ function classifyStatusError(error: unknown): ProblemDetail[] {
  * wrong type, or actually marks the credential as revoked or
  * suspended), the overall verification result is `verified: false`.
  *
- * Proof verification of each named BitstringStatusListCredential goes
- * through {@link dispatchProofVerification} against
- * `context.cryptoServices` — the same dispatch presentation and
- * credential proofs use. `@interop/vc-bitstring-status-list`
- * keeps ownership of purpose matching, validity dates, bitstring
- * decoding, and index reading.
+ * `@interop/vc-bitstring-status-list` owns list loading, purpose
+ * matching, bitstring decoding, and index reading. Proof verification of
+ * each fetched BitstringStatusListCredential is injected through its
+ * `verifyStatusListCredential` hook and goes through
+ * {@link dispatchProofVerification} against `context.cryptoServices`, the
+ * same dispatch presentation and credential proofs use.
  *
  * `statusSuite` is the sole owner of status verification; the proof
  * suite no longer performs an embedded status check (P-E, 2026-04-19).
  *
- * Skipped (and therefore non-failing) when:
- * - Credential has no `credentialStatus`.
- * - Status type is a legacy type (`StatusList2021Entry`,
- *   `1EdTechRevocationList`).
+ * Only `BitstringStatusListEntry` entries are checked. Entries of any
+ * other type (legacy `StatusList2021Entry` / `1EdTechRevocationList`, or
+ * unknown types) are ignored; the check is skipped when no Bitstring entry
+ * is present.
  */
 export const bitstringStatusCheck: VerificationCheck = {
   id: 'status.bitstring',
@@ -277,73 +248,30 @@ export const bitstringStatusCheck: VerificationCheck = {
       };
     }
 
-    // Check if credential has any credentialStatus
-    if (!credential.credentialStatus) {
+    const types = credentialStatusTypes(credential);
+    if (types.length === 0) {
       return {
         status: 'skipped',
         reason: 'Credential has no credentialStatus.'
       };
     }
 
-    const statusType = statusTypeString(
-      credentialStatusEntries(credential)[0]?.type
-    );
-    if (statusType && LEGACY_STATUS_TYPES.includes(statusType)) {
+    if (!types.includes(BITSTRING_ENTRY_TYPE)) {
+      const unchecked = [...new Set(types)].map(t => `"${t}"`).join(', ');
+      const allLegacy = types.every(t => LEGACY_STATUS_TYPES.includes(t));
       return {
         status: 'skipped',
-        reason: `Legacy status type "${statusType}" is not checked.`
-      };
-    }
-
-    if (statusType !== 'BitstringStatusListEntry') {
-      return {
-        status: 'skipped',
-        reason: `Status type "${String(statusType)}" is not BitstringStatusListEntry.`
+        reason: allLegacy
+          ? `Legacy status type ${unchecked} is not checked.`
+          : `Status type ${unchecked} is not ${BITSTRING_ENTRY_TYPE}.`
       };
     }
 
     try {
-      // Load and proof-verify every named list concurrently; report the
-      // first failure in entry order.
-      const lists = await Promise.all(
-        statusListCredentialUrls(credential).map(
-          async (
-            url
-          ): Promise<
-            { url: string; document: object } | { problems: ProblemDetail[] }
-          > => {
-            const loaded = await loadStatusListCredential(
-              url,
-              context.documentLoader
-            );
-            if ('problems' in loaded) {
-              return { problems: loaded.problems };
-            }
-            const dispatched = await dispatchProofVerification({
-              services: context.cryptoServices,
-              subject: { verifiableCredential: loaded.document },
-              options: { documentLoader: context.documentLoader }
-            });
-            if (dispatched.kind !== 'verified') {
-              return { problems: statusListProofProblems(dispatched) };
-            }
-            return { url, document: loaded.document };
-          }
-        )
-      );
-
-      const loaded = new Map<string, object>();
-      for (const list of lists) {
-        if ('problems' in list) {
-          return { status: 'failure', problems: list.problems };
-        }
-        loaded.set(list.url, list.document);
-      }
-
       const statusResult = await checkStatus({
         credential,
-        documentLoader: preloadedLoader(loaded, context.documentLoader),
-        verifyBitstringStatusListCredential: false,
+        documentLoader: context.documentLoader,
+        verifyStatusListCredential: verifyStatusListVia(context),
         // Hosted status lists may use a different issuer than the VC (see DataIntegrityCryptoService).
         verifyMatchingIssuers: false
       });
@@ -382,11 +310,7 @@ export const bitstringStatusCheck: VerificationCheck = {
         ]
       };
     } catch (error) {
-      const problems = classifyStatusError(error);
-      return {
-        status: 'failure',
-        problems
-      };
+      return { status: 'failure', problems: classifyStatusError(error) };
     }
   }
 };
