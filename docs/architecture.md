@@ -205,7 +205,9 @@ opt-in `/openbadges` submodule (see
 [Vertical submodules](#vertical-submodules-openbadges-and-beyond)).
 
 **Report.** The result is a `CredentialVerificationResult`: a `verified` boolean
-(true if no fatal failures) plus a flat `CheckResult[]` array. By default,
+(true if no check marked `fatal` failed) plus a flat `CheckResult[]` array.
+Non-fatal failures stay in `results` and `summary` but leave `verified` true.
+Each `CheckResult.id` is required and is populated by `runSuites`. By default,
 `results` contains failures and explicit applies-skips. Set `verbose: true` to
 include every check that ran.
 
@@ -331,6 +333,11 @@ top-level result only when the producing call ran with `timing: true`. Additive
   subjects. If unset, the check runs for both.
 - **`fatal`** on a check means a failure stops remaining checks _in that suite
   only_. Later suites still run. This ensures the report is always complete.
+  `proof.signature` reports `No Proof` (detail
+  `Subject has no proof to verify.`) for an unsigned subject, before it consults
+  any crypto service. Downstream rows then read consistently with
+  `core.proof-exists`. A presentation verified with `unsignedPresentation: true`
+  is exempt.
 - **Failures** carry `ProblemDetail[]` — RFC 9457-inspired structured errors
   with `type` (URI), `title`, and `detail`.
 - **Skips** carry a `reason` string explaining why (e.g. "Credential has no
@@ -341,10 +348,10 @@ top-level result only when the producing call ran with `timing: true`. Additive
 | Suite              | ID            | Phase           | Checks                                                                              | Fatal | Purpose                                                                                                                                                                                                                                                                                                                                           |
 | ------------------ | ------------- | --------------- | ----------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Core Structure     | `core`        | `cryptographic` | `core.context-exists`, `core.vc-context`, `core.credential-id`, `core.proof-exists` | Yes   | Validates basic VC structure before crypto                                                                                                                                                                                                                                                                                                        |
-| Recognition        | `recognition` | `recognition`   | `recognition.profile`                                                               | No    | Pluggable recognizer dispatch; produces normalized credential form. No-op when no recognizers configured.                                                                                                                                                                                                                                         |
+| Recognition        | `recognition` | `recognition`   | `recognition.profile`                                                               | No    | Pluggable recognizer dispatch; produces normalized credential form. Skipped with `no recognizers configured` when none are set, and `no recognizer matched` when none applies.                                                                                                                                                                    |
 | Proof Verification | `proof`       | `cryptographic` | `proof.signature`                                                                   | Yes   | Cryptographic signature verification dispatched via `CryptoService`. Does **not** check credential status — see the status suite.                                                                                                                                                                                                                 |
 | Credential Status  | `status`      | `cryptographic` | `status.bitstring`                                                                  | Yes   | Revocation/suspension via BitstringStatusList. **Sole owner** of status verification: a missing/invalid/expired status list, a wrong-typed list, or a flipped revocation/suspension bit all fail the credential. The status list credential's own proof is verified through the injected `CryptoService`s, same dispatch as any other credential. |
-| Issuer Registry    | `registry`    | `trust`         | `registry.issuer`                                                                   | No    | Lookup issuer DID in known registries via `context.lookupIssuers`                                                                                                                                                                                                                                                                                 |
+| Issuer Registry    | `registry`    | `trust`         | `registry.issuer`                                                                   | No    | Lookup issuer DID in known registries via `context.lookupIssuers`. Success outcomes carry the `RegistryLookupResult` (`found`, `matchingRegistries`, `uncheckedRegistries`) on `outcome.payload`.                                                                                                                                                 |
 
 Open Badges 3.0 verification (semantic checks and JSON Schema conformance) is no
 longer in the default list; it ships as an opt-in submodule (see
@@ -447,9 +454,11 @@ the check payload so `verifier.ts` can lift them onto
 `CredentialVerificationResult.recognizedProfile`. Consumers narrow on
 `recognizedProfile` to access a typed view of the normalized credential.
 
-When no recognizers are configured the suite is a no-op (the `applies` check
-short-circuits) and contributes nothing to `results`. The `recognition` suite is
-in `defaultSuites` so OB recognition only requires passing recognizers via
+When no recognizers are configured, `recognition.profile` is skipped with the
+reason `no recognizers configured`. When recognizers exist but none applies, the
+reason is `no recognizer matched`. Open Badges checking is opt-in, and the skip
+reason makes the "never asked" case visible. The `recognition` suite is in
+`defaultSuites` so OB recognition only requires passing recognizers via
 `VerifierConfig.recognizers` — there is no separate suite to wire in.
 
 Open Badges 3.0 ships two recognizers: `obv3p0Recognizer` (for
@@ -646,19 +655,25 @@ check" shape on `results[]`. The folding itself is implemented as a pure helper
 exported from the package barrel for consumers that append late results and want
 to re-fold.
 
+`SuiteSummary.verified` follows the same rule as the top-level `verified`. It is
+true unless a check marked `fatal` failed in that suite. A suite can therefore
+have `status: 'failure'` with `verified: true` when the failing check is
+non-fatal.
+
 See [`docs/api/verification-results.md`](api/verification-results.md) for the
 full reference, including the `id` namespace, rendering recipes, and the LLM
 prompt appendix for downstream UIs.
 
 Both shapes use the suite-based `CheckResult[]` model. Each `CheckResult`
 carries a discriminated `CheckOutcome` (`success | failure | skipped`) plus
-provenance (suite, check id, fatal flag) and, optionally, a `timing: TaskTiming`
-populated when the producing call ran with `timing: true`. The result objects
-are intentionally lean — no top-level flattened aggregate, no denormalized lists
-— so they remain cheap to persist (e.g. into Redis as part of a long-lived
-exchange) and to transit over the wire. Field names mirror the wire-level VC/VP
-property names so the result can be spread directly into a downstream variables
-object whose templates resolve properties by path.
+provenance (suite, check id, fatal flag) and a required `id`, which `runSuites`
+populates (the verifier does not set it afterward). It may also carry a
+`timing: TaskTiming` populated when the producing call ran with `timing: true`.
+The result objects are intentionally lean — no top-level flattened aggregate, no
+denormalized lists — so they remain cheap to persist (e.g. into Redis as part of
+a long-lived exchange) and to transit over the wire. Field names mirror the
+wire-level VC/VP property names so the result can be spread directly into a
+downstream variables object whose templates resolve properties by path.
 
 When a single iterable view of every check is convenient,
 `flattenPresentationResults(result)` returns a `FlattenedCheckResult[]` that

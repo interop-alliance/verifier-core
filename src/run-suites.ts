@@ -21,6 +21,7 @@ import { VerificationContext } from './types/context.js';
 import { VerificationSubject } from './types/subject.js';
 import type { TimeService } from './services/time-service/time-service.js';
 import type { TaskTiming } from './types/timing.js';
+import { computeId } from './fold-results.js';
 
 /**
  * Optional orchestration knobs.
@@ -101,6 +102,7 @@ function appliesToSubject(
  * - Checks are executed in order within each suite.
  * - Checks with `appliesTo` restrictions are skipped if they don't match the subject.
  * - Fatal failures stop remaining checks in that suite only (other suites continue).
+ * - Every result carries its namespaced `id` (see `computeId`).
  * - Returns a flat array of all check results.
  */
 export async function runSuites(
@@ -121,7 +123,7 @@ export async function runSuites(
     if (suite.applies && !suite.applies(subject, context)) {
       if (options.explicitSuiteIds?.has(suite.id)) {
         results.push(
-          buildSyntheticAppliesSkipResult(suite.id, timing, timeService)
+          buildSyntheticAppliesSkipResult(suite, timing, timeService)
         );
       }
       continue;
@@ -139,6 +141,7 @@ export async function runSuites(
         : undefined;
 
       const result: CheckResult = {
+        id: computeId(suite.phase, suite.id, check.id),
         check: check.id,
         suite: suite.id,
         outcome,
@@ -168,11 +171,13 @@ export async function runSuites(
  * the predicate itself.
  */
 function buildSyntheticAppliesSkipResult(
-  suiteId: string,
+  suite: VerificationSuite,
   timing: boolean,
   timeService: TimeService | undefined
 ): CheckResult {
+  const suiteId = suite.id;
   const result: CheckResult = {
+    id: computeId(suite.phase, suiteId, `${suiteId}.applies`),
     check: `${suiteId}.applies`,
     suite: suiteId,
     outcome: {

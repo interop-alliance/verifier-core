@@ -327,6 +327,10 @@ export const Obv3p0AchievementSubjectSchema = z
     image: ImageField().optional()
   })
   .passthrough()
+  // OB 3.0 AchievementSubject: "Either id or at least one identifier MUST
+  // be supplied." The published JSON Schema cannot express this either/or,
+  // so the `schema.obv3.json` check accepts a subject the parser rejects.
+  // The parser is deliberately the stricter of the two.
   .superRefine((subject, ctx) => {
     const hasId = typeof subject.id === 'string' && subject.id.length > 0;
     const hasIdentifier =

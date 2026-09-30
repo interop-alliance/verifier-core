@@ -277,7 +277,7 @@ describe('Proof Verification Suite', () => {
       expect(results).toHaveLength(0);
     });
 
-    it('fails when credential has no proof and adapter requires one', async () => {
+    it('fails with No Proof when credential has no proof, before consulting crypto services', async () => {
       const context = buildTestContext({
         cryptoServices: [
           FakeCryptoService({
@@ -295,9 +295,7 @@ describe('Proof Verification Suite', () => {
       expect(results).toHaveLength(1);
       expect(results[0].outcome.status).toBe('failure');
       if (results[0].outcome.status === 'failure') {
-        expect(results[0].outcome.problems[0].title).toBe(
-          'No Applicable Crypto Service'
-        );
+        expect(results[0].outcome.problems[0].title).toBe('No Proof');
       }
     });
   });

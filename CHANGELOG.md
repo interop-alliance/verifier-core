@@ -19,9 +19,30 @@
 - Status list proof verification is injected into `checkStatus` through the
   `verifyStatusListCredential` hook of `@interop/vc-bitstring-status-list`
   `^3.1.0`, which now owns list loading again.
+- **BREAKING**: `CheckResult.id` is required. `runSuites` populates it, so the
+  verifier no longer sets it afterward. Code that builds a `CheckResult` by hand
+  must supply an `id`. The deprecated `check` and `suite` fields remain.
+- `SuiteSummary.verified` is true unless a check marked `fatal` failed in that
+  suite, matching the top-level `verified`. A suite can have `status: 'failure'`
+  with `verified: true` when the failing check is non-fatal.
+- `SuiteSummary.message` always reads `<passed> of <total> checks passed`, with
+  non-zero counts in parentheses: `(<k> failed)`, `(<k> skipped)`,
+  `(<r> not run after fatal)`.
+- `proof.signature` fails with `No Proof` when the subject has no `proof`,
+  instead of `No Applicable Crypto Service`. A presentation verified with
+  `unsignedPresentation: true` is exempt.
+- `recognition.profile` skips with `no recognizers configured` when
+  `recognizers` is empty, and `no recognizer matched` when none applies.
+
+### Added
+
+- `registry.issuer` success outcomes carry the `RegistryLookupResult` (`found`,
+  `matchingRegistries`, `uncheckedRegistries`) on `outcome.payload`.
 
 ### Fixed
 
+- The `verified` doc comments and docs state that only `fatal` failures make
+  `verified` false.
 - Presentation `holder` accepts an object with an `id` as well as a URL string,
   per VCDM 2.0.
 

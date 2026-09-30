@@ -12,8 +12,31 @@ const NO_APPLICABLE_SERVICE: ProblemDetail = {
     'No registered crypto service can verify this subject (check canVerify / cryptoServices).'
 };
 
+const NO_PROOF: ProblemDetail = {
+  type: ProblemTypes.PROOF_VERIFICATION_ERROR,
+  title: 'No Proof',
+  detail: 'Subject has no proof to verify.'
+};
+
+function hasProof(doc: unknown): boolean {
+  if (typeof doc !== 'object' || doc === null) {
+    return false;
+  }
+  const proof = (doc as { proof?: unknown }).proof;
+  if (Array.isArray(proof)) {
+    return proof.length > 0;
+  }
+  return typeof proof === 'object' && proof !== null;
+}
+
 /**
  * Signature verification check — dispatches to {@link VerificationContext.cryptoServices}.
+ *
+ * A subject with no `proof` fails with `No Proof` before any crypto
+ * service is consulted. This keeps an unsigned credential (already
+ * reported by `core.proof-exists`) from reading as a `cryptoServices`
+ * configuration fault. An unsigned presentation verified with
+ * `unsignedPresentation: true` is exempt and still goes to dispatch.
  */
 export const signatureCheck: VerificationCheck = {
   id: 'proof.signature',
@@ -37,6 +60,15 @@ export const signatureCheck: VerificationCheck = {
           }
         ]
       };
+    }
+
+    const document =
+      subject.verifiablePresentation ?? subject.verifiableCredential;
+    const unsignedAllowed =
+      subject.verifiablePresentation !== undefined &&
+      context.unsignedPresentation === true;
+    if (!unsignedAllowed && !hasProof(document)) {
+      return { status: 'failure', problems: [NO_PROOF] };
     }
 
     const dispatched = await dispatchProofVerification({

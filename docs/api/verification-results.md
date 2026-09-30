@@ -41,7 +41,7 @@ since v2.0.0):
       "counts": { "passed": 4, "failed": 0, "skipped": 0 } },
     { "id": "recognition",            "phase": "recognition",
       "suite": "recognition", "status": "skipped", "verified": true,
-      "message": "1 of 1 check skipped",
+      "message": "0 of 1 check passed (1 skipped)",
       "counts": { "passed": 0, "failed": 0, "skipped": 1 } },
     { "id": "cryptographic.proof",    "phase": "cryptographic",
       "suite": "proof",   "status": "success", "verified": true,
@@ -49,7 +49,7 @@ since v2.0.0):
       "counts": { "passed": 1, "failed": 0, "skipped": 0 } },
     { "id": "cryptographic.status",   "phase": "cryptographic",
       "suite": "status",  "status": "skipped", "verified": true,
-      "message": "1 of 1 check skipped",
+      "message": "0 of 1 check passed (1 skipped)",
       "counts": { "passed": 0, "failed": 0, "skipped": 1 } },
     { "id": "trust.registry",         "phase": "trust",
       "suite": "registry","status": "success", "verified": true,
@@ -183,7 +183,7 @@ interface SuiteSummary {
   /** Suite id (matches VerificationSuite.id). */
   suite: string;
   status: 'success' | 'failure' | 'skipped' | 'mixed';
-  /** Convenience: `status !== 'failure' && status !== 'mixed'`. */
+  /** True unless a check marked `fatal` failed in this suite. */
   verified: boolean;
   message: string;
   counts: { passed: number; failed: number; skipped: number };
@@ -200,14 +200,19 @@ interface SuiteSummary {
 
 | Scenario | Format |
 |----------|--------|
-| All pass | `"<n> of <n> checks passed"` |
-| All skipped | `"<n> of <n> checks skipped"` |
-| Failures only | `"<n> of <m> checks failed"` |
-| Mixed | `"<n> of <m> checks failed (<k> passed)"` |
-| Fatal short-circuit | `"<n> of <m> checks failed (<k> passed, <r> not run after fatal)"` (either tail clause may be omitted when zero) |
+| Any run | `"<p> of <n> checks passed"` followed by the non-zero counts in parentheses |
+| Parenthetical | `(<k> failed)`, `(<k> skipped)`, `(<r> not run after fatal)`, comma-joined in that order |
 | Explicit `applies` skip | `"<suite-id> not applicable: <reason>"` |
 
-> Singular `check` is used when `n === 1`.
+The message always reads in one direction: passed out of total. Examples:
+
+- `4 of 4 checks passed`
+- `0 of 1 check passed (1 skipped)`
+- `0 of 1 check passed (1 failed)`
+- `3 of 4 checks passed (1 failed)`
+- `1 of 4 checks passed (1 failed, 2 not run after fatal)`
+
+> Singular `check` is used when the total is 1.
 
 ### Per-status badge recommendations
 
@@ -218,13 +223,31 @@ interface SuiteSummary {
 | `mixed`   | ⚠ | amber | Both passes and failures in the same suite |
 | `skipped` | — | gray  | Suite was acknowledged but produced no run checks |
 
-`verified === false` iff `status === 'failure' || status === 'mixed'`. A
-top-level `result.verified` is the AND of every credential's
+`SuiteSummary.verified` is true unless a check marked `fatal` failed in that
+suite. The top-level `result.verified` uses the same rule. Non-fatal failures
+(for example `recognition.profile` or `registry.issuer`) leave `verified` true.
+They still appear in `results[]` and in `status` and `counts`. So a suite can
+have `status: 'failure'` with `verified: true` when the failing check is
+non-fatal. A presentation's `result.verified` is the AND of every credential's
 `result.verified` AND no presentation-level fatal failures.
+
+### Notable outcomes
+
+- `registry.issuer` success outcomes carry the `RegistryLookupResult`
+  (`{ found, matchingRegistries, uncheckedRegistries }`) on `outcome.payload`.
+  Registry names are data, not something to parse from `message`.
+- `recognition.profile` is skipped with `no recognizers configured` when
+  `recognizers` is empty. The reason is `no recognizer matched` when recognizers
+  exist but none applies.
+- `proof.signature` fails with title `No Proof` (detail
+  `Subject has no proof to verify.`) when the subject has no `proof`. It does
+  so before consulting crypto services. The cause is already reported by
+  `core.proof-exists`. A presentation verified with `unsignedPresentation: true`
+  is exempt.
 
 ## `id` namespace reference
 
-Every `CheckResult` has an `id` of the form
+Every `CheckResult` has a required `id` of the form
 `<phase>.<suite>.<localPart>`. Every `SuiteSummary` has the matching
 `<phase>.<suite>` prefix (no trailing local part). Built-in ids:
 
@@ -336,7 +359,7 @@ function failureDetail(
   cr: CredentialVerificationResult,
   failing: SuiteSummary,
 ) {
-  return cr.results.filter(r => r.id?.startsWith(failing.id + '.'));
+  return cr.results.filter(r => r.id.startsWith(failing.id + '.'));
 }
 
 // 4. Recognized profile label (from the recognition pipeline)
@@ -345,23 +368,24 @@ function profileLabel(cr: CredentialVerificationResult) {
 }
 ```
 
-A presentation with two credentials where one passes and one fails
-trust gets rendered as:
+A presentation with two credentials where one has non-fatal failures in
+trust and semantic gets rendered as follows. The failing rows use the suite
+`status`. The credential stays verified because no failing check is fatal.
 
 ```
-Presentation: ✗ (1 of 2 credentials verified)
+Presentation: ✓ (2 of 2 credentials verified)
 ├─ VP signature: ✓
 ├─ Credential 1 (obv3p0.openbadge): ✓
 │   ├─ cryptographic ✓ (4 + 1 + 1 = 6 checks passed)
 │   ├─ trust         ✓
 │   ├─ recognition   ✓
 │   └─ semantic      ✓ (5 of 5 checks passed)   [openBadgesSuite]
-└─ Credential 2 (obv3p0.openbadge): ✗
+└─ Credential 2 (obv3p0.openbadge): ⚠ (verified, with non-fatal failures)
     ├─ cryptographic ✓
-    ├─ trust         ✗ (1 of 1 check failed)
+    ├─ trust         ✗ 0 of 1 check passed (1 failed)
     │   └─ trust.registry.issuer — Issuer Not Registered
     ├─ recognition   ✓
-    └─ semantic      ⚠ (1 of 5 checks failed, 4 passed)
+    └─ semantic      ⚠ 4 of 5 checks passed (1 failed)
         └─ semantic.openbadges.schema.obv3.result-ref — Invalid Result Reference
 ```
 
@@ -381,8 +405,14 @@ is unchanged.
 | `verifyCredential({ credential, verbose: true })` | Standalone wrapper |
 | `verifier.verifyPresentation({ presentation, verbose: true })` | VP and every embedded VC inherit the flag |
 
+Without `verbose`, a check that passed cannot be told apart from a check that
+never ran. Only failures and applies-skips are in `results[]`, and
+`summary[].counts` is per suite. A UI that must state per check "checked and
+passed" versus "not checked" should use `verbose: true`.
+
 When to use it:
 
+- A UI that shows per check "checked and passed" versus "not checked".
 - Triage of an unexpected `verified: false` outcome — see exactly
   which checks ran and what they returned.
 - Persisted audit dumps where the full check sequence is part of the
@@ -391,11 +421,14 @@ When to use it:
 
 When _not_ to use it:
 
-- Production happy-path responses. The folded shape is dramatically
-  smaller and exactly what a UI needs.
+- Size-sensitive responses where the per-suite rollup in `summary[]` is
+  enough. The folded shape is much smaller.
 
 ## Backwards compatibility
 
+- **Required `id`.** `CheckResult.id` is required, and `runSuites`
+  populates it. The verifier no longer sets it afterward. Code that
+  constructs a `CheckResult` by hand must supply an `id`.
 - **Deprecated.** `CheckResult.check` and `CheckResult.suite` are
   marked `@deprecated`. Use `CheckResult.id` instead. Removal target:
   the major after v2.0.0.
@@ -435,7 +468,7 @@ dcc-transaction-service UI implementation.
 
 ```jsonc
 {
-  "verified": false,
+  "verified": true,
   "verifiablePresentation": { /* parsed VP */ },
   "presentationResults": [],
   "summary": [
@@ -470,8 +503,8 @@ dcc-transaction-service UI implementation.
       ]
     },
     {
-      "verified": false,
-      "verifiableCredential": { /* bad VC */ },
+      "verified": true,
+      "verifiableCredential": { /* VC with a non-fatal registry failure */ },
       "recognizedProfile": "obv3p0.openbadge",
       "results": [
         { "id": "trust.registry.issuer",
@@ -497,8 +530,8 @@ dcc-transaction-service UI implementation.
           "message": "1 of 1 check passed",
           "counts": { "passed": 1, "failed": 0, "skipped": 0 } },
         { "id": "trust.registry", "phase": "trust",
-          "suite": "registry", "status": "failure", "verified": false,
-          "message": "1 of 1 check failed",
+          "suite": "registry", "status": "failure", "verified": true,
+          "message": "0 of 1 check passed (1 failed)",
           "counts": { "passed": 0, "failed": 1, "skipped": 0 } }
       ]
     }
@@ -550,23 +583,23 @@ function failureDetail(
   cr: CredentialVerificationResult,
   failing: SuiteSummary,
 ) {
-  return cr.results.filter(r => r.id?.startsWith(failing.id + '.'));
+  return cr.results.filter(r => r.id.startsWith(failing.id + '.'));
 }
 ```
 
 **Layout reference.**
 
 ```
-Presentation: ✗ (1 of 2 credentials verified)
+Presentation: ✓ (2 of 2 credentials verified)
 ├─ VP signature: ✓
 ├─ Credential 1 (obv3p0.openbadge): ✓
 │   ├─ cryptographic ✓
 │   ├─ trust         ✓
 │   ├─ recognition   ✓
 │   └─ semantic      ✓
-└─ Credential 2 (obv3p0.openbadge): ✗
+└─ Credential 2 (obv3p0.openbadge): ⚠ (verified, with non-fatal failures)
     ├─ cryptographic ✓
-    ├─ trust         ✗ (1 of 1 check failed)
+    ├─ trust         ✗ 0 of 1 check passed (1 failed)
     │   └─ trust.registry.issuer — Issuer Not Registered
     ├─ recognition   ✓
     └─ semantic      ✓

@@ -172,8 +172,6 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
 
       const recognized = extractRecognition(rawChecks);
 
-      populateCheckIds(rawChecks, suites);
-
       const verbose = call.verbose ?? constructorVerbose ?? false;
       const folded = foldCheckResults(rawChecks, suites, { verbose });
 
@@ -239,8 +237,6 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
         ctx,
         { explicitSuiteIds, phases: effectivePhases }
       );
-
-      populateCheckIds(rawPresentationChecks, presentationSuites);
 
       const verbose = call.verbose ?? constructorVerbose ?? false;
       const foldedPresentation = foldCheckResults(
@@ -334,25 +330,6 @@ function hasFatalFailures(results: CheckResult[]): boolean {
 }
 
 /**
- * Populate `id` on every `CheckResult` using {@link computeId} so
- * folded summaries and verbose-mode consumers both see the
- * dot-separated namespace. Mutates each result in place; called
- * after `runSuites` returns and before {@link foldCheckResults}.
- */
-function populateCheckIds(
-  checks: CheckResult[],
-  suites: VerificationSuite[]
-): void {
-  const phaseBySuiteId = new Map<string, SuitePhase | undefined>();
-  for (const s of suites) {
-    phaseBySuiteId.set(s.id, s.phase);
-  }
-  for (const c of checks) {
-    c.id = computeId(phaseBySuiteId.get(c.suite), c.suite, c.check);
-  }
-}
-
-/**
  * Apply the auto-include rule for phase requests: if `'semantic'`
  * is requested without `'recognition'`, add `'recognition'` so
  * semantic checks have access to the normalized credential form
@@ -423,12 +400,12 @@ function parseErrorResult(
   timeService: TimeService | undefined
 ): CheckResult {
   const result: CheckResult = {
+    id: computeId(PARSING_SUITE.phase, 'parsing', 'parsing.envelope'),
     suite: 'parsing',
     check: 'parsing.envelope',
     outcome: { status: 'failure', problems: [problem] },
     fatal: true
   };
-  result.id = computeId(PARSING_SUITE.phase, 'parsing', 'parsing.envelope');
   if (timeService !== undefined) {
     // Parse failures short-circuit before any check runs, so the
     // synthetic `parsing.envelope` check is the only thing the

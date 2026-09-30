@@ -84,6 +84,11 @@ describe('Registry Suite', () => {
       expect(results[0].outcome.status).toBe('success');
       if (results[0].outcome.status === 'success') {
         expect(results[0].outcome.message).toContain('Unit Test Registry');
+        expect(results[0].outcome.payload).toEqual({
+          found: true,
+          matchingRegistries: ['Unit Test Registry'],
+          uncheckedRegistries: []
+        });
       }
     });
 
