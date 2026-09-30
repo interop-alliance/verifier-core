@@ -13,7 +13,6 @@ const baseContext = (
 ): VerificationContext => ({
   documentLoader: async () => ({ document: {} }),
   fetchJson: async () => ({}),
-  cryptoSuites: [],
   cryptoServices: [],
   challenge: null,
   unsignedPresentation: false,

@@ -53,7 +53,6 @@ const fakeVerified = {
 const fakeCtx: VerificationContext = {
   documentLoader: async () => ({ document: {} }),
   fetchJson: async () => ({}),
-  cryptoSuites: [],
   cryptoServices: [],
   challenge: null,
   unsignedPresentation: false
