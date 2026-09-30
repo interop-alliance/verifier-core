@@ -69,6 +69,11 @@ function statusTypeString(type: unknown): string | undefined {
   return undefined;
 }
 
+/** Distinct types, quoted and comma-joined for a skip or success message. */
+function quotedTypes(types: string[]): string {
+  return [...new Set(types)].map(t => `"${t}"`).join(', ');
+}
+
 function credentialStatusTypes(credential: Record<string, unknown>): string[] {
   const credentialStatus = credential.credentialStatus as
     Record<string, unknown> | Array<Record<string, unknown>> | undefined;
@@ -257,7 +262,7 @@ export const bitstringStatusCheck: VerificationCheck = {
     }
 
     if (!types.includes(BITSTRING_ENTRY_TYPE)) {
-      const unchecked = [...new Set(types)].map(t => `"${t}"`).join(', ');
+      const unchecked = quotedTypes(types);
       const allLegacy = types.every(t => LEGACY_STATUS_TYPES.includes(t));
       return {
         status: 'skipped',
@@ -292,9 +297,14 @@ export const bitstringStatusCheck: VerificationCheck = {
       );
 
       if (statusResult.verified === true && !revokedOrSuspended) {
+        const unchecked = quotedTypes(
+          types.filter(t => t !== BITSTRING_ENTRY_TYPE)
+        );
         return {
           status: 'success',
-          message: 'Credential status is valid (not revoked or suspended).'
+          message: unchecked
+            ? `Credential status is valid (not revoked or suspended). Unchecked status types: ${unchecked}.`
+            : 'Credential status is valid (not revoked or suspended).'
         };
       }
 

@@ -205,8 +205,9 @@ opt-in `/openbadges` submodule (see
 [Vertical submodules](#vertical-submodules-openbadges-and-beyond)).
 
 **Report.** The result is a `CredentialVerificationResult`: a `verified` boolean
-(true if no fatal failures) plus a flat `CheckResult[]` array. Every check that
-ran (or was skipped) appears in the array, so the report is always complete.
+(true if no fatal failures) plus a flat `CheckResult[]` array. By default,
+`results` contains failures and explicit applies-skips. Set `verbose: true` to
+include every check that ran.
 
 ### Presentation flow
 
@@ -791,9 +792,10 @@ wire in exactly the behavior they need.
   list credential's proof is injected through that library's
   `verifyStatusListCredential` hook and verified through the injected
   `CryptoService`s via `src/crypto-dispatch.ts` — the same dispatch
-  presentations and credentials use. Recursively calling `Verifier.verifyCredential`
-  on the status list credential is deferred (it needs a recursion guard the
-  status suite cannot currently express without a suite-suppression API).
+  presentations and credentials use. Recursively calling
+  `Verifier.verifyCredential` on the status list credential is deferred (it
+  needs a recursion guard the status suite cannot currently express without a
+  suite-suppression API).
 - **Registry handlers** (`dcc-legacy`, `oidf`, `vc-recognition`) consume
   third-party clients and parsing libraries inline rather than through narrower
   ports — though they do share the verifier's `httpGetService` and

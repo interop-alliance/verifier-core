@@ -632,6 +632,11 @@ describe('Status Suite', () => {
       );
 
       expect(results[0].outcome.status).toBe('success');
+      if (results[0].outcome.status === 'success') {
+        expect(results[0].outcome.message).toContain(
+          'Unchecked status types: "StatusList2021Entry"'
+        );
+      }
       expect(counts.get(listUrl)).toBe(1);
       expect(counted.credentialCalls).toBe(1);
     });
