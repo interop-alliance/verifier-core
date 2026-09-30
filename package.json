@@ -55,7 +55,7 @@
     "@interop/jsonld-signatures": "^11.8.6",
     "@interop/security-document-loader": "^10.1.4",
     "@interop/vc": "^11.0.11",
-    "@interop/vc-bitstring-status-list": "^3.0.10",
+    "@interop/vc-bitstring-status-list": "^3.2.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "klona": "^2.0.6",

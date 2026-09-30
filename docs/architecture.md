@@ -709,7 +709,7 @@ suites can emit their own URIs without requiring an entry in any catalog.
 | `@interop/did-method-key`           | did:key resolution driver used by the document loader                        |
 | `@interop/did-web-resolver`         | did:web resolution driver used by the document loader                        |
 | `@interop/did-method-webvh`         | did:webvh resolution driver, fed through the injected `HttpGetService`       |
-| `@interop/vc-bitstring-status-list` | BitstringStatusList decoding, purpose matching, and index reading            |
+| `@interop/vc-bitstring-status-list` | Status list loading, purpose matching, bitstring decoding, and index reading |
 | `zod`                               | Input parsing and structural validation                                      |
 | `ajv` / `ajv-formats`               | JSON Schema validation for OBv3 schema checks (`/openbadges` only)           |
 | `klona`                             | Deep clone of resolved did:web documents                                     |
@@ -786,14 +786,14 @@ wire in exactly the behavior they need.
   understanding the LD-Proofs / Data Integrity internals. The default crypto
   service verifies signatures only — credential status checking is the sole
   responsibility of the status suite (P-E, 2026-04-19).
-- **Status suite** still consumes `@interop/vc-bitstring-status-list` for
-  purpose matching, validity dates, bitstring decoding, and index reading. The
-  status list credential's proof is verified through the injected
+- **Status suite** consumes `@interop/vc-bitstring-status-list` for status list
+  loading, purpose matching, bitstring decoding, and index reading. The status
+  list credential's proof is injected through that library's
+  `verifyStatusListCredential` hook and verified through the injected
   `CryptoService`s via `src/crypto-dispatch.ts` — the same dispatch
-  presentations and credentials use. Recursively calling
-  `Verifier.verifyCredential` on the status list credential is deferred (it
-  needs a recursion guard the status suite cannot currently express without a
-  suite-suppression API).
+  presentations and credentials use. Recursively calling `Verifier.verifyCredential`
+  on the status list credential is deferred (it needs a recursion guard the
+  status suite cannot currently express without a suite-suppression API).
 - **Registry handlers** (`dcc-legacy`, `oidf`, `vc-recognition`) consume
   third-party clients and parsing libraries inline rather than through narrower
   ports — though they do share the verifier's `httpGetService` and

@@ -12,7 +12,13 @@
   that build a context by hand must drop them.
 - Only `BitstringStatusListEntry` entries in `credentialStatus` have their
   `statusListCredential` fetched and proof-verified; entries of other status
-  types are ignored. Distinct lists are loaded and verified concurrently.
+  types are ignored wherever they appear in the array. The check is skipped only
+  when no Bitstring entry is present, and the skip reason names every unchecked
+  type. Distinct lists are loaded and verified concurrently, and a list shared
+  by several entries is loaded and verified once.
+- Status list proof verification is injected into `checkStatus` through the
+  `verifyStatusListCredential` hook of `@interop/vc-bitstring-status-list`
+  `^3.1.0`, which now owns list loading again.
 
 ### Fixed
 
