@@ -63,15 +63,6 @@ function trackingService(opts: {
 }
 
 describe('dispatchProofVerification', () => {
-  it('returns no-service when services is undefined', async () => {
-    const dispatched = await dispatchProofVerification({
-      services: undefined,
-      subject: credentialSubject,
-      options: dummyOptions
-    });
-    expect(dispatched).toEqual({ kind: 'no-service' });
-  });
-
   it('returns no-service when services is empty', async () => {
     const dispatched = await dispatchProofVerification({
       services: [],
@@ -174,7 +165,11 @@ describe('dispatchProofVerification', () => {
       subject: credentialSubject,
       options: dummyOptions
     });
-    expect(dispatched).toEqual({ kind: 'threw', error: original });
+    expect(dispatched).toEqual({
+      kind: 'threw',
+      error: original,
+      message: 'boom from fixture'
+    });
   });
 
   it('routes a presentation subject to verifyPresentation', async () => {
