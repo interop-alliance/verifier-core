@@ -65,6 +65,7 @@ export function buildTestContext(
       overrides?.lookupIssuers ??
       createRegistryLookup(effectiveHttpGetService, effectiveCacheService),
     challenge: overrides?.challenge ?? null,
+    domain: overrides?.domain,
     unsignedPresentation: overrides?.unsignedPresentation ?? false
   };
 }

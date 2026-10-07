@@ -78,6 +78,7 @@ export { parseCredential, parsePresentation } from './schemas/index.js';
 
 export { coreSuite } from './suites/core/index.js';
 export { proofSuite } from './suites/proof/index.js';
+export { SIGNATURE_SKIP_CODES } from './suites/proof/signature-check.js';
 export { statusSuite } from './suites/status/index.js';
 export { registrySuite } from './suites/registry/index.js';
 export { recognitionSuite } from './suites/recognition/index.js';

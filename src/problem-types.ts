@@ -46,6 +46,9 @@ export const ProblemTypes = {
   /** Synthesized — proof verification raised an error before reaching a verdict. */
   PROOF_VERIFICATION_ERROR:
     'https://www.w3.org/TR/vc-data-model#PROOF_VERIFICATION_ERROR',
+  /** Synthesized -- a presentation proof does not bind to this request: its `challenge`, `domain`, or `proofPurpose` differs from what the caller expects. The signature itself may be valid. */
+  PROOF_PURPOSE_MISMATCH:
+    'https://www.w3.org/TR/vc-data-model#PROOF_PURPOSE_MISMATCH',
   /** Synthesized — credential `issuer` does not match the controller of the proof's verification method. */
   ISSUER_PROOF_MISMATCH:
     'https://www.w3.org/TR/vc-data-model#ISSUER_PROOF_MISMATCH',

@@ -3,10 +3,8 @@
  * `cryptoServices` injected into `createVerifier` are the only set that
  * governs BitstringStatusListCredential proof verification.
  *
- * Runs offline with real signatures. `did:key` resolves from the identifier
- * itself and every `@context` used here is bundled in
- * `@interop/security-document-loader`. The `httpGetService` throws
- * if anything reaches for the network.
+ * Runs offline with real signatures; see
+ * `test/factories/services/offline-signing.ts`.
  *
  * Pairing: the status list is signed with `Ed25519Signature2020`; the
  * subject credential is signed with `eddsa-rdfc-2022` so its proof is
@@ -16,7 +14,6 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { issue } from '@interop/vc';
-import { Ed25519VerificationKey } from '@interop/ed25519-verification-key';
 import {
   Ed25519Signature2020,
   eddsaRdfc2022 as eddsaRdfc2022CryptoSuite
@@ -27,23 +24,18 @@ import {
   createList
 } from '@interop/vc-bitstring-status-list';
 import { createVerifier } from '../src/verifier.js';
-import { defaultDocumentLoaderFor } from '../src/default-services.js';
 import { DataIntegrityCryptoService } from '../src/services/data-integrity-crypto.js';
 import { ProblemTypes } from '../src/problem-types.js';
 import type { DocumentLoader } from '../src/types/context.js';
-import type { HttpGetService } from '../src/services/http-get-service/http-get-service.js';
-import type { HttpGetResult } from '../src/types/http.js';
 import { BitstringStatusEntry } from './factories/data/index.js';
+import {
+  documentLoader as bundledLoader,
+  ED25519_2020_CONTEXT,
+  offlineHttpGetService,
+  offlineSigner
+} from './factories/services/offline-signing.js';
 
 const STATUS_LIST_URL = 'https://factory.test/status/parity-list';
-
-const offlineHttpGetService: HttpGetService = {
-  async get(url: string): Promise<HttpGetResult> {
-    throw new Error(`test reached the network for ${url}`);
-  }
-};
-
-const bundledLoader = defaultDocumentLoaderFor(offlineHttpGetService);
 
 function subjectTemplate(
   issuerDid: string,
@@ -73,11 +65,7 @@ describe('status list cryptosuite parity', () => {
   let documentLoader: DocumentLoader;
 
   beforeAll(async () => {
-    const key = await Ed25519VerificationKey.generate({
-      seed: new Uint8Array(32).fill(11)
-    });
-    const issuerDid = `did:key:${key.fingerprint()}`;
-    const signer = key.didKeySigner();
+    const { did: issuerDid, signer } = await offlineSigner(11);
 
     const list = await createList({ length: 32 });
     const unsignedList = (await createCredential({
@@ -90,7 +78,7 @@ describe('status list cryptosuite parity', () => {
     const listContext = unsignedList['@context'];
     unsignedList['@context'] = [
       ...(Array.isArray(listContext) ? listContext : [listContext]),
-      'https://w3id.org/security/suites/ed25519-2020/v1'
+      ED25519_2020_CONTEXT
     ];
 
     signedStatusList = (await issue({

@@ -1,6 +1,8 @@
 /**
- * Default {@link CryptoService} for Linked Data Proofs and Data Integrity proofs
- * via `@interop/vc`.
+ * Default {@link CryptoService} for Linked Data Proofs and Data Integrity
+ * proofs via `@interop/vc`. For a presentation only the VP's own proof is
+ * verified (`verifyCredentials: false`); embedded credentials get their own
+ * `verifyCredential` run.
  */
 
 import {
@@ -21,6 +23,7 @@ import type { CryptoSuite, ProofPurpose } from '../types/crypto-suite.js';
 import type { ProblemDetail } from '../types/problem-detail.js';
 import type { VerificationSubject } from '../types/subject.js';
 import { ProblemTypes } from '../problem-types.js';
+import { documentHasProof, proofEntries } from '../util/document-has-proof.js';
 
 /**
  * No-op `checkStatus` passed to `@interop/vc` so its
@@ -62,11 +65,16 @@ function isHttpError(errors: unknown[]): boolean {
 
 const ISSUER_CONTROLLER_MISMATCH =
   'issuer must match the verification method controller';
+/** jsonld-signatures purpose-validation messages, with the proof field each names. */
+const BINDING_MISMATCHES = [
+  { text: 'The challenge is not as expected', field: 'challenge' },
+  { text: 'The domain is not as expected', field: 'domain' }
+] as const;
 
-function isIssuerProofMismatch(errors: unknown[]): boolean {
+function hasMessage(errors: unknown[], text: string): boolean {
   return errors.some(e => {
-    const x = e as { message?: string };
-    return x.message?.includes(ISSUER_CONTROLLER_MISMATCH) ?? false;
+    const x = e as { message?: string; error?: { message?: string } };
+    return (x.error?.message ?? x.message)?.includes(text) ?? false;
   });
 }
 
@@ -219,7 +227,7 @@ export function classifySignatureError(
   // cryptographically but its purpose validation fails because the credential's
   // `issuer` differs from the controller of the proof's verification method.
   // Surface it as a distinct, explicit problem rather than INVALID_SIGNATURE.
-  if (isIssuerProofMismatch(errors)) {
+  if (hasMessage(errors, ISSUER_CONTROLLER_MISMATCH)) {
     const issuer = credential?.issuer as string | { id?: string } | undefined;
     const issuerId = typeof issuer === 'string' ? issuer : issuer?.id;
     return [
@@ -244,6 +252,21 @@ export function classifySignatureError(
           'method uses a DID method the verifier cannot resolve' +
           `${vmId ? ` (${vmId})` : ''}. Register a resolver/driver for it in ` +
           'the document loader.'
+      }
+    ];
+  }
+
+  // A challenge or domain mismatch is a purpose validation failure, not a bad
+  // signature: the proof may verify cryptographically but does not bind to
+  // this request.
+  const mismatch = BINDING_MISMATCHES.find(m => hasMessage(errors, m.text));
+  if (mismatch) {
+    const { field } = mismatch;
+    return [
+      {
+        type: ProblemTypes.PROOF_PURPOSE_MISMATCH,
+        title: field === 'challenge' ? 'Challenge Mismatch' : 'Domain Mismatch',
+        detail: `The presentation proof's ${field} does not match the expected ${field}.`
       }
     ];
   }
@@ -276,63 +299,65 @@ function isAuthenticationPurpose(proofPurpose: unknown): boolean {
   );
 }
 
+/** Whether any proof in the presentation's proof set is an authentication proof. */
+function hasAuthenticationProof(
+  presentation: Record<string, unknown>
+): boolean {
+  return proofEntries(presentation).some(entry =>
+    isAuthenticationPurpose(entry.proofPurpose)
+  );
+}
+
+const PROOF_PURPOSE_MISMATCH: ProblemDetail = {
+  type: ProblemTypes.PROOF_PURPOSE_MISMATCH,
+  title: 'Proof Purpose Mismatch',
+  detail:
+    'A challenge was supplied, but no proof on the presentation uses the authentication purpose.'
+};
+
 /**
  * Selects the proof purpose used to verify a presentation's proof set.
  *
- * Scans EVERY proof in a proof array, not just the first: under
+ * A supplied `challenge` is the caller asking for replay protection, so it
+ * decides the purpose. The proof must then use `authentication` and carry that
+ * challenge (and `domain`, if given). The presentation's own `proofPurpose`
+ * cannot opt out.
+ *
+ * With no challenge supplied, only the signature is checked. The scan covers
+ * EVERY proof in a proof array, not just the first. Under
  * `AssertionProofPurpose`, jsonld-signatures skips non-matching proofs and
- * aggregates with `verified = results.some(...)`, so picking the purpose from
+ * aggregates with `verified = results.some(...)`. Picking the purpose from
  * `proof[0]` alone would let a presentation whose first proof is an
- * `assertionMethod` proof verify while its `authentication` proof -- the only
- * thing binding the response to the request's challenge and domain -- is never
- * signature-checked. If any proof declares an authentication purpose, verify
- * under `AuthenticationProofPurpose` so the authentication proof(s) are the
- * ones checked.
+ * `assertionMethod` proof verify while its `authentication` proof is never
+ * signature-checked. So if any proof declares an authentication purpose, the
+ * set is verified under a `ControllerProofPurpose` with the `authentication`
+ * term. That checks the signature and the key's authorization for
+ * `authentication`, but no `challenge` or `domain`, so a proof without a
+ * challenge, or a set of proofs with different challenges, verifies on its
+ * signatures alone.
  *
  * Exported for unit testing.
  */
 export function getPresentationPurpose(
   presentation: Record<string, unknown>,
-  challenge: string | null | undefined
+  challenge: string | null | undefined,
+  domain?: string
 ): ProofPurpose {
-  const proof = presentation.proof as
-    Record<string, unknown> | Array<Record<string, unknown>> | undefined;
-
-  let useAuthenticationPurpose = false;
-  if (Array.isArray(proof)) {
-    useAuthenticationPurpose = proof.some(entry =>
-      isAuthenticationPurpose(entry?.proofPurpose)
-    );
-  } else if (proof && typeof proof === 'object') {
-    useAuthenticationPurpose = isAuthenticationPurpose(proof.proofPurpose);
-  }
-
-  if (useAuthenticationPurpose) {
+  if (typeof challenge === 'string') {
     return new purposes.AuthenticationProofPurpose({
       // `term` defaults to `'authentication'` at runtime; the published types
       // mark it required, so pass the same default explicitly.
       term: 'authentication',
-      challenge: challenge ?? 'meaningless'
+      challenge,
+      domain
     });
   }
 
-  return new purposes.AssertionProofPurpose();
-}
+  if (hasAuthenticationProof(presentation)) {
+    return new purposes.ControllerProofPurpose({ term: 'authentication' });
+  }
 
-function documentHasProof(doc: Record<string, unknown> | undefined): boolean {
-  if (!doc) {
-    return false;
-  }
-  const proof = doc.proof;
-  if (proof === undefined || proof === null) {
-    return false;
-  }
-  if (Array.isArray(proof)) {
-    return (
-      proof.length > 0 && typeof proof[0] === 'object' && proof[0] !== null
-    );
-  }
-  return typeof proof === 'object';
+  return new purposes.AssertionProofPurpose();
 }
 
 export interface DataIntegrityCryptoConfig {
@@ -340,8 +365,8 @@ export interface DataIntegrityCryptoConfig {
 }
 
 /**
- * Builds a {@link CryptoService} that verifies via `@interop/vc` using the
- * given proof suites (e.g. Ed25519Signature2020 + DataIntegrityProof).
+ * Builds a {@link CryptoService} that verifies with the given proof suites
+ * (e.g. Ed25519Signature2020 + DataIntegrityProof).
  *
  * Signature verification only — credential status is the responsibility
  * of `statusSuite` (see `src/suites/status/`). This adapter does not
@@ -353,19 +378,10 @@ export function DataIntegrityCryptoService(
   const { suites } = config;
 
   return {
-    canVerify: (subject: VerificationSubject): boolean => {
-      if (subject.verifiablePresentation) {
-        return documentHasProof(
-          subject.verifiablePresentation as Record<string, unknown>
-        );
-      }
-      if (subject.verifiableCredential) {
-        return documentHasProof(
-          subject.verifiableCredential as Record<string, unknown>
-        );
-      }
-      return false;
-    },
+    canVerify: (subject: VerificationSubject): boolean =>
+      documentHasProof(
+        subject.verifiablePresentation ?? subject.verifiableCredential
+      ),
 
     verifyCredential: async (
       credential: unknown,
@@ -418,45 +434,47 @@ export function DataIntegrityCryptoService(
       options: CryptoVerifyOptions
     ): Promise<CryptoResult> => {
       try {
+        const doc = presentation as Record<string, unknown>;
+        // With a challenge, `AuthenticationProofPurpose` would skip every
+        // non-authentication proof and jsonld-signatures would report only
+        // "insufficient proofs matched". Name the cause instead.
+        if (
+          typeof options.challenge === 'string' &&
+          !hasAuthenticationProof(doc)
+        ) {
+          return { verified: false, problems: [PROOF_PURPOSE_MISMATCH] };
+        }
+
         const purpose = getPresentationPurpose(
-          presentation as Record<string, unknown>,
-          options.challenge
+          doc,
+          options.challenge,
+          options.domain
         );
 
+        // Only the VP's own proof is verified here. Embedded credentials get
+        // their own `verifyCredential` run and result, so one bad credential
+        // does not read as a bad presentation signature. `@interop/vc` still
+        // checks the VP shape (VC context, `VerifiablePresentation` type).
         const result = await vcVerifyPresentation({
-          // Untrusted input crossing into the typed `@interop/vc` API; `canVerify`
-          // has already confirmed a proof is present.
+          // Untrusted input crossing into the typed `@interop/vc` API;
+          // `canVerify` has already confirmed a proof is present.
           presentation: presentation as IVerifiablePresentation,
           presentationPurpose: purpose,
           suite: suites,
           documentLoader: options.documentLoader,
-          unsignedPresentation: options.unsignedPresentation ?? false,
-          challenge: options.challenge ?? 'meaningless',
-          checkStatus: noopCheckStatus
+          verifyCredentials: false
         });
 
-        const verified = result.verified ?? false;
-        if (verified) {
+        if (result.verified) {
           return {
             verified: true,
             message: 'Signature verified successfully.'
           };
         }
 
-        let error: unknown = result.error;
-        if (!error && result.credentialResults) {
-          const failedCredential = result.credentialResults.find(
-            (r: { verified?: boolean; error?: unknown }) =>
-              !r.verified && r.error
-          );
-          if (failedCredential?.error) {
-            error = failedCredential.error;
-          }
-        }
-
         return {
           verified: false,
-          problems: classifySignatureError(error, undefined)
+          problems: classifySignatureError(result.error, undefined)
         };
       } catch (e) {
         return {

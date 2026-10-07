@@ -70,9 +70,23 @@ export interface VerificationContext {
    * adapter.
    */
   lookupIssuers?: LookupIssuers;
-  /** Expected challenge for VP authentication proof purpose. */
+  /**
+   * Expected challenge on the presentation's proof. When set, the proof must
+   * use the `authentication` purpose and carry this challenge, whatever the
+   * presentation claims. When unset, only the signature is checked. An empty
+   * string is invalid input and is rejected before any check runs.
+   */
   challenge?: string | null;
-  /** Whether to allow unsigned presentations (skip VP signature check). */
+  /**
+   * Expected `domain` on the presentation's authentication proof. Requires
+   * `challenge`.
+   */
+  domain?: string;
+  /**
+   * Accept a presentation that has no proof. Default `false`: an unsigned
+   * presentation fails `proof.signature`. A proof that is present is always
+   * verified, whatever this is set to.
+   */
   unsignedPresentation?: boolean;
   /**
    * Pluggable credential recognizers. Threaded through from

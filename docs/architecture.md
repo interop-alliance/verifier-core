@@ -187,10 +187,10 @@ a string or an array.
 internal `VerificationContext` from the verifier's long-lived services plus
 per-call inputs (the parsed credential or presentation, optional
 `additionalSuites`, optional `registries` override, optional `challenge` /
-`unsignedPresentation` for VPs). The context is the seam the suites consume; it
-is not a public composition point. Because `documentLoader` and `cacheService`
-live on the verifier, they're shared across every call on the same instance —
-this is what makes batch verification reuse fetches.
+`domain` / `unsignedPresentation` for VPs). The context is the seam the suites
+consume; it is not a public composition point. Because `documentLoader` and
+`cacheService` live on the verifier, they're shared across every call on the
+same instance — this is what makes batch verification reuse fetches.
 
 **Suites.** `runSuites()` in `run-suites.ts` iterates suites in order, running
 each check sequentially. The default suite order is: **core → recognition →
@@ -216,7 +216,21 @@ include every check that ran.
 `verifyPresentation` follows the same pipeline with two additions:
 
 1. The VP itself is verified for its signature (proof suite with
-   presentation-specific proof purpose).
+   presentation-specific proof purpose). The default crypto service checks only
+   the VP's own proof, via `@interop/vc` `verify` with
+   `verifyCredentials: false`. That call still checks the VP shape (VC context
+   and `VerifiablePresentation` type). Embedded credentials are not verified a
+   second time there. A supplied `challenge` selects
+   `AuthenticationProofPurpose` with that challenge (and `domain`, if given),
+   whatever `proofPurpose` the VP claims. A challenge, domain or purpose
+   mismatch is reported as `PROOF_PURPOSE_MISMATCH`, not `INVALID_SIGNATURE`.
+   Without a challenge, every proof in the proof set is scanned. If any declares
+   `authentication`, the set is verified under a `ControllerProofPurpose` with
+   the `authentication` term (signature and key authorization only, no challenge
+   or domain comparison). Otherwise `AssertionProofPurpose` is used.
+   `verifyPresentation` rejects a `domain` without a `challenge`, and an
+   empty-string `challenge`, before any suite runs, with a synthetic
+   `proof.signature` failure (`Challenge Required`).
 2. Each embedded credential is extracted (`extractCredentialsFrom`) and verified
    individually by recursing into the **same `Verifier` instance**
    (`this.verifyCredential(...)`), so the cache, document loader, crypto
@@ -235,10 +249,10 @@ came from.
 `createVerifier(config)` returns a `Verifier` with two methods. The split
 between configuration and per-call inputs is the core of the design:
 
-| Lives on the verifier (`VerifierConfig`)           | Per call (`VerifyCredentialCall` / `VerifyPresentationCall`)                              |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `httpGetService`, `cacheService`, `cryptoServices` | `credential` (or `presentation`)                                                          |
-| `documentLoader`, `registries`, `registryHandlers` | `additionalSuites`, `registries` (per-call override), `challenge`, `unsignedPresentation` |
+| Lives on the verifier (`VerifierConfig`)           | Per call (`VerifyCredentialCall` / `VerifyPresentationCall`)                                        |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `httpGetService`, `cacheService`, `cryptoServices` | `credential` (or `presentation`)                                                                    |
+| `documentLoader`, `registries`, `registryHandlers` | `additionalSuites`, `registries` (per-call override), `challenge`, `domain`, `unsignedPresentation` |
 
 Hold a `Verifier` whenever you'll perform more than one verification. The cache
 reuse covers issuer DID documents (via the `CachedResolver` baked into the
@@ -334,10 +348,14 @@ top-level result only when the producing call ran with `timing: true`. Additive
 - **`fatal`** on a check means a failure stops remaining checks _in that suite
   only_. Later suites still run. This ensures the report is always complete.
   `proof.signature` reports `No Proof` (detail
-  `Subject has no proof to verify.`) for an unsigned subject, before it consults
-  any crypto service. Downstream rows then read consistently with
-  `core.proof-exists`. A presentation verified with `unsignedPresentation: true`
-  is exempt.
+  `Subject has no proof to verify.`) for an unsigned credential, before it
+  consults any crypto service. Downstream rows then read consistently with
+  `core.proof-exists`. A presentation with no proof fails with
+  `Presentation Not Signed`, unless the call sets `unsignedPresentation: true`.
+  In that case the check is `skipped` and `verified` stays true. A proof that is
+  present is always verified, whatever the flag says. `CryptoVerifyOptions`
+  carries no `unsignedPresentation`: a `CryptoService` is only asked to verify a
+  proof that exists.
 - **Failures** carry `ProblemDetail[]` — RFC 9457-inspired structured errors
   with `type` (URI), `title`, and `detail`.
 - **Skips** carry a `reason` string explaining why (e.g. "Credential has no
@@ -713,8 +731,8 @@ suites can emit their own URIs without requiring an entry in any catalog.
 
 | Package                             | Role                                                                         |
 | ----------------------------------- | ---------------------------------------------------------------------------- |
-| `@interop/vc`                       | Core VC/VP signature verification (used inside `DataIntegrityCryptoService`) |
-| `@interop/jsonld-signatures`        | Linked Data Proof verification and proof purposes                            |
+| `@interop/vc`                       | Core VC signature verification (used inside `DataIntegrityCryptoService`)    |
+| `@interop/jsonld-signatures`        | VP proof verification, Linked Data Proof purposes                            |
 | `@interop/data-integrity-core`      | Shared `IDocumentLoader`, key/DID document types, purpose helpers            |
 | `@interop/data-integrity-proof`     | DataIntegrityProof wrapper                                                   |
 | `@interop/ed25519-signature`        | Ed25519Signature2020 crypto suite + `eddsaRdfc2022` cryptosuite              |
@@ -797,11 +815,12 @@ wire in exactly the behavior they need.
 ### What's not yet hexagonal
 
 - **Proof suite** dispatches via `CryptoService.canVerify(...)` (a port), but
-  the default implementation embeds `@interop/vc` directly inside
-  `DataIntegrityCryptoService`. Replacing the default crypto service requires
-  understanding the LD-Proofs / Data Integrity internals. The default crypto
-  service verifies signatures only — credential status checking is the sole
-  responsibility of the status suite (P-E, 2026-04-19).
+  the default implementation embeds `@interop/vc` and
+  `@interop/jsonld-signatures` directly inside `DataIntegrityCryptoService`.
+  Replacing the default crypto service requires understanding the LD-Proofs /
+  Data Integrity internals. The default crypto service verifies signatures only.
+  Credential status checking is the sole responsibility of the status suite
+  (P-E, 2026-04-19).
 - **Status suite** consumes `@interop/vc-bitstring-status-list` for status list
   loading, purpose matching, bitstring decoding, and index reading. The status
   list credential's proof is injected through that library's

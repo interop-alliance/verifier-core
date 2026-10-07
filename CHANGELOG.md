@@ -1,5 +1,55 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.8.0 - TBD
+
+### Security
+
+- `unsignedPresentation: true` no longer skips a presentation proof that is
+  present. The flag was forwarded to `@interop/vc`, which then skipped the VP
+  proof, so a VP with a tampered holder signature verified. A proof that is
+  present is now always verified.
+- A supplied `challenge` is always enforced. The default crypto service used to
+  pick the proof purpose from the VP's own `proofPurpose`, so a replayed
+  `assertionMethod` VP verified even when the caller passed a `challenge`. A
+  supplied `challenge` now selects `AuthenticationProofPurpose`, and an
+  `assertionMethod` VP fails `proof.signature`.
+
+### Changed
+
+- **BREAKING**: `CryptoVerifyOptions.unsignedPresentation` is removed. A
+  `CryptoService` is only asked to verify a proof that exists. Custom
+  implementations must drop the field.
+- A presentation with no proof fails `proof.signature` with
+  `Presentation Not Signed`, instead of `No Applicable Crypto Service`. With
+  `unsignedPresentation: true` the check is `skipped` and `verified` stays true.
+- With no `challenge` supplied, an `authentication` VP proof is verified under a
+  `ControllerProofPurpose` with the `authentication` term instead of the
+  placeholder challenge `meaningless`. Only the signature and the key's
+  `authentication` authorization are checked; the proof's own `challenge` and
+  `domain` are not compared.
+- The default crypto service verifies only the VP's own proof, via `@interop/vc`
+  `verify` with `verifyCredentials: false`. An embedded credential failure no
+  longer reads as a VP `Invalid Signature`, and embedded credentials are not
+  verified twice. Requires `@interop/vc@11.1.0`.
+- `documentHasProof` is shared by `core.proof-exists`, `proof.signature` and the
+  default crypto service. A proof array counts when it holds at least one object
+  entry.
+- A `challenge`, `domain` or proof purpose mismatch on a VP proof is reported as
+  `PROOF_PURPOSE_MISMATCH` (titles `Challenge Mismatch`, `Domain Mismatch`,
+  `Proof Purpose Mismatch`) instead of `Invalid Signature`.
+- `verifyPresentation` rejects a `domain` without a `challenge`, and an
+  empty-string `challenge`, before any suite runs. Both produce a
+  `proof.signature` failure with `Challenge Required`, whatever the input
+  document.
+
+### Added
+
+- `domain` on `verifyPresentation`, `VerificationContext` and
+  `CryptoVerifyOptions`, checked alongside `challenge`.
+- `ProblemTypes.PROOF_PURPOSE_MISMATCH`.
+- `SIGNATURE_SKIP_CODES.unsignedPresentation`, the `code` on the
+  `proof.signature` skip for an accepted unsigned presentation.
+
 ## 3.7.0 - 2026-09-30
 
 ### Changed

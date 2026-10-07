@@ -21,11 +21,19 @@ export type CryptoResult =
 
 /**
  * Options passed to crypto verification — mirrors the seams the DCC vc stack needs.
+ *
+ * A `CryptoService` is only asked to verify a proof that exists.
+ * `signatureCheck` decides the proof-less presentation case before dispatch.
  */
 export interface CryptoVerifyOptions {
   documentLoader: DocumentLoader;
+  /**
+   * Expected challenge on a presentation's proof. When a string, the proof
+   * must use the `authentication` purpose and carry it.
+   */
   challenge?: string | null;
-  unsignedPresentation?: boolean;
+  /** Expected `domain` on a presentation's authentication proof. */
+  domain?: string;
 }
 
 /**

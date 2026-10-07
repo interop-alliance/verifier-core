@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { verifyPresentation } from '../src/index.js';
+import { SIGNATURE_SKIP_CODES } from '../src/suites/proof/signature-check.js';
 import {
   defaultCryptoServices,
   defaultDocumentLoaderFor,
@@ -341,7 +342,14 @@ describe('verifyPresentation', () => {
         ...fakeVerified
       });
 
-      expect(result.presentationResults).toBeInstanceOf(Array);
+      expect(result.verified).toBe(true);
+      const signature = result.presentationResults.find(
+        r => r.check === 'proof.signature'
+      );
+      expect(signature?.outcome).toMatchObject({
+        status: 'skipped',
+        code: SIGNATURE_SKIP_CODES.unsignedPresentation
+      });
     });
   });
 

@@ -3,34 +3,23 @@
  * `src/verifier.ts`: the verifier must check the credential as issued, not a
  * Zod-rewritten copy.
  *
- * These run offline with real Ed25519 cryptography. `did:key` resolves from the
- * identifier itself and every `@context` used here is bundled in
- * `@interop/security-document-loader`, so the signature is genuinely checked
- * without a network call. The `httpGetService` below throws if anything
- * reaches for one.
+ * Runs offline with real Ed25519 cryptography; see
+ * `test/factories/services/offline-signing.ts`.
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import {
-  issue,
-  signPresentation,
-  createPresentation,
-  type VerifiableCredential
-} from '@interop/vc';
-import { Ed25519VerificationKey } from '@interop/ed25519-verification-key';
+import { signPresentation, type VerifiableCredential } from '@interop/vc';
 import { Ed25519Signature2020 } from '@interop/ed25519-signature';
+import type { ISigner } from '@interop/data-integrity-core';
 import { createVerifier } from '../src/verifier.js';
-import { defaultDocumentLoaderFor } from '../src/default-services.js';
 import { parseCredential } from '../src/schemas/credential.js';
-
-/** Fails loudly rather than silently reaching the network. */
-const offlineHttpGetService = {
-  async get({ url }: { url: string }): Promise<never> {
-    throw new Error(`test reached the network for ${url}`);
-  }
-};
-
-const documentLoader = defaultDocumentLoaderFor(offlineHttpGetService as never);
+import {
+  documentLoader,
+  ED25519_2020_CONTEXT,
+  offlineHolder,
+  offlineHttpGetService,
+  unsignedPresentation
+} from './factories/services/offline-signing.js';
 
 /**
  * The issuer image `caption` is the load-bearing field: it is signed, and it is
@@ -40,7 +29,7 @@ const credentialTemplate = (issuerDid: string): VerifiableCredential => ({
   '@context': [
     'https://www.w3.org/ns/credentials/v2',
     'https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json',
-    'https://w3id.org/security/suites/ed25519-2020/v1'
+    ED25519_2020_CONTEXT
   ],
   id: 'urn:uuid:5b0e2f5a-6a1d-4a58-9c2e-2f6d3c9a7b41',
   type: ['VerifiableCredential', 'OpenBadgeCredential'],
@@ -74,27 +63,19 @@ const credentialTemplate = (issuerDid: string): VerifiableCredential => ({
 describe('signed bytes survive verification', () => {
   let signedCredential: VerifiableCredential;
   let issuerDid: string;
-  let key: Ed25519VerificationKey;
+  let signer: ISigner;
 
   beforeAll(async () => {
-    // Fixed seed keeps the DID and the signature stable across runs.
-    key = await Ed25519VerificationKey.generate({
-      seed: new Uint8Array(32).fill(7)
-    });
-    issuerDid = `did:key:${key.fingerprint()}`;
-    key.controller = issuerDid;
-    key.id = `${issuerDid}#${key.fingerprint()}`;
-
-    signedCredential = await issue({
-      credential: credentialTemplate(issuerDid),
-      suite: new Ed25519Signature2020({ signer: key.signer() }),
-      documentLoader
-    });
+    ({
+      did: issuerDid,
+      signer,
+      signedCredential
+    } = await offlineHolder(7, credentialTemplate));
   });
 
   const verifier = () =>
     createVerifier({
-      httpGetService: offlineHttpGetService as never,
+      httpGetService: offlineHttpGetService,
       documentLoader
     });
 
@@ -108,20 +89,10 @@ describe('signed bytes survive verification', () => {
   });
 
   it('verifies the same credential inside a presentation', async () => {
-    // The VC 2.0 context scopes proof terms such as `challenge` under
-    // `DataIntegrityProof`, so the Ed25519Signature2020 suite context must be
-    // present on the presentation for safe-mode canonicalization.
-    const unsigned = createPresentation({
-      verifiableCredential: signedCredential,
-      holder: issuerDid
-    }) as Record<string, unknown>;
-    unsigned['@context'] = [
-      ...(unsigned['@context'] as string[]),
-      'https://w3id.org/security/suites/ed25519-2020/v1'
-    ];
+    const unsigned = unsignedPresentation(signedCredential, issuerDid);
     const presentation = await signPresentation({
       presentation: unsigned as never,
-      suite: new Ed25519Signature2020({ signer: key.signer() }),
+      suite: new Ed25519Signature2020({ signer }),
       challenge: 'test-challenge',
       documentLoader
     });
@@ -165,7 +136,7 @@ describe('signed bytes survive verification', () => {
       proof: {
         type: 'Ed25519Signature2020',
         created: '2020-01-01T00:00:00Z',
-        verificationMethod: key.id,
+        verificationMethod: signer.id,
         proofPurpose: 'assertionMethod',
         proofValue: 'z00000000000000000000000000000000000000000000000000000'
       }

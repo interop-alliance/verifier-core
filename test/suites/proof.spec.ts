@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { driver } from '@interop/did-method-key';
 import { Ed25519VerificationKey } from '@interop/ed25519-verification-key';
 import { createSigner, eddsaRdfc2022 } from '@interop/ed25519-signature';
@@ -10,9 +10,13 @@ import { issue } from '@interop/vc';
 import { runSuites } from '../../src/run-suites.js';
 import { defaultCryptoServices } from '../../src/default-services.js';
 import { proofSuite } from '../../src/suites/proof/index.js';
-import { signatureCheck } from '../../src/suites/proof/signature-check.js';
+import {
+  signatureCheck,
+  SIGNATURE_SKIP_CODES
+} from '../../src/suites/proof/signature-check.js';
 import { buildTestContext } from '../factories/services/build-test-context.js';
 import { VerificationSubject } from '../../src/types/subject.js';
+import type { CheckOutcome } from '../../src/types/check.js';
 import { CredentialFactory } from '../factories/data/credential-factory.js';
 import { PresentationFactory } from '../factories/data/presentation-factory.js';
 import { FakeCryptoService } from '../factories/services/fake-crypto-service.js';
@@ -190,18 +194,93 @@ describe('Proof Verification Suite', () => {
       expect(results[0].outcome.status).toBe('success');
     });
 
-    it('handles unsigned presentation when context allows it', async () => {
+    /**
+     * Run the proof suite over a presentation whose `proof` is replaced by
+     * `proof` (or removed when `undefined`), with a spy on the crypto service.
+     */
+    const runWithProof = async (
+      proof: unknown,
+      unsignedPresentation = false
+    ) => {
+      const service = FakeCryptoService({ verified: true });
+      const verifySpy = vi.spyOn(service, 'verifyPresentation');
       const context = buildTestContext({
-        cryptoServices: [FakeCryptoService({ verified: true })],
-        unsignedPresentation: true
+        cryptoServices: [service],
+        unsignedPresentation
       });
       const presentation = PresentationFactory();
-      delete (presentation as { proof?: unknown }).proof;
-
+      if (proof === undefined) {
+        delete (presentation as { proof?: unknown }).proof;
+      } else {
+        presentation.proof = proof as never;
+      }
       const subject = createPresentationSubject(presentation);
+      const results = await runSuites([proofSuite], subject, context);
+      return { outcome: results[0].outcome, verifySpy };
+    };
+
+    const expectNotSigned = (outcome: CheckOutcome) => {
+      expect(outcome.status).toBe('failure');
+      if (outcome.status === 'failure') {
+        expect(outcome.problems[0].title).toBe('Presentation Not Signed');
+      }
+    };
+
+    it('skips an unsigned presentation when context allows it', async () => {
+      const { outcome, verifySpy } = await runWithProof(undefined, true);
+
+      expect(outcome).toMatchObject({
+        status: 'skipped',
+        code: SIGNATURE_SKIP_CODES.unsignedPresentation
+      });
+      expect(verifySpy).not.toHaveBeenCalled();
+    });
+
+    it('fails an unsigned presentation when context does not allow it', async () => {
+      const { outcome, verifySpy } = await runWithProof(undefined);
+
+      expectNotSigned(outcome);
+      expect(verifySpy).not.toHaveBeenCalled();
+    });
+
+    // A stray non-object entry must not hide the proof next to it. Zod rejects
+    // this shape at the `verifyPresentation` boundary; a subject built directly
+    // (custom entry points, `runSuites` consumers) still reaches the check.
+    it('verifies a proof array that has a stray null entry instead of skipping it', async () => {
+      const { proof } = PresentationFactory();
+      const { outcome, verifySpy } = await runWithProof([proof, null], true);
+
+      expect(outcome.status).toBe('success');
+      expect(verifySpy).toHaveBeenCalledOnce();
+    });
+
+    it('treats a presentation with an empty proof array as unsigned', async () => {
+      const { outcome, verifySpy } = await runWithProof([]);
+
+      expectNotSigned(outcome);
+      expect(verifySpy).not.toHaveBeenCalled();
+    });
+
+    it('passes challenge and domain to the crypto service', async () => {
+      const service = FakeCryptoService({ verified: true });
+      const verifySpy = vi.spyOn(service, 'verifyPresentation');
+      const context = buildTestContext({
+        cryptoServices: [service],
+        challenge: 'factory-challenge',
+        domain: 'verifier.example'
+      });
+
+      const subject = createPresentationSubject(PresentationFactory());
       const results = await runSuites([proofSuite], subject, context);
 
       expect(results[0].outcome.status).toBe('success');
+      expect(verifySpy).toHaveBeenCalledWith(
+        subject.verifiablePresentation,
+        expect.objectContaining({
+          challenge: 'factory-challenge',
+          domain: 'verifier.example'
+        })
+      );
     });
   });
 

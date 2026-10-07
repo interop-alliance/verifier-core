@@ -2,6 +2,7 @@ import { VerificationCheck, CheckOutcome } from '../../types/check.js';
 import { VerificationSubject } from '../../types/subject.js';
 import { VerificationContext } from '../../types/context.js';
 import { ProblemTypes } from '../../problem-types.js';
+import { proofEntries } from '../../util/document-has-proof.js';
 
 /**
  * Check that a proof property exists on the credential.
@@ -33,9 +34,8 @@ export const proofExistsCheck: VerificationCheck = {
       };
     }
 
-    const proof = credential.proof;
-
-    if (!proof) {
+    const entries = proofEntries(credential);
+    if (entries.length === 0) {
       return {
         status: 'failure',
         problems: [
@@ -48,15 +48,9 @@ export const proofExistsCheck: VerificationCheck = {
       };
     }
 
-    // Proof can be a single object or a non-empty array of objects
-    const isValidProofObject =
-      typeof proof === 'object' && proof !== null && !Array.isArray(proof);
-    const isValidProofArray =
-      Array.isArray(proof) &&
-      proof.length > 0 &&
-      proof.every(p => typeof p === 'object' && p !== null);
-
-    if (!isValidProofObject && !isValidProofArray) {
+    // A proof array must hold only proof objects.
+    const proof = credential.proof;
+    if (Array.isArray(proof) && entries.length !== proof.length) {
       return {
         status: 'failure',
         problems: [

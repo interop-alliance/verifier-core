@@ -208,6 +208,28 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
       // copy of each embedded credential.
       const presentation = call.presentation as VerifiablePresentation;
 
+      // Invalid challenge/domain options are rejected here, once, before any
+      // suite runs. Checking them inside `proof.signature` would depend on the
+      // input document (an unsigned VP skips that check) and on the crypto
+      // service in use.
+      const optionsProblem = invalidChallengeOptions(call);
+      if (optionsProblem) {
+        const check = syntheticFailureResult(
+          proofSuite,
+          'proof.signature',
+          optionsProblem,
+          timing ? timeService : undefined
+        );
+        const result: PresentationVerificationResult = {
+          verified: false,
+          verifiablePresentation: presentation,
+          presentationResults: [check],
+          credentialResults: [],
+          summary: syntheticFailureSummary(check, proofSuite)
+        };
+        return finalizePresentationResult(result, topLevel, timeService);
+      }
+
       const ctx = buildContext({
         httpGetService,
         cacheService,
@@ -218,6 +240,7 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
         registries: call.registries ?? constructorRegistries,
         recognizers,
         challenge: call.challenge ?? null,
+        domain: call.domain,
         unsignedPresentation: call.unsignedPresentation ?? false,
         timeService,
         timing
@@ -298,6 +321,7 @@ interface BuildContextInput {
   registries?: EntityIdentityRegistry[];
   recognizers?: RecognizerSpec[];
   challenge?: string | null;
+  domain?: string;
   unsignedPresentation?: boolean;
   timeService: TimeService;
   timing: boolean;
@@ -319,6 +343,7 @@ function buildContext(input: BuildContextInput): VerificationContext {
     recognizers: input.recognizers,
     lookupIssuers: input.lookupIssuers,
     challenge: input.challenge ?? null,
+    domain: input.domain,
     unsignedPresentation: input.unsignedPresentation ?? false,
     timeService: input.timeService,
     timing: input.timing
@@ -395,20 +420,59 @@ const PARSING_SUITE: VerificationSuite = {
   ]
 };
 
-function parseErrorResult(
+const CHALLENGE_REQUIRED: ProblemDetail = {
+  type: ProblemTypes.PROOF_VERIFICATION_ERROR,
+  title: 'Challenge Required',
+  detail:
+    'A domain was supplied without a challenge. The domain can only be checked alongside a challenge.'
+};
+
+const EMPTY_CHALLENGE: ProblemDetail = {
+  type: ProblemTypes.PROOF_VERIFICATION_ERROR,
+  title: 'Challenge Required',
+  detail:
+    'The challenge is an empty string. Pass a non-empty challenge, or omit it to check the signature only.'
+};
+
+/**
+ * Validates the `challenge` / `domain` options of a `verifyPresentation`
+ * call. An empty-string challenge is invalid input rather than "no
+ * challenge": enforcing it would reject every presentation, and ignoring it
+ * would silently drop the replay protection the caller seemed to ask for.
+ */
+function invalidChallengeOptions(call: {
+  challenge?: string | null;
+  domain?: string;
+}): ProblemDetail | undefined {
+  if (call.challenge === '') {
+    return EMPTY_CHALLENGE;
+  }
+  if (call.domain !== undefined && typeof call.challenge !== 'string') {
+    return CHALLENGE_REQUIRED;
+  }
+  return undefined;
+}
+
+/**
+ * A fatal failure `CheckResult` for a check that never ran, attributed to
+ * `suite` / `checkId` so it folds and renders like a real check result.
+ */
+function syntheticFailureResult(
+  suite: VerificationSuite,
+  checkId: string,
   problem: ProblemDetail,
   timeService: TimeService | undefined
 ): CheckResult {
   const result: CheckResult = {
-    id: computeId(PARSING_SUITE.phase, 'parsing', 'parsing.envelope'),
-    suite: 'parsing',
-    check: 'parsing.envelope',
+    id: computeId(suite.phase, suite.id, checkId),
+    suite: suite.id,
+    check: checkId,
     outcome: { status: 'failure', problems: [problem] },
     fatal: true
   };
   if (timeService !== undefined) {
-    // Parse failures short-circuit before any check runs, so the
-    // synthetic `parsing.envelope` check is the only thing the
+    // These failures short-circuit before any check runs, so the
+    // synthetic check is the only thing the
     // result carries. Sample both clocks twice so the produced
     // `TaskTiming` reflects the cost of recording the failure
     // and so suite-level rollup math (sum of child durations)
@@ -438,8 +502,11 @@ function parseErrorResult(
  * the suite-level `timing` propagates here too when the call ran
  * with `timing: true`.
  */
-function parseErrorSummary(check: CheckResult): SuiteSummary[] {
-  const folded = foldCheckResults([check], [PARSING_SUITE], { verbose: true });
+function syntheticFailureSummary(
+  check: CheckResult,
+  suite: VerificationSuite
+): SuiteSummary[] {
+  const folded = foldCheckResults([check], [suite], { verbose: true });
   return folded.summaries;
 }
 
@@ -455,12 +522,17 @@ function parseFailureCredentialResult(
       .map(e => `${e.path.join('.')}: ${e.message}`)
       .join('; ')
   };
-  const check = parseErrorResult(problem, timeService);
+  const check = syntheticFailureResult(
+    PARSING_SUITE,
+    'parsing.envelope',
+    problem,
+    timeService
+  );
   return {
     verified: false,
     verifiableCredential: credential as VerifiableCredential,
     results: [check],
-    summary: parseErrorSummary(check)
+    summary: syntheticFailureSummary(check, PARSING_SUITE)
   };
 }
 
@@ -476,13 +548,18 @@ function parseFailurePresentationResult(
       .map(e => `${e.path.join('.')}: ${e.message}`)
       .join('; ')
   };
-  const check = parseErrorResult(problem, timeService);
+  const check = syntheticFailureResult(
+    PARSING_SUITE,
+    'parsing.envelope',
+    problem,
+    timeService
+  );
   return {
     verified: false,
     verifiablePresentation: presentation as VerifiablePresentation,
     presentationResults: [check],
     credentialResults: [],
-    summary: parseErrorSummary(check)
+    summary: syntheticFailureSummary(check, PARSING_SUITE)
   };
 }
 

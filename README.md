@@ -297,6 +297,7 @@ All failures use `ProblemDetail` with a `type` URI. Common error types:
 | ------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------- |
 | `...#PARSING_ERROR`                   | Invalid JSON-LD / No VC Context / Invalid Credential ID / No Proof | Structural problems                                                  |
 | `...#INVALID_SIGNATURE`               | Invalid Signature                                                  | Signature doesn't match content                                      |
+| `...#PROOF_PURPOSE_MISMATCH`          | Challenge Mismatch / Domain Mismatch / Proof Purpose Mismatch      | VP proof does not bind to the caller's challenge, domain, or purpose |
 | `...#DID_WEB_UNRESOLVED`              | DID Web Unresolved                                                 | DID document (e.g. `did:web`) or `did:webvh` log couldn't be fetched |
 | `...#HTTP_ERROR`                      | HTTP Error                                                         | Network error during signature check                                 |
 | `...#CREDENTIAL_REVOKED_OR_SUSPENDED` | Credential Revoked or Suspended                                    | Status list indicates revocation                                     |
@@ -343,7 +344,8 @@ import { verifyPresentation } from '@interop/verifier-core';
 const result = await verifyPresentation({
   presentation, // The VP to verify
   challenge: 'abc123', // Optional: expected challenge
-  unsignedPresentation: false, // Optional: allow unsigned VP
+  domain: 'verifier.example', // Optional: expected domain (requires challenge)
+  unsignedPresentation: false, // Optional: accept a VP with no proof
   registries // Optional: issuer trust registries
 });
 ```
@@ -354,6 +356,7 @@ const result = await verifyPresentation({
 interface VerifyPresentationOptions {
   presentation: unknown;
   challenge?: string | null;
+  domain?: string;
   unsignedPresentation?: boolean;
   registries?: EntityIdentityRegistry[];
   additionalSuites?: VerificationSuite[];
@@ -392,8 +395,14 @@ rollups live on `credentialResults[i].summary`.
 
 Presentation verification does two things:
 
-1. **Verifies the VP itself** — checks the presentation's signature (or skips if
-   `unsignedPresentation: true`). Results go in `presentationResults`.
+1. **Verifies the VP itself** — checks the presentation's own proof only. A VP
+   with no proof fails unless `unsignedPresentation: true`, in which case the
+   check is skipped. A proof that is present is always verified. When
+   `challenge` is passed, the presentation's proof must use the `authentication`
+   purpose and carry that challenge (and `domain`, if passed); a mismatch is
+   reported as `PROOF_PURPOSE_MISMATCH`. Without a challenge only the signature
+   is checked. A `domain` without a `challenge`, or an empty-string `challenge`,
+   is rejected before any check runs. Results go in `presentationResults`.
 2. **Verifies each embedded credential** — extracts credentials from the VP and
    runs `verifyCredential` on each. Results go in `credentialResults`.
 
@@ -406,7 +415,10 @@ result objects by property path) can reach it without carrying the original
 input separately.
 
 A VP needn't be signed — it can simply package credentials together. Set
-`unsignedPresentation: true` to skip the VP signature check.
+`unsignedPresentation: true` to accept a VP that has no proof. Its
+`proof.signature` check is then skipped with
+`code: SIGNATURE_SKIP_CODES.unsignedPresentation`. The flag does not turn off
+verification of a proof that is present.
 
 #### Flattening results
 
