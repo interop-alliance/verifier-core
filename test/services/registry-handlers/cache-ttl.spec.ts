@@ -28,19 +28,20 @@ describe('parseCacheControlMaxAge', () => {
 });
 
 describe('ttlFromValidUntil', () => {
-  it('returns ms until future instant', () => {
-    const future = new Date(Date.now() + 5000).toISOString();
-    const ttl = ttlFromValidUntil(future);
-    expect(ttl).toBeGreaterThan(4000);
-    expect(ttl).toBeLessThanOrEqual(5000);
+  const nowMs = Date.parse('2030-01-01T00:00:00Z');
+
+  it('returns ms from nowMs until a future instant', () => {
+    expect(ttlFromValidUntil('2030-01-01T00:00:05Z', nowMs)).toBe(5000);
   });
 
-  it('returns undefined for past instant', () => {
-    expect(ttlFromValidUntil('2000-01-01T00:00:00Z')).toBeUndefined();
+  it('returns undefined for a past instant', () => {
+    expect(ttlFromValidUntil('2029-12-31T23:59:59Z', nowMs)).toBeUndefined();
   });
 
-  it('returns undefined for invalid string', () => {
-    expect(ttlFromValidUntil('not-a-date')).toBeUndefined();
+  it('returns undefined for an invalid or missing value', () => {
+    expect(ttlFromValidUntil('not-a-date', nowMs)).toBeUndefined();
+    expect(ttlFromValidUntil(undefined, nowMs)).toBeUndefined();
+    expect(ttlFromValidUntil(42, nowMs)).toBeUndefined();
   });
 });
 

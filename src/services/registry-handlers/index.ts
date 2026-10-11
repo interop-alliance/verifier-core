@@ -9,6 +9,8 @@ export {
   ttlFromValidUntil
 } from './cache-ttl.js';
 export { jwtDecodePayload } from './jwt-payload-decode.js';
+export { verifyJws } from './jws-verify.js';
+export type { JwsResult } from './jws-verify.js';
 export type {
   HandlerResult,
   RegistryHandler,

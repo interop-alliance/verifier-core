@@ -23,14 +23,22 @@ export const parseCacheControlMaxAge = (
 };
 
 /**
- * Milliseconds from now until `validUntil` (ISO 8601). Undefined if invalid or already past.
+ * Milliseconds from `nowMs` until `validUntil` (ISO 8601). Undefined if
+ * missing, invalid or already past. `nowMs` is the verifier's `TimeService`
+ * reading, so expiry stays on the clock seam.
  */
-export const ttlFromValidUntil = (validUntil: string): number | undefined => {
+export const ttlFromValidUntil = (
+  validUntil: unknown,
+  nowMs: number
+): number | undefined => {
+  if (typeof validUntil !== 'string') {
+    return undefined;
+  }
   const end = Date.parse(validUntil);
   if (!Number.isFinite(end)) {
     return undefined;
   }
-  const delta = end - Date.now();
+  const delta = end - nowMs;
   if (delta <= 0) {
     return undefined;
   }

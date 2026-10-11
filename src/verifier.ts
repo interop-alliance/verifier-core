@@ -121,7 +121,8 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
         throw new Error('verifierRef accessed before createVerifier returned');
       }
       return verifierRef.current;
-    }
+    },
+    timeService
   );
 
   const verifier: Verifier = {

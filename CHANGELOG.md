@@ -22,8 +22,40 @@
   Each request has a 10 s deadline and a 5 MiB body cap. Errors have fixed text
   and do not quote the response. Injected `httpGetService` and `documentLoader`
   implementations keep their own policy.
+- OIDF registry membership is now verified. Both entity statements used to be
+  payload-decoded only, and any statement with a `metadata` object counted as
+  registered. The trust anchor's entity configuration is now verified against
+  its own `jwks` (`iss === sub`, unexpired `exp`), the federation fetch endpoint
+  is read only from that verified payload, and the issuer's subordinate
+  statement is verified against the anchor's keys (`iss` is the anchor entity
+  id, `sub` is the issuer DID, unexpired `exp`). Both headers must carry
+  `typ: entity-statement+jwt` and no `crit`. ES256 and EdDSA are supported;
+  among alg-compatible keys, those matching `kid` are tried first, then all of
+  them. A subordinate statement no longer needs a `metadata` object. A statement
+  that does not verify reports the registry as unchecked. Only raw JWTs are
+  cached, re-verified on every hit, with a TTL capped at `exp`. Response bodies
+  are trimmed before decoding.
+- dcc-legacy lookups match own keys only, so `__proto__` and `constructor`
+  cannot match.
+- `registryKeyHash` is renamed `registryCacheKey` and returns the JSON encoding
+  of the sorted `[type, name, url]` triples (plus sorted `acceptedIssuers` for
+  `vc-recognition`) instead of a 32-bit djb2 hash, so two registry lists cannot
+  share a cache key.
 
 ### Changed
+
+- OIDF lookups work in browsers and React Native: JWT decoding uses
+  `@scure/base` instead of `Buffer`. `@interop/ecdsa-multikey` and `@scure/base`
+  are runtime dependencies.
+- A registry lookup result with any unchecked registry is cached for 60 s
+  instead of 1 h. A recognition credential is cached for at most 1 h, or until
+  its `validUntil` if sooner, measured on the verifier's `timeService`.
+  `ttlFromValidUntil` takes `nowMs` and accepts a missing `validUntil`.
+- The OIDF lookup URL is built with `URL.searchParams`, so a fetch endpoint that
+  already has a query keeps it; a non-URL endpoint yields unchecked.
+- `RegistryHandlerContext` carries the verifier's `timeService`; custom handlers
+  and tests that build the context must supply one. `createRegistryLookup` takes
+  it as an optional fifth argument.
 
 - **BREAKING**: `CryptoVerifyOptions.unsignedPresentation` is removed. A
   `CryptoService` is only asked to verify a proof that exists. Custom

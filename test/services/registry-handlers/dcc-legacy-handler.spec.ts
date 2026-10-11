@@ -2,26 +2,18 @@ import { describe, it, expect } from 'vitest';
 import type { EntityIdentityRegistry } from '../../../src/types/registry.js';
 import { DEFAULT_TTL_MS } from '../../../src/services/registry-handlers/cache-ttl.js';
 import { lookupDccLegacy } from '../../../src/services/registry-handlers/dcc-legacy-handler.js';
-import type { RegistryHandlerContext } from '../../../src/services/registry-handlers/types.js';
-import { FakeCacheService } from '../../factories/services/fake-cache-service.js';
+import {
+  FakeCacheService,
+  FakeCacheServiceWithSetLog
+} from '../../factories/services/fake-cache-service.js';
+import { buildHandlerContext } from '../../factories/services/build-handler-context.js';
 import {
   FakeHttpGetService,
   httpGetResult,
   okJsonBody
 } from '../../factories/services/fake-http-get-service.js';
-import { FakeVerifier } from '../../factories/services/fake-verifier.js';
 
 const registryUrl = 'https://example.com/registry.json';
-
-function buildCtx(
-  overrides: Partial<RegistryHandlerContext> = {}
-): RegistryHandlerContext {
-  return {
-    httpGetService: overrides.httpGetService ?? FakeHttpGetService({}),
-    cacheService: overrides.cacheService ?? FakeCacheService(),
-    verifier: overrides.verifier ?? FakeVerifier()
-  };
-}
 
 const dccRegistry: EntityIdentityRegistry = {
   name: 'Sandbox',
@@ -36,21 +28,6 @@ const sampleBody = {
   }
 };
 
-function cacheWithSetSpy() {
-  const base = FakeCacheService();
-  const sets: Array<{ key: string; value: unknown; ttl?: number }> = [];
-  return {
-    cache: {
-      get: base.get.bind(base),
-      set: async (key: string, value: unknown, ttl?: number) => {
-        sets.push({ key, value, ttl });
-        return base.set(key, value, ttl);
-      }
-    },
-    sets
-  };
-}
-
 describe('lookupDccLegacy', () => {
   it('returns found when DID is in registry', async () => {
     const httpGetService = FakeHttpGetService({
@@ -59,10 +36,25 @@ describe('lookupDccLegacy', () => {
     const result = await lookupDccLegacy(
       'did:key:found',
       dccRegistry,
-      buildCtx({ httpGetService })
+      buildHandlerContext({ httpGetService })
     );
     expect(result).toEqual({ status: 'found', registryName: 'Sandbox' });
   });
+
+  it.each(['__proto__', 'constructor', 'toString'])(
+    'returns not-found for the inherited key %s',
+    async did => {
+      const httpGetService = FakeHttpGetService({
+        [registryUrl]: okJsonBody(sampleBody)
+      });
+      const result = await lookupDccLegacy(
+        did,
+        dccRegistry,
+        buildHandlerContext({ httpGetService })
+      );
+      expect(result).toEqual({ status: 'not-found' });
+    }
+  );
 
   it('returns not-found when DID is absent', async () => {
     const httpGetService = FakeHttpGetService({
@@ -71,7 +63,7 @@ describe('lookupDccLegacy', () => {
     const result = await lookupDccLegacy(
       'did:key:missing',
       dccRegistry,
-      buildCtx({ httpGetService })
+      buildHandlerContext({ httpGetService })
     );
     expect(result).toEqual({ status: 'not-found' });
   });
@@ -85,7 +77,7 @@ describe('lookupDccLegacy', () => {
     const result = await lookupDccLegacy(
       'did:key:found',
       dccRegistry,
-      buildCtx({ httpGetService })
+      buildHandlerContext({ httpGetService })
     );
     expect(result).toEqual({
       status: 'unchecked',
@@ -100,7 +92,7 @@ describe('lookupDccLegacy', () => {
     const result = await lookupDccLegacy(
       'did:key:found',
       dccRegistry,
-      buildCtx({ httpGetService })
+      buildHandlerContext({ httpGetService })
     );
     expect(result).toEqual({
       status: 'unchecked',
@@ -115,7 +107,7 @@ describe('lookupDccLegacy', () => {
     const result = await lookupDccLegacy(
       'did:key:found',
       dccRegistry,
-      buildCtx({ httpGetService })
+      buildHandlerContext({ httpGetService })
     );
     expect(result).toEqual({
       status: 'unchecked',
@@ -138,12 +130,12 @@ describe('lookupDccLegacy', () => {
     await lookupDccLegacy(
       'did:key:found',
       dccRegistry,
-      buildCtx({ httpGetService, cacheService: cache })
+      buildHandlerContext({ httpGetService, cacheService: cache })
     );
     await lookupDccLegacy(
       'did:key:found',
       dccRegistry,
-      buildCtx({ httpGetService, cacheService: cache })
+      buildHandlerContext({ httpGetService, cacheService: cache })
     );
     expect(calls).toBe(1);
   });
@@ -156,11 +148,11 @@ describe('lookupDccLegacy', () => {
         status: 200
       }
     });
-    const { cache, sets } = cacheWithSetSpy();
+    const { cache, sets } = FakeCacheServiceWithSetLog();
     await lookupDccLegacy(
       'did:key:found',
       dccRegistry,
-      buildCtx({ httpGetService, cacheService: cache })
+      buildHandlerContext({ httpGetService, cacheService: cache })
     );
     expect(sets).toHaveLength(1);
     expect(sets[0].key).toBe(`dcc-legacy:${registryUrl}`);
@@ -172,11 +164,11 @@ describe('lookupDccLegacy', () => {
     const httpGetService = FakeHttpGetService({
       [registryUrl]: okJsonBody(sampleBody)
     });
-    const { cache, sets } = cacheWithSetSpy();
+    const { cache, sets } = FakeCacheServiceWithSetLog();
     await lookupDccLegacy(
       'did:key:found',
       dccRegistry,
-      buildCtx({ httpGetService, cacheService: cache })
+      buildHandlerContext({ httpGetService, cacheService: cache })
     );
     expect(sets[0].ttl).toBe(DEFAULT_TTL_MS);
   });
@@ -197,7 +189,7 @@ describe('lookupDccLegacy', () => {
     const result = await lookupDccLegacy(
       'did:key:x',
       oidf,
-      buildCtx({ httpGetService })
+      buildHandlerContext({ httpGetService })
     );
     expect(result).toEqual({ status: 'unchecked', registryName: 'OIDF' });
     expect(calls).toBe(0);

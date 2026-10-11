@@ -3,14 +3,16 @@ import type { EntityIdentityRegistry } from '../../../src/types/registry.js';
 import type { VerifiableCredential } from '../../../src/schemas/credential.js';
 import type { Verifier } from '../../../src/types/verifier.js';
 import type { CredentialVerificationResult } from '../../../src/types/result.js';
-import type { RegistryHandlerContext } from '../../../src/services/registry-handlers/types.js';
 import { lookupVcRecognition } from '../../../src/services/registry-handlers/vc-recognition-handler.js';
-import { FakeCacheService } from '../../factories/services/fake-cache-service.js';
+import { DEFAULT_TTL_MS } from '../../../src/services/registry-handlers/cache-ttl.js';
+import { FakeCacheServiceWithSetLog } from '../../factories/services/fake-cache-service.js';
+import { buildHandlerContext } from '../../factories/services/build-handler-context.js';
+import { FakeVerifier } from '../../factories/services/fake-verifier.js';
 import {
   FakeHttpGetService,
   okJsonBody
 } from '../../factories/services/fake-http-get-service.js';
-import { FakeVerifier } from '../../factories/services/fake-verifier.js';
+import { FakeTimeService } from '../../../src/services/time-service/fake-time-service.js';
 
 const listUrl = 'https://example.com/recognition.json';
 
@@ -39,20 +41,10 @@ const registry: EntityIdentityRegistry = {
   acceptedIssuers: ['did:web:learning-commission.example']
 };
 
-function buildCtx(
-  overrides: Partial<RegistryHandlerContext> = {}
-): RegistryHandlerContext {
-  return {
-    httpGetService: overrides.httpGetService ?? FakeHttpGetService({}),
-    cacheService: overrides.cacheService ?? FakeCacheService(),
-    verifier: overrides.verifier ?? FakeVerifier()
-  };
-}
-
 describe('lookupVcRecognition', () => {
   it('returns found when DID appears in credentialSubject array', async () => {
     const vc = buildVc();
-    const ctx = buildCtx({
+    const ctx = buildHandlerContext({
       httpGetService: FakeHttpGetService({ [listUrl]: okJsonBody(vc) })
     });
     const result = await lookupVcRecognition(
@@ -73,7 +65,7 @@ describe('lookupVcRecognition', () => {
         type: 'RecognizedEntity'
       }
     });
-    const ctx = buildCtx({
+    const ctx = buildHandlerContext({
       httpGetService: FakeHttpGetService({ [listUrl]: okJsonBody(vc) })
     });
     const result = await lookupVcRecognition('did:key:single', registry, ctx);
@@ -85,7 +77,7 @@ describe('lookupVcRecognition', () => {
 
   it('returns not-found when DID is absent', async () => {
     const vc = buildVc();
-    const ctx = buildCtx({
+    const ctx = buildHandlerContext({
       httpGetService: FakeHttpGetService({ [listUrl]: okJsonBody(vc) })
     });
     const result = await lookupVcRecognition('did:key:missing', registry, ctx);
@@ -99,7 +91,7 @@ describe('lookupVcRecognition', () => {
         throw new Error('verifyCredential should not run');
       }
     });
-    const ctx = buildCtx({
+    const ctx = buildHandlerContext({
       httpGetService: FakeHttpGetService({ [listUrl]: okJsonBody(vc) }),
       verifier
     });
@@ -121,7 +113,7 @@ describe('lookupVcRecognition', () => {
         type: 'RecognizedIssuer'
       }
     });
-    const ctx = buildCtx({
+    const ctx = buildHandlerContext({
       httpGetService: FakeHttpGetService({ [listUrl]: okJsonBody(vc) })
     });
     const result = await lookupVcRecognition(
@@ -143,7 +135,7 @@ describe('lookupVcRecognition', () => {
           summary: []
         }) satisfies CredentialVerificationResult
     });
-    const ctx = buildCtx({
+    const ctx = buildHandlerContext({
       httpGetService: FakeHttpGetService({ [listUrl]: okJsonBody(vc) }),
       verifier
     });
@@ -172,7 +164,7 @@ describe('lookupVcRecognition', () => {
         } satisfies CredentialVerificationResult;
       }
     });
-    const ctx = buildCtx({
+    const ctx = buildHandlerContext({
       httpGetService: FakeHttpGetService({ [listUrl]: okJsonBody(vc) }),
       verifier
     });
@@ -194,7 +186,7 @@ describe('lookupVcRecognition', () => {
       }
     });
     const vc = buildVc();
-    const ctx = buildCtx({
+    const ctx = buildHandlerContext({
       httpGetService: FakeHttpGetService({ [listUrl]: okJsonBody(vc) }),
       verifier
     });
@@ -203,30 +195,51 @@ describe('lookupVcRecognition', () => {
     expect(verifyCalls).toBe(1);
   });
 
-  it('uses validUntil for cache TTL', async () => {
-    const future = new Date(Date.now() + 7200_000).toISOString();
+  it('uses validUntil for cache TTL when it is under an hour away', async () => {
+    // "Now" is the context clock (FakeTimeService, 2026-01-01), not Date.now().
+    const timeService = FakeTimeService();
+    const future = new Date(timeService.dateNowMs() + 600_000).toISOString();
     const vc = buildVc({ validUntil: future });
-    const base = FakeCacheService();
-    const sets: Array<{ ttl?: number }> = [];
-    const cacheService = {
-      get: base.get.bind(base),
-      set: async (key: string, value: unknown, ttl?: number) => {
-        sets.push({ ttl });
-        return base.set(key, value, ttl);
-      }
-    };
-    const ctx = buildCtx({
+    const { cache: cacheService, sets } = FakeCacheServiceWithSetLog();
+    const ctx = buildHandlerContext({
+      httpGetService: FakeHttpGetService({ [listUrl]: okJsonBody(vc) }),
+      cacheService,
+      timeService
+    });
+    await lookupVcRecognition('did:web:university.example', registry, ctx);
+    const ttlArg = sets[0]?.ttl as number;
+    expect(ttlArg).toBeGreaterThan(590_000);
+    expect(ttlArg).toBeLessThanOrEqual(600_000);
+  });
+
+  it('measures validUntil against the context timeService', async () => {
+    // Real time is 2026; the fake clock says 2030, so a 2030 validUntil is
+    // 10 minutes away on the verifier's clock.
+    const nowMs = Date.parse('2030-01-01T00:00:00Z');
+    const vc = buildVc({ validUntil: '2030-01-01T00:10:00Z' });
+    const { cache: cacheService, sets } = FakeCacheServiceWithSetLog();
+    const ctx = buildHandlerContext({
+      httpGetService: FakeHttpGetService({ [listUrl]: okJsonBody(vc) }),
+      cacheService,
+      timeService: { dateNowMs: () => nowMs, performanceNowMs: () => 0 }
+    });
+    await lookupVcRecognition('did:web:university.example', registry, ctx);
+    expect(sets[0]?.ttl).toBe(600_000);
+  });
+
+  it('caps the cache TTL at an hour when validUntil is years away', async () => {
+    const vc = buildVc({ validUntil: '2099-01-01T00:00:00Z' });
+    const { cache: cacheService, sets } = FakeCacheServiceWithSetLog();
+    const ctx = buildHandlerContext({
       httpGetService: FakeHttpGetService({ [listUrl]: okJsonBody(vc) }),
       cacheService
     });
     await lookupVcRecognition('did:web:university.example', registry, ctx);
-    const ttlArg = sets[0]?.ttl as number;
-    expect(ttlArg).toBeGreaterThan(7000_000);
-    expect(ttlArg).toBeLessThanOrEqual(7200_000);
+    expect(sets[0]?.ttl).toBe(DEFAULT_TTL_MS);
   });
 
   it('returns unchecked on fetch failure', async () => {
-    const ctx = buildCtx({
+    const ctx = buildHandlerContext({
       httpGetService: {
         async get() {
           throw new Error('network');
@@ -251,7 +264,7 @@ describe('lookupVcRecognition', () => {
       url: 'https://example.com/r.json'
     };
     let calls = 0;
-    const ctx = buildCtx({
+    const ctx = buildHandlerContext({
       httpGetService: {
         async get() {
           calls++;

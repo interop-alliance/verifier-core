@@ -1,6 +1,7 @@
 import type { CacheService } from '../cache-service/cache-service.js';
 import type { EntityIdentityRegistry } from '../../types/registry.js';
 import type { HttpGetService } from '../http-get-service/http-get-service.js';
+import type { TimeService } from '../time-service/time-service.js';
 import type { Verifier } from '../../types/verifier.js';
 
 /** Outcome of looking up one issuer DID in a single registry entry. */
@@ -15,16 +16,18 @@ export type HandlerResult =
  * Threads the long-lived services and the parent {@link Verifier} so a
  * handler can recursively verify a credential (e.g. a Verifiable
  * Recognition Credential) using the same cache + crypto stack as the
- * parent call.
+ * parent call. `timeService` is the verifier's clock, so a handler's
+ * expiry decisions (OIDF `exp`) move with a `FakeTimeService` in tests.
  */
 export interface RegistryHandlerContext {
   httpGetService: HttpGetService;
   cacheService: CacheService;
+  timeService: TimeService;
   verifier: Verifier;
 }
 
 /**
- * Looks up a DID in one registry (fetch via {@link HttpGetService}, cache, parse — type-specific).
+ * Looks up a DID in one registry (fetch via {@link HttpGetService}, cache, parse -- type-specific).
  */
 export type RegistryHandler = (
   did: string,

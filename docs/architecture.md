@@ -54,7 +54,9 @@ src/
 │   └── registry-handlers/           Per-type registry handlers behind a port
 │       ├── types.ts                 RegistryHandler, RegistryHandlerMap, RegistryHandlerContext
 │       ├── dcc-legacy-handler.ts    DCC legacy DID-list registry
-│       ├── oidf-handler.ts          OpenID Federation entity-statement registry
+│       ├── oidf-handler.ts          OpenID Federation registry: verifies the entity configuration and subordinate statement (ES256/EdDSA), `iss` / `sub` / `exp`
+│       ├── jws-verify.ts            Compact JWS verification against a JWK Set with the shipped key packages
+│       ├── jwt-payload-decode.ts    Portable base64url / JWT payload decoding (`@scure/base`, no Buffer)
 │       ├── vc-recognition-handler.ts Recognition VC registry (recursively verified via the parent Verifier)
 │       └── cache-ttl.ts             TTL helpers (Cache-Control, validUntil)
 ├── suites/                          Verification suite implementations (default + opt-in suites)
@@ -100,9 +102,8 @@ src/
     ├── document-loader-from-http-get.ts  Build a JSON-LD loader backed by an HttpGetService
     ├── did-web-driver-with-http-get.ts   did:web resolution via HttpGetService (cache-sharing)
     ├── fetch-json-from-http-get.ts       Wrap an HttpGetService as a FetchJson
-    ├── registry-key-hash.ts              Stable hash of a registry list for cache keys
-    ├── json-pointer.ts                   formatJsonPointer (RFC 6901) for ProblemDetail.instance values
-    └── jwt-payload-decode.ts             Minimal JWT payload decoder (OIDF handler)
+    ├── registry-cache-key.ts             Stable cache key for a registry list (the sorted ids, JSON-encoded)
+    └── json-pointer.ts                   formatJsonPointer (RFC 6901) for ProblemDetail.instance values
 ```
 
 ```
@@ -260,6 +261,13 @@ reuse covers issuer DID documents (via the `CachedResolver` baked into the
 document loader), DCC-legacy registry payloads, OIDF entity statements, and any
 data the registry handlers store under `cacheService`.
 
+Registry caching is bounded. The OIDF handler caches only the raw entity
+statement JWTs, never a verdict: a cached statement is re-verified on every hit
+and refetched if it no longer verifies, and its TTL never outlives its `exp`. A
+recognition credential is cached for at most an hour, or until its `validUntil`
+if sooner. A DID-level lookup result that includes an unchecked registry is
+cached for 60 s instead of an hour, so a transient outage is retried soon.
+
 The `cryptoServices` passed to `createVerifier` is the complete and only set
 governing proof verification — for presentations, for credentials, and for the
 BitstringStatusListCredentials fetched during a status check.
@@ -324,7 +332,8 @@ between `createVerifier` (which needs `lookupIssuers` to build its context) and
 The fix: `createVerifier` forward-declares the verifier reference, then passes
 `createRegistryLookup` a `getVerifier` thunk that closes over a mutable slot.
 After the verifier object is built, the slot is filled. Handlers receive the
-verifier through `RegistryHandlerContext`, and `vc-recognition` passes
+verifier through `RegistryHandlerContext`, together with the verifier's
+`TimeService` (the clock for OIDF `exp` checks), and `vc-recognition` passes
 `registries: []` to its recursive `verifier.verifyCredential(...)` as a
 recursion guard. Status-list credential proofs do **not** take this path: they
 go through `dispatchProofVerification` against `cryptoServices` (see the status
@@ -845,21 +854,26 @@ wire in exactly the behavior they need.
   suite-suppression API).
 - **Registry handlers** (`dcc-legacy`, `oidf`, `vc-recognition`) consume
   third-party clients and parsing libraries inline rather than through narrower
-  ports — though they do share the verifier's `httpGetService` and
-  `cacheService`, so caching and HTTP behavior are uniform.
+  ports -- though they do share the verifier's `httpGetService`, `cacheService`
+  and `timeService`, so caching, HTTP and clock behavior are uniform. The OIDF
+  handler's JWS verification (`jws-verify.ts`) is wired directly to the
+  `@interop/ecdsa-multikey` and `@interop/ed25519-verification-key` packages;
+  the ES256 path verifies through WebCrypto, so React Native needs a WebCrypto
+  polyfill for it.
 - **OBv3 schema check** uses AJV directly. A `JsonSchemaValidator` port would
   let consumers swap in a different validator or share a single validator across
   calls. (The check itself was already lifted into the opt-in `/openbadges`
   submodule's `openBadgesSchemaSuite` bundle, so consumers who don't care about
   Open Badges already pay zero cost for it.)
 - **Cache TTL math bypasses the clock seam.** `TimeService` is the clock seam
-  for verification decisions (see above), but the caching layer does not route
-  through it. The registry handlers' TTL math
-  (`services/registry-handlers/cache-ttl.ts`) and the in-memory cache's expiry
-  comparison (`services/cache-service/in-memory-cache-service.ts`) both read
-  `Date.now()` directly. That makes TTL and cache-expiry behavior awkward to
-  test, and a verifier built on a `FakeTimeService` still ages its cache entries
-  against the real system clock.
+  for verification decisions (see above) and reaches the registry handlers
+  through `RegistryHandlerContext`, where the OIDF handler reads it for `exp`
+  checks and `exp`-bounded TTLs, and the `vc-recognition` handler passes its
+  reading to `ttlFromValidUntil` (`services/registry-handlers/cache-ttl.ts`).
+  The in-memory cache's expiry comparison
+  (`services/cache-service/in-memory-cache-service.ts`) still reads `Date.now()`
+  directly, so a verifier built on a `FakeTimeService` computes TTLs on the fake
+  clock but ages its cache entries against the real system clock.
 
 ### Direction
 

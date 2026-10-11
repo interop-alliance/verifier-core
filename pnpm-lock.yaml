@@ -26,6 +26,9 @@ importers:
       '@interop/did-web-resolver':
         specifier: ^6.3.5
         version: 6.3.5
+      '@interop/ecdsa-multikey':
+        specifier: ^2.4.1
+        version: 2.4.1
       '@interop/ecdsa-signature':
         specifier: ^2.0.8
         version: 2.0.8(@interop/jsonld-signatures@11.8.7)
@@ -47,6 +50,9 @@ importers:
       '@interop/vc-bitstring-status-list':
         specifier: ^3.2.1
         version: 3.2.1
+      '@scure/base':
+        specifier: ^2.4.0
+        version: 2.4.0
       ajv:
         specifier: ^8.17.1
         version: 8.20.0
@@ -63,9 +69,6 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.11.0)
-      '@interop/ecdsa-multikey':
-        specifier: ^2.4.1
-        version: 2.4.1
       '@playwright/test':
         specifier: ^1.60.0
         version: 1.63.0

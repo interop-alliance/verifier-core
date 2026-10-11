@@ -12,6 +12,8 @@ import type {
 import type { Verifier } from '../types/verifier.js';
 import type { CacheService } from './cache-service/cache-service.js';
 import type { HttpGetService } from './http-get-service/http-get-service.js';
+import { RealTimeService } from './time-service/real-time-service.js';
+import type { TimeService } from './time-service/time-service.js';
 import { lookupDccLegacy } from './registry-handlers/dcc-legacy-handler.js';
 import { lookupOidf } from './registry-handlers/oidf-handler.js';
 import { lookupVcRecognition } from './registry-handlers/vc-recognition-handler.js';
@@ -19,8 +21,15 @@ import type {
   RegistryHandlerContext,
   RegistryHandlerMap
 } from './registry-handlers/types.js';
-import { registryKeyHash } from '../util/registry-key-hash.js';
+import { registryCacheKey } from '../util/registry-cache-key.js';
 import { DEFAULT_TTL_MS } from './registry-handlers/cache-ttl.js';
+
+/**
+ * A result missing some registries is retried soon, not trusted for an hour.
+ * It is still cached briefly so that, while a registry is down, every
+ * verification does not wait out the HTTP timeout again.
+ */
+const PARTIAL_RESULT_TTL_MS = 60 * 1000;
 
 const defaultHandlers: RegistryHandlerMap = {
   'dcc-legacy': lookupDccLegacy,
@@ -46,9 +55,14 @@ const defaultHandlers: RegistryHandlerMap = {
  * invoked. `dcc-legacy` and `oidf` handlers do not use the verifier and
  * work fine without one.
  *
+ * `timeService` is threaded to handlers as the clock for expiry decisions
+ * (OIDF `exp`); it defaults to the real clock.
+ *
  * The returned function caches lookup results at the DID level, using a
- * cache key that incorporates the DID and a canonicalized hash of the
- * registries array.
+ * cache key that incorporates the DID and a canonical key for the
+ * registries array. A complete result is cached for an hour; a result with
+ * any unchecked registry is cached for only a minute, so a transient outage
+ * is retried soon.
  *
  * Options:
  * - `fresh: true` — bypass the DID-level result cache (but underlying data caches still apply)
@@ -58,14 +72,15 @@ export function createRegistryLookup(
   httpGetService: HttpGetService,
   cacheService: CacheService,
   handlers: RegistryHandlerMap = defaultHandlers,
-  getVerifier?: () => Verifier
+  getVerifier?: () => Verifier,
+  timeService: TimeService = RealTimeService()
 ): LookupIssuers {
   return async (
     did: string,
     registries: EntityIdentityRegistry[],
     options?: LookupIssuersOptions
   ): Promise<RegistryLookupResult> => {
-    const cacheKey = `reg-result:${did}:${registryKeyHash(registries)}`;
+    const cacheKey = `reg-result:${did}:${registryCacheKey(registries)}`;
 
     if (!options?.fresh) {
       const cached = (await cacheService.get(cacheKey)) as
@@ -78,6 +93,7 @@ export function createRegistryLookup(
     const ctx: RegistryHandlerContext = {
       httpGetService,
       cacheService,
+      timeService,
       get verifier(): Verifier {
         if (getVerifier === undefined) {
           throw new Error(
@@ -110,7 +126,11 @@ export function createRegistryLookup(
       uncheckedRegistries
     };
 
-    await cacheService.set(cacheKey, result, DEFAULT_TTL_MS);
+    const ttl =
+      result.uncheckedRegistries.length > 0
+        ? PARTIAL_RESULT_TTL_MS
+        : DEFAULT_TTL_MS;
+    await cacheService.set(cacheKey, result, ttl);
 
     return result;
   };

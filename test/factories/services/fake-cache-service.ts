@@ -21,3 +21,25 @@ export function FakeCacheService(): CacheService {
 }
 
 export type FakeCacheService = ReturnType<typeof FakeCacheService>;
+
+/**
+ * A {@link FakeCacheService} that also records every `set` call, for
+ * asserting on cache keys, values and TTLs.
+ */
+export function FakeCacheServiceWithSetLog(): {
+  cache: CacheService;
+  sets: Array<{ key: string; value: unknown; ttl?: number }>;
+} {
+  const base = FakeCacheService();
+  const sets: Array<{ key: string; value: unknown; ttl?: number }> = [];
+  return {
+    cache: {
+      get: base.get.bind(base),
+      set: async (key: string, value: unknown, ttl?: number) => {
+        sets.push({ key, value, ttl });
+        return base.set(key, value, ttl);
+      }
+    },
+    sets
+  };
+}
