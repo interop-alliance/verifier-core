@@ -93,8 +93,58 @@ the HTTPS fetch of the configured `trustAnchorEC`; there are no pinned anchor
 keys. A registry that cannot be checked, because it is unreachable or serves a
 statement that does not verify, is reported as unchecked (`REGISTRY_UNCHECKED`)
 rather than as "not registered", and a lookup that included one is retried after
-a minute rather than cached for an hour. The ES256 path verifies through
+a minute rather than cached for an hour. When some registries answered and
+others could not be checked, `ISSUER_NOT_REGISTERED` says how many answered, and
+a `REGISTRY_UNCHECKED` problem names the rest. The ES256 path verifies through
 WebCrypto, so React Native needs a WebCrypto polyfill for it.
+
+#### What the registry check returns
+
+Whenever the lookup ran, the `registry.issuer` outcome carries a
+`RegistryCheckPayload`, on success and on failure alike. Read that rather than
+parsing the outcome's `message`, which is display text and will not survive a
+registry name containing `, `.
+
+```typescript
+interface RegistryReference {
+  name: string;
+  type: 'oidf' | 'dcc-legacy' | 'vc-recognition';
+  url: string;
+}
+
+interface RegistryCheckPayload {
+  /** Registries that listed the issuer, in configured order. */
+  matches: Array<{
+    registry: RegistryReference;
+    /** The registry's own record of the issuer, when it has one. */
+    entity?: { name?: string; url?: string; raw?: unknown };
+  }>;
+  /** Registries that could not be reached or did not answer usefully. */
+  uncheckedRegistries: RegistryReference[];
+}
+```
+
+A lookup stops at the first registry that matches, so `matches` normally holds
+at most one entry; only a lookup run with `exhaustive: true` returns more. A
+registry's `url` is where it is read from: the list URL for `dcc-legacy` and
+`vc-recognition`, and the trust anchor's entity configuration (`trustAnchorEC`)
+for `oidf`.
+
+`entity` is the registry's description of the issuer, not the credential's
+description of itself, so it is the display name to prefer. The credential
+cannot alter it. Only `dcc-legacy` registries populate it today; `oidf` and
+`vc-recognition` matches carry no `entity` yet.
+
+```typescript
+const outcome = result.results.find(
+  r => r.check === 'registry.issuer'
+)?.outcome;
+const payload = outcome?.payload as RegistryCheckPayload | undefined;
+const displayName = payload?.matches[0]?.entity?.name;
+```
+
+A custom handler passed via `registryHandlers` can supply an `entity` on its
+`found` result (see `HandlerResult`), and the lookup passes it through.
 
 > [!CAUTION] The DCC registry list does not make claims about the registries it
 > contains. It is a list of registries that the DCC knows about — it says
@@ -201,7 +251,7 @@ interface ProblemDetail {
     { "id": "cryptographic.core.proof-exists", "suite": "core",   "check": "core.proof-exists",   "outcome": { "status": "success", "message": "..." } },
     { "id": "cryptographic.proof.signature", "suite": "proof",  "check": "proof.signature",     "outcome": { "status": "success", "message": "Signature verified successfully." } },
     { "id": "cryptographic.status.bitstring", "suite": "status", "check": "status.bitstring",    "outcome": { "status": "success", "message": "Credential status is valid (not revoked or suspended)." } },
-    { "id": "trust.registry.issuer", "suite": "registry", "check": "registry.issuer",   "outcome": { "status": "success", "message": "Issuer found in registry: DCC Sandbox Registry", "payload": { "found": true, "matchingRegistries": ["DCC Sandbox Registry"], "uncheckedRegistries": [] } } }
+    { "id": "trust.registry.issuer", "suite": "registry", "check": "registry.issuer",   "outcome": { "status": "success", "message": "Issuer found in registry: DCC Sandbox Registry", "payload": { "matches": [ { "registry": { "name": "DCC Sandbox Registry", "type": "dcc-legacy", "url": "https://digitalcredentials.github.io/sandbox-registry/registry.json" }, "entity": { "name": "Example University", "url": "https://example.edu", "raw": { "name": "Example University", "url": "https://example.edu" } } } ], "uncheckedRegistries": [] } } }
   ]
 }
 ```
@@ -322,8 +372,8 @@ All failures use `ProblemDetail` with a `type` URI. Common error types:
 | `...#STATUS_LIST_NOT_FOUND`           | Status List Not Found                                              | Status list URL unreachable                                          |
 | `...#STATUS_LIST_EXPIRED`             | Status List Expired                                                | Status list VC has expired                                           |
 | `...#STATUS_LIST_SIGNATURE_ERROR`     | Status List Signature Error                                        | Status list VC signature invalid                                     |
-| `...#ISSUER_NOT_REGISTERED`           | Issuer Not Registered                                              | Issuer DID not in any registry                                       |
-| `...#REGISTRY_UNCHECKED`              | Registry Unchecked                                                 | Some registries couldn't be reached                                  |
+| `...#ISSUER_NOT_REGISTERED`           | Issuer Not Registered                                              | Issuer DID not found in any registry that could be checked           |
+| `...#REGISTRY_UNCHECKED`              | Registry Unchecked                                                 | Some or all registries couldn't be reached; alone when none could    |
 
 #### Problem types
 

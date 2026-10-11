@@ -27,7 +27,7 @@ export const lookupVcRecognition: RegistryHandler = async (
   ctx
 ) => {
   if (registry.type !== 'vc-recognition') {
-    return { status: 'unchecked', registryName: registry.name };
+    return { status: 'unchecked' };
   }
   return lookupVcRecognitionForRegistry(did, registry, ctx);
 };
@@ -48,12 +48,12 @@ async function lookupVcRecognitionForRegistry(
       httpGetService
     );
     if (!loaded) {
-      return { status: 'unchecked', registryName: registry.name };
+      return { status: 'unchecked' };
     }
 
     const issuerId = getIssuerId(loaded);
     if (!issuerId || !registry.acceptedIssuers.includes(issuerId)) {
-      return { status: 'unchecked', registryName: registry.name };
+      return { status: 'unchecked' };
     }
 
     const verification = await verifier.verifyCredential({
@@ -62,7 +62,7 @@ async function lookupVcRecognitionForRegistry(
     });
 
     if (!verification.verified) {
-      return { status: 'unchecked', registryName: registry.name };
+      return { status: 'unchecked' };
     }
 
     // At most an hour, or until `validUntil` if sooner, on the verifier's
@@ -79,7 +79,7 @@ async function lookupVcRecognitionForRegistry(
   if (!subjectContainsDid(credential, did)) {
     return { status: 'not-found' };
   }
-  return { status: 'found', registryName: registry.name };
+  return { status: 'found' };
 }
 
 function cacheKeyForVcRecognitionUrl(url: string): string {

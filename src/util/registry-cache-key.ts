@@ -1,4 +1,5 @@
 import type { EntityIdentityRegistry } from '../types/registry.js';
+import { registryUrl } from './registry-reference.js';
 
 /**
  * Stable cache key for a list of registries: the sorted registry ids
@@ -14,26 +15,11 @@ import type { EntityIdentityRegistry } from '../types/registry.js';
  */
 export function registryCacheKey(registries: EntityIdentityRegistry[]): string {
   const ids = registries.map(registry => {
-    switch (registry.type) {
-      case 'dcc-legacy':
-        return JSON.stringify(['dcc-legacy', registry.name, registry.url]);
-      case 'oidf':
-        return JSON.stringify(['oidf', registry.name, registry.trustAnchorEC]);
-      case 'vc-recognition':
-        return JSON.stringify([
-          'vc-recognition',
-          registry.name,
-          registry.url,
-          [...registry.acceptedIssuers].sort()
-        ]);
-      default:
-        // Handles any future registry type; the switch is exhaustive for
-        // the current union.
-        return JSON.stringify([
-          'unknown',
-          (registry as { name?: string }).name ?? 'unnamed'
-        ]);
+    const id: unknown[] = [registry.type, registry.name, registryUrl(registry)];
+    if (registry.type === 'vc-recognition') {
+      id.push([...registry.acceptedIssuers].sort());
     }
+    return JSON.stringify(id);
   });
 
   ids.sort();

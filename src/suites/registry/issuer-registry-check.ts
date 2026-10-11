@@ -3,7 +3,11 @@ import { ProblemDetail } from '../../types/problem-detail.js';
 import { VerificationSubject } from '../../types/subject.js';
 import { VerificationContext } from '../../types/context.js';
 import { ProblemTypes } from '../../problem-types.js';
-import type { RegistryLookupResult } from '../../types/registry.js';
+
+/** The noun for a count of registries, as the messages pluralize it. */
+function registriesNoun(count: number): string {
+  return count === 1 ? 'registry' : 'registries';
+}
 
 /**
  * Extract issuer DID from credential.
@@ -37,13 +41,19 @@ function getIssuerDid(credential: Record<string, unknown>): string | undefined {
  * - No `lookupIssuers` in VerificationContext
  *
  * Success when:
- * - Issuer found in at least one registry. The outcome `payload` is the
- *   {@link RegistryLookupResult} (`matchingRegistries`,
- *   `uncheckedRegistries`) so consumers read registry names as data
- *   rather than from `message`.
+ * - Issuer found in at least one registry
  *
  * Failure when:
- * - Issuer not found in any registry
+ * - Issuer not found in any registry that answered (`ISSUER_NOT_REGISTERED`).
+ *   When some registries could not be checked, the detail says how many
+ *   answered and a `REGISTRY_UNCHECKED` problem follows naming the rest
+ * - Every registry could not be checked (`REGISTRY_UNCHECKED` only, since
+ *   no registry answered and "not registered" was never established)
+ *
+ * Whenever the lookup ran, on success and on both of those failures, the
+ * outcome carries a {@link RegistryCheckPayload}: the registries that
+ * matched, with what each knows about the issuer, and the registries that
+ * could not be checked. Read that rather than parsing the `message`.
  */
 export const issuerRegistryCheck: VerificationCheck = {
   id: 'registry.issuer',
@@ -98,51 +108,79 @@ export const issuerRegistryCheck: VerificationCheck = {
     }
 
     try {
-      const result: RegistryLookupResult = await lookupIssuers(
-        issuerDid,
-        context.registries
+      const result = await lookupIssuers(issuerDid, context.registries);
+
+      // Names are for the message only; the payload carries the registries
+      // themselves, so a name containing ", " survives.
+      const { found, ...payload } = result;
+      const uncheckedNames = payload.uncheckedRegistries.map(
+        registry => registry.name
       );
 
-      if (result.found) {
+      const uncheckedCount = uncheckedNames.length;
+      const uncheckedSummary = `${uncheckedCount} ${registriesNoun(uncheckedCount)} could not be checked: ${uncheckedNames.join(', ')}`;
+
+      if (found) {
+        const matchingNames = payload.matches.map(match => match.registry.name);
         const message =
-          result.matchingRegistries.length === 1
-            ? `Issuer found in registry: ${result.matchingRegistries[0]}`
-            : `Issuer found in ${result.matchingRegistries.length} registries: ${result.matchingRegistries.join(', ')}`;
+          matchingNames.length === 1
+            ? `Issuer found in registry: ${matchingNames[0]}`
+            : `Issuer found in ${matchingNames.length} registries: ${matchingNames.join(', ')}`;
 
         // Include unchecked registries info if any
         const fullMessage =
-          result.uncheckedRegistries.length > 0
-            ? `${message}. ${result.uncheckedRegistries.length} registries could not be checked: ${result.uncheckedRegistries.join(', ')}`
-            : message;
+          uncheckedCount > 0 ? `${message}. ${uncheckedSummary}` : message;
 
         return {
           status: 'success',
           message: fullMessage,
-          payload: result
+          payload
         };
       }
 
-      // Issuer not found
+      // Every registry is queried when nothing is found, so equal counts
+      // mean no registry answered at all (an injected lookup reporting more
+      // is treated the same).
+      if (uncheckedCount >= context.registries.length) {
+        return {
+          status: 'failure',
+          problems: [
+            {
+              type: ProblemTypes.REGISTRY_UNCHECKED,
+              title: 'Registry Unchecked',
+              detail: `Issuer registration could not be determined: ${uncheckedSummary}`
+            }
+          ],
+          payload
+        };
+      }
+
+      // Issuer not found. Only the registries that answered establish that;
+      // the REGISTRY_UNCHECKED problem below names the rest.
+      const checkedCount = context.registries.length - uncheckedCount;
       const problems: ProblemDetail[] = [
         {
           type: ProblemTypes.ISSUER_NOT_REGISTERED,
           title: 'Issuer Not Registered',
-          detail: `Issuer ${issuerDid} was not found in any known DID registry.`
+          detail:
+            uncheckedCount === 0
+              ? `Issuer ${issuerDid} was not found in any known DID registry.`
+              : `Issuer ${issuerDid} was not found in the ${checkedCount} ${registriesNoun(checkedCount)} that could be checked; ${uncheckedCount} could not be checked.`
         }
       ];
 
-      // Add warning about unchecked registries
-      if (result.uncheckedRegistries.length > 0) {
+      if (uncheckedCount > 0) {
         problems.push({
           type: ProblemTypes.REGISTRY_UNCHECKED,
           title: 'Registry Unchecked',
-          detail: `${result.uncheckedRegistries.length} registries could not be checked: ${result.uncheckedRegistries.join(', ')}`
+          detail: uncheckedSummary
         });
       }
 
       return {
         status: 'failure',
-        problems
+        problems,
+        payload
       };
     } catch (error) {
       // Error during registry lookup

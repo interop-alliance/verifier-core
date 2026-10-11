@@ -53,8 +53,7 @@ describe('lookupVcRecognition', () => {
       ctx
     );
     expect(result).toEqual({
-      status: 'found',
-      registryName: 'Recognition List'
+      status: 'found'
     });
   });
 
@@ -70,8 +69,7 @@ describe('lookupVcRecognition', () => {
     });
     const result = await lookupVcRecognition('did:key:single', registry, ctx);
     expect(result).toEqual({
-      status: 'found',
-      registryName: 'Recognition List'
+      status: 'found'
     });
   });
 
@@ -101,8 +99,7 @@ describe('lookupVcRecognition', () => {
       ctx
     );
     expect(result).toEqual({
-      status: 'unchecked',
-      registryName: 'Recognition List'
+      status: 'unchecked'
     });
   });
 
@@ -145,8 +142,7 @@ describe('lookupVcRecognition', () => {
       ctx
     );
     expect(result).toEqual({
-      status: 'unchecked',
-      registryName: 'Recognition List'
+      status: 'unchecked'
     });
   });
 
@@ -252,8 +248,7 @@ describe('lookupVcRecognition', () => {
       ctx
     );
     expect(result).toEqual({
-      status: 'unchecked',
-      registryName: 'Recognition List'
+      status: 'unchecked'
     });
   });
 
@@ -274,8 +269,7 @@ describe('lookupVcRecognition', () => {
     });
     const result = await lookupVcRecognition('did:key:x', dcc, ctx);
     expect(result).toEqual({
-      status: 'unchecked',
-      registryName: 'Legacy'
+      status: 'unchecked'
     });
     expect(calls).toBe(0);
   });

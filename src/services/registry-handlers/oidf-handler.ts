@@ -38,7 +38,7 @@ const ENTITY_STATEMENT_TYP = 'entity-statement+jwt';
  */
 export const lookupOidf: RegistryHandler = async (did, registry, ctx) => {
   if (registry.type !== 'oidf') {
-    return { status: 'unchecked', registryName: registry.name };
+    return { status: 'unchecked' };
   }
   return lookupOidfForRegistry(did, registry, ctx);
 };
@@ -59,8 +59,7 @@ async function lookupOidfForRegistry(
   { httpGetService, cacheService, timeService }: RegistryHandlerContext
 ): Promise<HandlerResult> {
   const unchecked: HandlerResult = {
-    status: 'unchecked',
-    registryName: registry.name
+    status: 'unchecked'
   };
   // One clock reading per lookup, so every expiry check and TTL in this
   // lookup agrees on "now".
@@ -91,7 +90,7 @@ async function lookupOidfForRegistry(
   if (typeof cached === 'string' && cached) {
     const exp = await verifySubordinateStatement(cached, ec, did, nowMs);
     if (exp !== undefined) {
-      return { status: 'found', registryName: registry.name };
+      return { status: 'found' };
     }
     // A cached statement that no longer verifies (typically one past its
     // `exp`) is refetched rather than trusted.
@@ -122,7 +121,7 @@ async function lookupOidfForRegistry(
     issuerJwt,
     ttlBoundedByExp(result.headers, exp, nowMs)
   );
-  return { status: 'found', registryName: registry.name };
+  return { status: 'found' };
 }
 
 /**

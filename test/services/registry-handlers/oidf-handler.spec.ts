@@ -68,8 +68,8 @@ const oidfRegistry: EntityIdentityRegistry = {
   trustAnchorEC: ecUrl
 };
 
-const found = { status: 'found', registryName: 'OIDF Test' };
-const unchecked = { status: 'unchecked', registryName: 'OIDF Test' };
+const found = { status: 'found' };
+const unchecked = { status: 'unchecked' };
 
 /** A 200 serving a JWT, as `BuiltinHttpGetService` returns entity statements. */
 const jwtResult = (jwt: string, headers = new Headers()): HttpGetResult =>
@@ -257,8 +257,7 @@ describe('lookupOidf', () => {
       buildCtx({ httpGetService })
     );
     expect(result).toEqual({
-      status: 'unchecked',
-      registryName: 'Legacy'
+      status: 'unchecked'
     });
     expect(httpGetService.allCalls()).toEqual([]);
   });

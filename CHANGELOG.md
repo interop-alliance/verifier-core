@@ -60,6 +60,31 @@
 - **BREAKING**: `CryptoVerifyOptions.unsignedPresentation` is removed. A
   `CryptoService` is only asked to verify a proof that exists. Custom
   implementations must drop the field.
+- **BREAKING**: `RegistryLookupResult.matchingRegistries: string[]` is replaced
+  by `matches: RegistryMatch[]`, each
+  `{ registry: RegistryReference, entity?: RegistryEntity }`, and
+  `uncheckedRegistries` is now `RegistryReference[]` (`{ name, type, url }`)
+  instead of names. The `registry.issuer` outcome `payload` is the new
+  `RegistryCheckPayload` (`matches`, `uncheckedRegistries`), present on success
+  and on both lookup failures. `CheckOutcome` failures gain an optional
+  `payload`. A registry's `url` is where it is read from: the list URL for
+  `dcc-legacy` and `vc-recognition`, `trustAnchorEC` for `oidf`. The dcc-legacy
+  handler fills `entity` (`name`, `url`, `raw`) from the registry entry; OIDF
+  and vc-recognition matches carry no entity yet. The DID-level result cache key
+  is now versioned (`reg-result:2:`), so a persistent cache warmed by an older
+  release is not read as the new shape, and a lookup returns a copy of the
+  cached result rather than the cached object.
+- **BREAKING**: `HandlerResult` no longer carries `registryName`; the lookup
+  names the registry from its configured entry. Custom `registryHandlers`
+  handlers must drop the field.
+- When no configured registry could be checked, `registry.issuer` fails with
+  `REGISTRY_UNCHECKED` only (detail
+  `Issuer registration could not be determined: ...`) instead of a contradictory
+  `ISSUER_NOT_REGISTERED` plus `REGISTRY_UNCHECKED`. When some registries
+  answered and the issuer was not found, the `ISSUER_NOT_REGISTERED` detail
+  reads
+  `was not found in the N registries that could be checked; M could not be checked.`;
+  with no unchecked registries the text is unchanged.
 - A presentation with no proof fails `proof.signature` with
   `Presentation Not Signed`, instead of `No Applicable Crypto Service`. With
   `unsignedPresentation: true` the check is `skipped` and `verified` stays true.
@@ -95,6 +120,9 @@
 - `BuiltinHttpGetService({ timeoutMs, maxBytes, allowInsecure })` and the
   exported `BuiltinHttpGetServiceOptions` type. Defaults are 10 s, 5 MiB and
   `false`. `allowInsecure` relaxes only the URL policy, for local development.
+- `RegistryCheckPayload`, `RegistryMatch`, `RegistryReference`, `RegistryEntity`
+  and `HandlerResult` are exported from the main entry, so a custom
+  `registryHandlers` handler can return an `entity`.
 
 ### Documentation
 

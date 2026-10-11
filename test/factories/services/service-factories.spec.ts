@@ -165,7 +165,15 @@ describe('service factories', () => {
       const result = await lookup('did:key:abc', []);
       expect(result).toEqual({
         found: true,
-        matchingRegistries: ['Test Registry'],
+        matches: [
+          {
+            registry: {
+              name: 'Test Registry',
+              type: 'dcc-legacy',
+              url: expect.any(String)
+            }
+          }
+        ],
         uncheckedRegistries: []
       });
     });
@@ -183,12 +191,12 @@ describe('service factories', () => {
       }
     });
 
-    it('returns empty matchingRegistries when found: false', async () => {
+    it('returns no matches when found: false', async () => {
       const lookup = FakeRegistryLookup({ found: false });
       const result = await lookup('did:key:abc', []);
       expect(result).toEqual({
         found: false,
-        matchingRegistries: [],
+        matches: [],
         uncheckedRegistries: []
       });
     });

@@ -7,8 +7,11 @@ import type {
   EntityIdentityRegistry,
   LookupIssuers,
   LookupIssuersOptions,
-  RegistryLookupResult
+  RegistryLookupResult,
+  RegistryMatch,
+  RegistryReference
 } from '../types/registry.js';
+import { registryReference } from '../util/registry-reference.js';
 import type { Verifier } from '../types/verifier.js';
 import type { CacheService } from './cache-service/cache-service.js';
 import type { HttpGetService } from './http-get-service/http-get-service.js';
@@ -21,6 +24,7 @@ import type {
   RegistryHandlerContext,
   RegistryHandlerMap
 } from './registry-handlers/types.js';
+import { klona } from 'klona';
 import { registryCacheKey } from '../util/registry-cache-key.js';
 import { DEFAULT_TTL_MS } from './registry-handlers/cache-ttl.js';
 
@@ -30,6 +34,13 @@ import { DEFAULT_TTL_MS } from './registry-handlers/cache-ttl.js';
  * verification does not wait out the HTTP timeout again.
  */
 const PARTIAL_RESULT_TTL_MS = 60 * 1000;
+
+/**
+ * Namespace of the DID-level result cache. The version segment changes
+ * whenever `RegistryLookupResult` changes shape, so a persistent cache
+ * warmed by an older release is never read as the current shape.
+ */
+const RESULT_CACHE_PREFIX = 'reg-result:2:';
 
 const defaultHandlers: RegistryHandlerMap = {
   'dcc-legacy': lookupDccLegacy,
@@ -62,11 +73,14 @@ const defaultHandlers: RegistryHandlerMap = {
  * cache key that incorporates the DID and a canonical key for the
  * registries array. A complete result is cached for an hour; a result with
  * any unchecked registry is cached for only a minute, so a transient outage
- * is retried soon.
+ * is retried soon. The returned result is a copy, not the cached object.
  *
  * Options:
  * - `fresh: true` — bypass the DID-level result cache (but underlying data caches still apply)
  * - `exhaustive: true` — check all registries even after finding a match (default: short-circuit on first found)
+ *
+ * Because the walk short-circuits, `matches` normally holds at most one
+ * entry; only an `exhaustive` lookup can return more.
  */
 export function createRegistryLookup(
   httpGetService: HttpGetService,
@@ -80,13 +94,13 @@ export function createRegistryLookup(
     registries: EntityIdentityRegistry[],
     options?: LookupIssuersOptions
   ): Promise<RegistryLookupResult> => {
-    const cacheKey = `reg-result:${did}:${registryCacheKey(registries)}`;
+    const cacheKey = `${RESULT_CACHE_PREFIX}${did}:${registryCacheKey(registries)}`;
 
     if (!options?.fresh) {
       const cached = (await cacheService.get(cacheKey)) as
         RegistryLookupResult | undefined;
       if (cached) {
-        return cached;
+        return klona(cached);
       }
     }
 
@@ -105,24 +119,27 @@ export function createRegistryLookup(
       }
     };
 
-    const matchingRegistries: string[] = [];
-    const uncheckedRegistries: string[] = [];
+    const matches: RegistryMatch[] = [];
+    const uncheckedRegistries: RegistryReference[] = [];
 
     for (const registry of registries) {
       const outcome = await handlers[registry.type](did, registry, ctx);
       if (outcome.status === 'found') {
-        matchingRegistries.push(outcome.registryName);
+        matches.push({
+          registry: registryReference(registry),
+          ...(outcome.entity ? { entity: outcome.entity } : {})
+        });
         if (!options?.exhaustive) {
           break;
         }
       } else if (outcome.status === 'unchecked') {
-        uncheckedRegistries.push(outcome.registryName);
+        uncheckedRegistries.push(registryReference(registry));
       }
     }
 
     const result: RegistryLookupResult = {
-      found: matchingRegistries.length > 0,
-      matchingRegistries,
+      found: matches.length > 0,
+      matches,
       uncheckedRegistries
     };
 
@@ -132,6 +149,8 @@ export function createRegistryLookup(
         : DEFAULT_TTL_MS;
     await cacheService.set(cacheKey, result, ttl);
 
-    return result;
+    // The cache stores by reference; hand the caller its own copy so the
+    // check's payload cannot alias what later lookups read.
+    return klona(result);
   };
 }

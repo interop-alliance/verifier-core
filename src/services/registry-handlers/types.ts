@@ -1,14 +1,24 @@
 import type { CacheService } from '../cache-service/cache-service.js';
-import type { EntityIdentityRegistry } from '../../types/registry.js';
+import type {
+  EntityIdentityRegistry,
+  RegistryEntity
+} from '../../types/registry.js';
 import type { HttpGetService } from '../http-get-service/http-get-service.js';
 import type { TimeService } from '../time-service/time-service.js';
 import type { Verifier } from '../../types/verifier.js';
 
-/** Outcome of looking up one issuer DID in a single registry entry. */
+/**
+ * Outcome of looking up one issuer DID in a single registry entry.
+ *
+ * A `found` result may carry the registry's own record of the entity,
+ * which the lookup passes through to the check's payload. A custom
+ * handler that has such a record should return it. The lookup names the
+ * registry itself from the configured entry, so a handler does not.
+ */
 export type HandlerResult =
-  | { status: 'found'; registryName: string }
+  | { status: 'found'; entity?: RegistryEntity }
   | { status: 'not-found' }
-  | { status: 'unchecked'; registryName: string };
+  | { status: 'unchecked' };
 
 /**
  * Per-call context provided to every {@link RegistryHandler}.

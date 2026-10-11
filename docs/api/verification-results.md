@@ -229,9 +229,18 @@ non-fatal. A presentation's `result.verified` is the AND of every credential's
 
 ### Notable outcomes
 
-- `registry.issuer` success outcomes carry the `RegistryLookupResult`
-  (`{ found, matchingRegistries, uncheckedRegistries }`) on `outcome.payload`.
-  Registry names are data, not something to parse from `message`.
+- `registry.issuer` outcomes carry a `RegistryCheckPayload`
+  (`{ matches, uncheckedRegistries }`) on `outcome.payload`, on success and on
+  failure alike, whenever the lookup ran. Each match pairs the registry (`name`,
+  `type`, `url`) with the registry's own record of the issuer under `entity`.
+  Registry names are data, not something to parse from `message`, which joins
+  names with `, `. Because `results` omits passed checks unless `verbose: true`
+  is set, reading the payload of a check that passed needs that option.
+- `registry.issuer` fails with only `REGISTRY_UNCHECKED` (detail
+  `Issuer registration could not be determined: ...`) when no configured
+  registry could be checked. `ISSUER_NOT_REGISTERED` is emitted only when at
+  least one registry answered; when others could not be checked, its detail says
+  how many answered and a `REGISTRY_UNCHECKED` problem names the rest.
 - `recognition.profile` is skipped with `no recognizers configured` when
   `recognizers` is empty. The reason is `no recognizer matched` when recognizers
   exist but none applies.
@@ -546,7 +555,8 @@ dcc-transaction-service UI implementation.
                 "title": "Issuer Not Registered",
                 "detail": "Issuer DID not in any registry."
               }
-            ]
+            ],
+            "payload": { "matches": [], "uncheckedRegistries": [] }
           },
           "fatal": false
         }

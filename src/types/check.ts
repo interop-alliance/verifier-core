@@ -21,6 +21,8 @@ import type { TaskTiming } from './timing.js';
  * - **success** — the check passed; `message` describes what was validated.
  * - **failure** — the check found a problem; `problems` carries one or more
  *   RFC 9457-style `ProblemDetail` entries.
+ * - `payload`, on a success or failure, is check-specific data: what the
+ *   check learned, so a consumer need not parse it out of the prose.
  * - **skipped** — the check was irrelevant to this input (e.g. no
  *   `credentialStatus`); `reason` explains why. `code`, when present, is a
  *   stable machine-readable discriminator for the skip cause — consumers
@@ -35,7 +37,7 @@ import type { TaskTiming } from './timing.js';
  */
 export type CheckOutcome =
   | { status: 'success'; message: string; payload?: unknown }
-  | { status: 'failure'; problems: ProblemDetail[] }
+  | { status: 'failure'; problems: ProblemDetail[]; payload?: unknown }
   | { status: 'skipped'; reason: string; code?: string };
 
 /**

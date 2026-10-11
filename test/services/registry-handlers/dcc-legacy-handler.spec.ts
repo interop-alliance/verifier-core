@@ -38,7 +38,29 @@ describe('lookupDccLegacy', () => {
       dccRegistry,
       buildHandlerContext({ httpGetService })
     );
-    expect(result).toEqual({ status: 'found', registryName: 'Sandbox' });
+    expect(result).toEqual({
+      status: 'found',
+      entity: {
+        name: 'Found Issuer',
+        url: 'https://issuer.example',
+        raw: sampleBody.registry['did:key:found']
+      }
+    });
+  });
+
+  it('returns a found result with no entity fields for a bare entry', async () => {
+    const httpGetService = FakeHttpGetService({
+      [registryUrl]: okJsonBody({ registry: { 'did:key:bare': {} } })
+    });
+    const result = await lookupDccLegacy(
+      'did:key:bare',
+      dccRegistry,
+      buildHandlerContext({ httpGetService })
+    );
+    expect(result).toEqual({
+      status: 'found',
+      entity: { raw: {} }
+    });
   });
 
   it.each(['__proto__', 'constructor', 'toString'])(
@@ -80,8 +102,7 @@ describe('lookupDccLegacy', () => {
       buildHandlerContext({ httpGetService })
     );
     expect(result).toEqual({
-      status: 'unchecked',
-      registryName: 'Sandbox'
+      status: 'unchecked'
     });
   });
 
@@ -95,8 +116,7 @@ describe('lookupDccLegacy', () => {
       buildHandlerContext({ httpGetService })
     );
     expect(result).toEqual({
-      status: 'unchecked',
-      registryName: 'Sandbox'
+      status: 'unchecked'
     });
   });
 
@@ -110,8 +130,7 @@ describe('lookupDccLegacy', () => {
       buildHandlerContext({ httpGetService })
     );
     expect(result).toEqual({
-      status: 'unchecked',
-      registryName: 'Sandbox'
+      status: 'unchecked'
     });
   });
 
@@ -191,7 +210,7 @@ describe('lookupDccLegacy', () => {
       oidf,
       buildHandlerContext({ httpGetService })
     );
-    expect(result).toEqual({ status: 'unchecked', registryName: 'OIDF' });
+    expect(result).toEqual({ status: 'unchecked' });
     expect(calls).toBe(0);
   });
 });

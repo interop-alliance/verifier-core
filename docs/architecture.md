@@ -52,7 +52,7 @@ src/
 │   ├── data-integrity-crypto.ts     Default CryptoService implementation (Data Integrity / Linked Data Proofs)
 │   ├── registry-lookup.ts           createRegistryLookup factory: builds a LookupIssuers from handlers + cache
 │   └── registry-handlers/           Per-type registry handlers behind a port
-│       ├── types.ts                 RegistryHandler, RegistryHandlerMap, RegistryHandlerContext
+│       ├── types.ts                 RegistryHandler, RegistryHandlerMap, RegistryHandlerContext, HandlerResult (a `found` result may carry the registry's `entity`)
 │       ├── dcc-legacy-handler.ts    DCC legacy DID-list registry
 │       ├── oidf-handler.ts          OpenID Federation registry: verifies the entity configuration and subordinate statement (ES256/EdDSA), `iss` / `sub` / `exp`
 │       ├── jws-verify.ts            Compact JWS verification against a JWK Set with the shipped key packages
@@ -97,7 +97,7 @@ src/
 │   ├── http.ts                      HttpGetResult
 │   ├── subject.ts                   VerificationSubject
 │   ├── problem-detail.ts            ProblemDetail (RFC 9457-inspired; carries `instance` JSON Pointer)
-│   └── registry.ts                  EntityIdentityRegistry, LookupIssuers, RegistryLookupResult
+│   └── registry.ts                  EntityIdentityRegistry, LookupIssuers, RegistryLookupResult, RegistryCheckPayload (RegistryMatch / RegistryReference / RegistryEntity)
 └── util/                            Internal helpers
     ├── document-loader-from-http-get.ts  Build a JSON-LD loader backed by an HttpGetService
     ├── did-web-driver-with-http-get.ts   did:web resolution via HttpGetService (cache-sharing)
@@ -350,8 +350,8 @@ VerificationCheck.execute(subject, context)
        │
        ▼
 CheckOutcome
-  ├── { status: 'success', message }
-  ├── { status: 'failure', problems: ProblemDetail[] }
+  ├── { status: 'success', message, payload? }
+  ├── { status: 'failure', problems: ProblemDetail[], payload? }
   └── { status: 'skipped', reason, code? }
        │
        ▼
@@ -382,6 +382,10 @@ top-level result only when the producing call ran with `timing: true`. Additive
   with `type` (URI), `title`, and `detail`.
 - **Skips** carry a `reason` string explaining why (e.g. "Credential has no
   credentialStatus").
+- **`payload`** is an optional, check-specific data result on a `success` or
+  `failure` outcome. It is what the check learned, so consumers need not parse
+  it back out of the prose. Today only `registry.issuer` emits one
+  (`RegistryCheckPayload`).
 
 ### Default suites
 
@@ -391,7 +395,7 @@ top-level result only when the producing call ran with `timing: true`. Additive
 | Recognition        | `recognition` | `recognition`   | `recognition.profile`                                                               | No    | Pluggable recognizer dispatch; produces normalized credential form. Skipped with `no recognizers configured` when none are set, and `no recognizer matched` when none applies.                                                                                                                                                                    |
 | Proof Verification | `proof`       | `cryptographic` | `proof.signature`                                                                   | Yes   | Cryptographic signature verification dispatched via `CryptoService`. Does **not** check credential status — see the status suite.                                                                                                                                                                                                                 |
 | Credential Status  | `status`      | `cryptographic` | `status.bitstring`                                                                  | Yes   | Revocation/suspension via BitstringStatusList. **Sole owner** of status verification: a missing/invalid/expired status list, a wrong-typed list, or a flipped revocation/suspension bit all fail the credential. The status list credential's own proof is verified through the injected `CryptoService`s, same dispatch as any other credential. |
-| Issuer Registry    | `registry`    | `trust`         | `registry.issuer`                                                                   | No    | Lookup issuer DID in known registries via `context.lookupIssuers`. Success outcomes carry the `RegistryLookupResult` (`found`, `matchingRegistries`, `uncheckedRegistries`) on `outcome.payload`.                                                                                                                                                 |
+| Issuer Registry    | `registry`    | `trust`         | `registry.issuer`                                                                   | No    | Lookup issuer DID in known registries via `context.lookupIssuers`. Outcomes carry a `RegistryCheckPayload` (`matches`, `uncheckedRegistries`) on `outcome.payload`, on success and on failure. Fails with only `REGISTRY_UNCHECKED` when no registry could be checked.                                                                            |
 
 Open Badges 3.0 verification (semantic checks and JSON Schema conformance) is no
 longer in the default list; it ships as an opt-in submodule (see
@@ -654,6 +658,17 @@ offending portion of the credential — see
 variant uses OpenID Federation trust anchors; `dcc-legacy` uses the older
 URL-based DCC registry format; `vc-recognition` consumes a recognition VC issued
 by a trust authority.
+
+**`RegistryLookupResult`** is what `LookupIssuers` returns: `found`, plus the
+two lists that make up **`RegistryCheckPayload`**, `matches` and
+`uncheckedRegistries`. A `RegistryMatch` pairs a `RegistryReference` (`name`,
+`type`, and the `url` the registry is read from, which is `trustAnchorEC` for
+`oidf`) with an optional `RegistryEntity`, the registry's own record of the
+issuer (`name`, `url`, and a copy of the `raw` entry). Because the lookup stops
+at the first registry that matches unless run with `exhaustive`, `matches`
+normally holds at most one entry. The registry check returns the payload on its
+outcome, on success and on failure; a handler supplies the `entity` on its
+`found` result. Only the `dcc-legacy` handler fills one in today.
 
 ## Result models
 

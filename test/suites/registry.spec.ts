@@ -4,9 +4,24 @@ import { registrySuite } from '../../src/suites/registry/index.js';
 import { buildTestContext } from '../factories/services/build-test-context.js';
 import { VerificationSubject } from '../../src/types/subject.js';
 import { VerificationContext } from '../../src/types/context.js';
-import type { EntityIdentityRegistry } from '../../src/types/registry.js';
-import { CredentialFactory } from '../factories/data/credential-factory.js';
+import type {
+  EntityIdentityRegistry,
+  RegistryCheckPayload
+} from '../../src/types/registry.js';
+import type { CheckOutcome } from '../../src/types/check.js';
+import {
+  CredentialFactory,
+  DEFAULT_TEST_ISSUER_DID
+} from '../factories/data/credential-factory.js';
 import { FakeRegistryLookup } from '../factories/services/fake-registry-lookup.js';
+import { FakeCryptoService } from '../factories/services/fake-crypto-service.js';
+import {
+  FakeHttpGetService,
+  okJsonBody
+} from '../factories/services/fake-http-get-service.js';
+import { InMemoryCacheService } from '../../src/services/cache-service/in-memory-cache-service.js';
+import { createVerifier } from '../../src/verifier.js';
+import { ProblemTypes } from '../../src/problem-types.js';
 
 const testRegistries: EntityIdentityRegistry[] = [
   {
@@ -85,8 +100,15 @@ describe('Registry Suite', () => {
       if (results[0].outcome.status === 'success') {
         expect(results[0].outcome.message).toContain('Unit Test Registry');
         expect(results[0].outcome.payload).toEqual({
-          found: true,
-          matchingRegistries: ['Unit Test Registry'],
+          matches: [
+            {
+              registry: {
+                name: 'Unit Test Registry',
+                type: 'dcc-legacy',
+                url: 'https://factory.test/Unit Test Registry.json'
+              }
+            }
+          ],
           uncheckedRegistries: []
         });
       }
@@ -106,10 +128,163 @@ describe('Registry Suite', () => {
       expect(results).toHaveLength(1);
       expect(results[0].outcome.status).toBe('failure');
       if (results[0].outcome.status === 'failure') {
+        expect(results[0].outcome.problems).toHaveLength(1);
         expect(results[0].outcome.problems[0].type).toBe(
           'https://www.w3.org/TR/vc-data-model#ISSUER_NOT_REGISTERED'
         );
+        // Every registry answered, so "any known" is true.
+        expect(results[0].outcome.problems[0].detail).toBe(
+          `Issuer ${DEFAULT_TEST_ISSUER_DID} was not found in any known DID registry.`
+        );
       }
+    });
+
+    it('reports only REGISTRY_UNCHECKED when no registry could be checked', async () => {
+      const subject = createSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
+      const context: VerificationContext = {
+        ...baseContext,
+        registries: testRegistries,
+        lookupIssuers: FakeRegistryLookup({
+          found: false,
+          uncheckedRegistries: ['Unit Test Registry']
+        })
+      };
+      const results = await runSuites([registrySuite], subject, context);
+
+      expect(results[0].outcome.status).toBe('failure');
+      if (results[0].outcome.status === 'failure') {
+        expect(results[0].outcome.problems.map(p => p.type)).toEqual([
+          ProblemTypes.REGISTRY_UNCHECKED
+        ]);
+        expect(results[0].outcome.problems[0].detail).toBe(
+          'Issuer registration could not be determined: 1 registry could not be checked: Unit Test Registry'
+        );
+      }
+    });
+
+    it('reports ISSUER_NOT_REGISTERED with answer counts when some registries answered', async () => {
+      const subject = createSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
+      const twoRegistries: EntityIdentityRegistry[] = [
+        ...testRegistries,
+        {
+          name: 'Second Registry',
+          type: 'oidf',
+          trustAnchorEC: 'https://ta.test'
+        }
+      ];
+      const context: VerificationContext = {
+        ...baseContext,
+        registries: twoRegistries,
+        lookupIssuers: FakeRegistryLookup({
+          found: false,
+          uncheckedRegistries: ['Second Registry']
+        })
+      };
+      const results = await runSuites([registrySuite], subject, context);
+
+      expect(results[0].outcome.status).toBe('failure');
+      if (results[0].outcome.status === 'failure') {
+        expect(results[0].outcome.problems.map(p => p.type)).toEqual([
+          ProblemTypes.ISSUER_NOT_REGISTERED,
+          ProblemTypes.REGISTRY_UNCHECKED
+        ]);
+        // Only the registry that answered establishes "not registered".
+        expect(results[0].outcome.problems[0].detail).toBe(
+          `Issuer ${DEFAULT_TEST_ISSUER_DID} was not found in the 1 registry that could be checked; 1 could not be checked.`
+        );
+        expect(results[0].outcome.problems[1].detail).toBe(
+          '1 registry could not be checked: Second Registry'
+        );
+      }
+    });
+
+    it('counts the registries that answered when several did', async () => {
+      const subject = createSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
+      const threeRegistries: EntityIdentityRegistry[] = [
+        ...testRegistries,
+        {
+          name: 'Second Registry',
+          type: 'oidf',
+          trustAnchorEC: 'https://ta.test'
+        },
+        {
+          name: 'Third Registry',
+          type: 'dcc-legacy',
+          url: 'https://factory.test/registry/third.json'
+        }
+      ];
+      const context: VerificationContext = {
+        ...baseContext,
+        registries: threeRegistries,
+        lookupIssuers: FakeRegistryLookup({
+          found: false,
+          uncheckedRegistries: ['Second Registry']
+        })
+      };
+      const results = await runSuites([registrySuite], subject, context);
+
+      expect(results[0].outcome.status).toBe('failure');
+      if (results[0].outcome.status === 'failure') {
+        expect(results[0].outcome.problems[0].detail).toBe(
+          `Issuer ${DEFAULT_TEST_ISSUER_DID} was not found in the 2 registries that could be checked; 1 could not be checked.`
+        );
+      }
+    });
+
+    it('reports only REGISTRY_UNCHECKED when a lookup reports more unchecked registries than are configured', async () => {
+      const subject = createSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
+      const context: VerificationContext = {
+        ...baseContext,
+        registries: testRegistries,
+        lookupIssuers: FakeRegistryLookup({
+          found: false,
+          uncheckedRegistries: ['Unit Test Registry', 'Phantom Registry']
+        })
+      };
+      const results = await runSuites([registrySuite], subject, context);
+
+      expect(results[0].outcome.status).toBe('failure');
+      if (results[0].outcome.status === 'failure') {
+        expect(results[0].outcome.problems.map(p => p.type)).toEqual([
+          ProblemTypes.REGISTRY_UNCHECKED
+        ]);
+        expect(results[0].outcome.problems[0].detail).toMatch(
+          /^Issuer registration could not be determined: /
+        );
+      }
+    });
+
+    it('reports only REGISTRY_UNCHECKED through the verifier when the registry is unreachable', async () => {
+      const verifier = createVerifier({
+        httpGetService: FakeHttpGetService({}),
+        cacheService: InMemoryCacheService(),
+        cryptoServices: [FakeCryptoService({ verified: true })],
+        registries: testRegistries,
+        verbose: true
+      });
+      const result = await verifier.verifyCredential({
+        credential: CredentialFactory({ version: 'v2', credential: {} })
+      });
+
+      const outcome = result.results.find(r => r.check === 'registry.issuer')
+        ?.outcome as CheckOutcome;
+      expect(outcome.status).toBe('failure');
+      if (outcome.status === 'failure') {
+        expect(outcome.problems.map(p => p.type)).toEqual([
+          ProblemTypes.REGISTRY_UNCHECKED
+        ]);
+      }
+      expect(JSON.stringify(result)).not.toContain(
+        ProblemTypes.ISSUER_NOT_REGISTERED
+      );
     });
 
     it('returns REGISTRY_ERROR when lookup throws', async () => {
@@ -155,6 +330,160 @@ describe('Registry Suite', () => {
       if (results[0].outcome.status === 'success') {
         expect(results[0].outcome.message).toContain('could not be checked');
       }
+    });
+  });
+
+  describe('outcome payload', () => {
+    const payloadOf = (outcome: CheckOutcome): RegistryCheckPayload =>
+      (outcome as { payload: RegistryCheckPayload }).payload;
+
+    it('carries the matched registry and its record of the issuer on success', async () => {
+      const verifier = createVerifier({
+        httpGetService: FakeHttpGetService({
+          'https://factory.test/registry/legacy.json': okJsonBody({
+            registry: {
+              [DEFAULT_TEST_ISSUER_DID]: {
+                name: 'Example University',
+                url: 'https://example.edu'
+              }
+            }
+          })
+        }),
+        cacheService: InMemoryCacheService(),
+        cryptoServices: [FakeCryptoService({ verified: true })],
+        registries: testRegistries,
+        verbose: true
+      });
+      const result = await verifier.verifyCredential({
+        credential: CredentialFactory({ version: 'v2', credential: {} })
+      });
+
+      const outcome = result.results.find(r => r.check === 'registry.issuer')
+        ?.outcome as CheckOutcome;
+      expect(outcome.status).toBe('success');
+      expect(payloadOf(outcome)).toEqual({
+        matches: [
+          {
+            registry: {
+              name: 'Unit Test Registry',
+              type: 'dcc-legacy',
+              url: 'https://factory.test/registry/legacy.json'
+            },
+            entity: {
+              name: 'Example University',
+              url: 'https://example.edu',
+              raw: {
+                name: 'Example University',
+                url: 'https://example.edu'
+              }
+            }
+          }
+        ],
+        uncheckedRegistries: []
+      });
+    });
+
+    it('names unchecked registries in the payload on success', async () => {
+      const subject = createSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
+      const context: VerificationContext = {
+        ...baseContext,
+        registries: testRegistries,
+        lookupIssuers: FakeRegistryLookup({
+          found: true,
+          matchingRegistries: ['Unit Test Registry'],
+          uncheckedRegistries: [
+            { name: 'Other Registry', type: 'oidf', url: 'https://ta.test' }
+          ]
+        })
+      };
+      const results = await runSuites([registrySuite], subject, context);
+
+      expect(results[0].outcome.status).toBe('success');
+      expect(payloadOf(results[0].outcome).uncheckedRegistries).toEqual([
+        { name: 'Other Registry', type: 'oidf', url: 'https://ta.test' }
+      ]);
+    });
+
+    it('names unchecked registries in the payload on failure', async () => {
+      const subject = createSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
+      const twoRegistries: EntityIdentityRegistry[] = [
+        ...testRegistries,
+        {
+          name: 'Second Registry',
+          type: 'oidf',
+          trustAnchorEC: 'https://ta.test'
+        }
+      ];
+      const context: VerificationContext = {
+        ...baseContext,
+        registries: twoRegistries,
+        lookupIssuers: FakeRegistryLookup({
+          found: false,
+          uncheckedRegistries: [
+            { name: 'Second Registry', type: 'oidf', url: 'https://ta.test' }
+          ]
+        })
+      };
+      const results = await runSuites([registrySuite], subject, context);
+
+      expect(results[0].outcome.status).toBe('failure');
+      expect(payloadOf(results[0].outcome)).toEqual({
+        matches: [],
+        uncheckedRegistries: [
+          { name: 'Second Registry', type: 'oidf', url: 'https://ta.test' }
+        ]
+      });
+    });
+
+    it('carries the payload on the all-unchecked failure', async () => {
+      const subject = createSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
+      const context: VerificationContext = {
+        ...baseContext,
+        registries: testRegistries,
+        lookupIssuers: FakeRegistryLookup({
+          found: false,
+          uncheckedRegistries: ['Unit Test Registry']
+        })
+      };
+      const results = await runSuites([registrySuite], subject, context);
+
+      expect(results[0].outcome.status).toBe('failure');
+      expect(payloadOf(results[0].outcome)).toEqual({
+        matches: [],
+        uncheckedRegistries: [
+          {
+            name: 'Unit Test Registry',
+            type: 'dcc-legacy',
+            url: 'https://factory.test/Unit Test Registry.json'
+          }
+        ]
+      });
+    });
+
+    it('keeps a registry name containing ", " intact', async () => {
+      const subject = createSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
+      const awkward = 'Registry of Anytown, State';
+      const context: VerificationContext = {
+        ...baseContext,
+        registries: testRegistries,
+        lookupIssuers: FakeRegistryLookup({
+          found: true,
+          matchingRegistries: [awkward]
+        })
+      };
+      const results = await runSuites([registrySuite], subject, context);
+
+      expect(payloadOf(results[0].outcome).matches[0].registry.name).toBe(
+        awkward
+      );
     });
   });
 

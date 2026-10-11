@@ -1,4 +1,7 @@
-import type { DccLegacyEntityIdentityRegistry } from '../../types/registry.js';
+import type {
+  DccLegacyEntityIdentityRegistry,
+  RegistryEntity
+} from '../../types/registry.js';
 import type { HttpGetService } from '../http-get-service/http-get-service.js';
 import { parseCacheControlMaxAge, resolveTtl } from './cache-ttl.js';
 import type {
@@ -25,7 +28,7 @@ export interface DccLegacyRegistryBody {
  */
 export const lookupDccLegacy: RegistryHandler = async (did, registry, ctx) => {
   if (registry.type !== 'dcc-legacy') {
-    return { status: 'unchecked', registryName: registry.name };
+    return { status: 'unchecked' };
   }
   return lookupDccLegacyForRegistry(did, registry, ctx);
 };
@@ -41,7 +44,7 @@ async function lookupDccLegacyForRegistry(
   if (!body) {
     const loaded = await fetchDccLegacyRegistry(registry, httpGetService);
     if (!loaded) {
-      return { status: 'unchecked', registryName: registry.name };
+      return { status: 'unchecked' };
     }
     body = loaded.body;
     await cacheService.set(key, body, loaded.ttlMs);
@@ -55,7 +58,29 @@ async function lookupDccLegacyForRegistry(
   if (entry === undefined || entry === null) {
     return { status: 'not-found' };
   }
-  return { status: 'found', registryName: registry.name };
+  return {
+    status: 'found',
+    entity: entityFromEntry(entry)
+  };
+}
+
+/**
+ * The registry's record of the issuer: its name and homepage as the list
+ * gives them, plus the whole entry, so a consumer can read fields this
+ * shape does not name. The lookup copies the result it hands out, so the
+ * entry is not copied here.
+ */
+function entityFromEntry(
+  entry: NonNullable<DccLegacyRegistryBody['registry'][string]>
+): RegistryEntity {
+  const entity: RegistryEntity = { raw: entry };
+  if (entry.name !== undefined) {
+    entity.name = entry.name;
+  }
+  if (entry.url !== undefined) {
+    entity.url = entry.url;
+  }
+  return entity;
 }
 
 async function fetchDccLegacyRegistry(
