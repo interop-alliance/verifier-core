@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { withMessage } from './messages.js';
 
 /**
  * The `holder` of a verifiable presentation.
@@ -7,7 +8,8 @@ import { z } from 'zod';
  * containing an id property." Deliberately not `IssuerSchema`: a holder
  * carries no issuer-specific fields.
  */
-export const HolderObjectSchema = z.object({ id: z.string() }).passthrough();
-
-export const HolderSchema = z.union([z.string(), HolderObjectSchema]);
+export const HolderSchema = z.union(
+  [z.string(), z.object({ id: z.string() }).passthrough()],
+  withMessage('"holder" must be a string or an object with a string "id".')
+);
 export type Holder = z.infer<typeof HolderSchema>;

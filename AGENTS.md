@@ -30,11 +30,19 @@ with code changes. Quick map:
 - **Standalone `verifyCredential` / `verifyPresentation`**
   (`src/verify-suite.ts`) are thin wrappers that build a fresh verifier per
   call.
+- **Envelope gate** (`src/schemas/`): `parseCredential` / `parsePresentation`
+  are minimal Zod gates (`@context`, `type`, `issuer`, `credentialSubject`;
+  `holder` for a VP) that reject enveloped (VC-JOSE-COSE) credentials. They are
+  not VC Data Model validators; `core.vc-structure` / `core.vp-structure` judge
+  structure and report `MALFORMED_VALUE_ERROR` with a JSON Pointer per
+  violation. The inferred `VerifiableCredential` type is a passthrough object,
+  so consumers reading other fields get `unknown`.
 - **Suite/check engine** (`src/run-suites.ts`): an ordered pipeline of suites ->
   checks. Default order: `core -> recognition -> proof -> status -> registry`.
-  Each check returns a discriminated `CheckOutcome`
-  (`success | failure | skipped`) -- **no exceptions for verification
-  failures**. Append custom suites via `additionalSuites`.
+  `verifyPresentation` runs `core` (only `core.vp-structure` applies) and then
+  `proof` against the VP itself. Each check returns a discriminated
+  `CheckOutcome` (`success | failure | skipped`) -- **no exceptions for
+  verification failures**. Append custom suites via `additionalSuites`.
 - **Suites carry a `phase` tag**
   (`cryptographic | trust | recognition | semantic`) and an optional
   `applies(subject)` predicate. The `phases?:` filter enables two-pass
@@ -88,11 +96,12 @@ frameworks) follow the same pattern.
 **Bundle note**: `ajv`/`ajv-formats` are only reachable via
 `src/suites/schema/obv3/`, which is consumed exclusively by the `/openbadges`
 submodule. The default suite chain does not import them -- a consumer importing
-only the main entry tree-shakes ajv out. The heavy weight is the unchanged
-crypto/JSON-LD stack (`@digitalcredentials/vc`, `jsonld-signatures`,
-`data-integrity`, `security-document-loader`, `did-method-*`,
-`vc-bitstring-status-list`); the rewrite adds `zod` (main path) + `klona`
-(tiny).
+only the main entry tree-shakes ajv out. The main entry imports nothing from
+`src/openbadges/` (the issuer gate no longer reaches for the OB image schema).
+The heavy weight is the unchanged crypto/JSON-LD stack
+(`@digitalcredentials/vc`, `jsonld-signatures`, `data-integrity`,
+`security-document-loader`, `did-method-*`, `vc-bitstring-status-list`); the
+rewrite adds `zod` (main path) + `klona` (tiny).
 
 ## Direction Nate is taking it
 

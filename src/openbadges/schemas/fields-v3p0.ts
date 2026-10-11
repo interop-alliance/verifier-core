@@ -33,9 +33,8 @@
 import { z } from 'zod';
 import type { ProblemDetail } from '../../types/problem-detail.js';
 import { formatJsonPointer } from '../../util/json-pointer.js';
+import { VC_CONTEXT_V1, VC_CONTEXT_V2 } from '../../util/vc-contexts.js';
 
-export const VCDM_V1_CONTEXT = 'https://www.w3.org/2018/credentials/v1';
-export const VCDM_V2_CONTEXT = 'https://www.w3.org/ns/credentials/v2';
 /** Matches `context-3.0.X.json` URLs across patch versions. */
 export const OB_3_0_CONTEXT_PREFIX =
   'https://purl.imsglobal.org/spec/ob/v3p0/context-3';
@@ -79,7 +78,7 @@ export function JsonLdTypeField(requiredTypes: readonly string[]) {
 export const Obv3p0ContextArray = z
   .array(z.string())
   .min(1, '@context must be a non-empty array')
-  .refine(arr => arr[0] === VCDM_V1_CONTEXT || arr[0] === VCDM_V2_CONTEXT, {
+  .refine(arr => arr[0] === VC_CONTEXT_V1 || arr[0] === VC_CONTEXT_V2, {
     message: '@context[0] must be a VCDM context (v1 or v2)'
   })
   .refine(arr => arr.some(c => c.startsWith(OB_3_0_CONTEXT_PREFIX)), {

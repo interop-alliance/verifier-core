@@ -44,6 +44,31 @@
 
 ### Changed
 
+- **BREAKING**: the Zod gate in front of `verifyCredential` /
+  `verifyPresentation` is now minimal. A credential needs only `@context`,
+  `type`, `issuer` (a string or an object with a string `id`) and
+  `credentialSubject`; a presentation needs `@context`, `type` and, when
+  present, `holder`. Everything else passes through, so spec-legal inputs the
+  old gate rejected (an id-less or non-Bitstring `credentialStatus`, a
+  language-map `name`, an issuer `image` that is only `{ id }`, a proof with an
+  object `verificationMethod`, an array `credentialSchema.type`) now reach the
+  suites. The inferred `VerifiableCredential` / `VerifiablePresentation` types
+  are passthrough objects: fields other than the gated ones are `unknown`.
+  `ProofSchema`, `JsonLdField`, `JsonLdFieldAllowEmpty`, `CredentialV1Schema`,
+  `CredentialV2Schema` and `IssuerObjectSchema` are removed.
+- A presentation's gate no longer validates embedded credentials. Each one is
+  gated and verified by its own `verifyCredential` call, so a malformed or
+  enveloped credential yields its own `parsing.envelope` failure in
+  `credentialResults` instead of failing the whole presentation.
+- Gate failures carry plain messages (for example
+  `"issuer" is required and must be a string or an object with a string "id".`)
+  instead of zod's "Invalid input", and the detail is no longer prefixed with a
+  path.
+- `coreSuite` runs for presentations, ahead of `proof`; only `core.vp-structure`
+  applies to a VP. A presentation result's `summary` gains a `core` entry.
+- `foldCheckResults` takes `subjectType` in its options, so the "not run after
+  fatal" count in a suite message counts only the checks whose `appliesTo`
+  admits the subject. `createVerifier` passes it.
 - OIDF lookups work in browsers and React Native: JWT decoding uses
   `@scure/base` instead of `Buffer`. `@interop/ecdsa-multikey` and `@scure/base`
   are runtime dependencies.
@@ -112,6 +137,27 @@
 
 ### Added
 
+- Fatal `core.vc-structure` and `core.vp-structure` checks validate VC Data
+  Model structure: `type` includes `VerifiableCredential` /
+  `VerifiablePresentation`; `credentialSubject` is a non-empty object (or
+  non-empty array of them) with a URL `id` if present; `issuer` is a URL or an
+  object with a URL `id`; v1 `issuanceDate` (required) / `expirationDate` and v2
+  `validFrom` / `validUntil` are whole-string dateTimes (format only, via
+  `@interop/vc` `dateRegex`); `credentialStatus`, `proof`, `termsOfUse` and
+  `evidence` entries are objects with a `type`; `credentialStatus` and
+  `evidence` ids are URLs; `credentialSchema` entries have a `type` and a URL
+  `id`; the first `@context` entry is a VC context. For a VP: `id` and `holder`
+  are URLs if present, `proof` entries are typed objects, `verifiableCredential`
+  entries are objects. Every violation is its own problem with a JSON Pointer
+  `instance`.
+- `ProblemTypes.MALFORMED_VALUE_ERROR` (VC Data Model 2.0 section 7.1), emitted
+  by the two structure checks.
+- `parseCredential` rejects an `EnvelopedVerifiableCredential` (VC-JOSE-COSE)
+  with
+  `Enveloped credentials (VC-JOSE-COSE) are not supported by this verifier.`
+  `parsePresentation` rejects an `EnvelopedVerifiablePresentation` the same way,
+  with
+  `Enveloped presentations (VC-JOSE-COSE) are not supported by this verifier.`
 - `domain` on `verifyPresentation`, `VerificationContext` and
   `CryptoVerifyOptions`, checked alongside `challenge`.
 - `ProblemTypes.PROOF_PURPOSE_MISMATCH`.

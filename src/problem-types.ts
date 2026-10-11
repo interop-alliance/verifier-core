@@ -4,24 +4,25 @@
  * Two provenance categories live alongside each other in the same
  * flat map:
  *
- * **Real spec types** — defined in W3C VC Data Model 2.0 §7.1
+ * **Real spec types** -- defined in W3C VC Data Model 2.0 section 7.1
  * Verification (https://www.w3.org/TR/vc-data-model/#verification):
  *   - PARSING_ERROR
  *   - CRYPTOGRAPHIC_SECURITY_ERROR
  *   - MALFORMED_VALUE_ERROR
  *   - RANGE_ERROR
  *
- * Of those four, this catalog currently emits only PARSING_ERROR.
- * The other three are listed in the JSDoc above for awareness; we
- * may align synthesized tokens like INVALID_SIGNATURE onto
- * CRYPTOGRAPHIC_SECURITY_ERROR in a future deliberate refactor (out
- * of scope for P-D — see the design doc's non-goals).
+ * Of those four, this catalog currently emits PARSING_ERROR (the
+ * envelope gate and the context checks) and MALFORMED_VALUE_ERROR
+ * (the `core.vc-structure` / `core.vp-structure` checks). The other
+ * two are listed in the JSDoc above for awareness; we may align
+ * synthesized tokens like INVALID_SIGNATURE onto
+ * CRYPTOGRAPHIC_SECURITY_ERROR in a future deliberate refactor.
  *
- * **Synthesized placeholders** — temporary URIs we use until the
+ * **Synthesized placeholders** -- temporary URIs we use until the
  * W3C VC working group publishes a wider error registry or we adopt
  * our own URN namespace (see the readiness review's Q9 for the
  * decision history). They reuse the same
- * `https://www.w3.org/TR/vc-data-model#…` prefix as a stable string
+ * `https://www.w3.org/TR/vc-data-model#...` prefix as a stable string
  * but are NOT defined by the spec; treat them as opaque keys.
  *
  * `ProblemDetail.type` stays typed as `string` so callers can write
@@ -38,66 +39,69 @@
  */
 
 export const ProblemTypes = {
-  /** Spec — input could not be parsed. (W3C VC Data Model 2.0 §7.1) */
+  /** Spec -- input could not be parsed. (W3C VC Data Model 2.0 section 7.1) */
   PARSING_ERROR: 'https://www.w3.org/TR/vc-data-model#PARSING_ERROR',
+  /** Spec -- a property holds a malformed value; `instance` points at it. (W3C VC Data Model 2.0 section 7.1) */
+  MALFORMED_VALUE_ERROR:
+    'https://www.w3.org/TR/vc-data-model#MALFORMED_VALUE_ERROR',
 
-  /** Synthesized — cryptographic signature did not verify. */
+  /** Synthesized -- cryptographic signature did not verify. */
   INVALID_SIGNATURE: 'https://www.w3.org/TR/vc-data-model#INVALID_SIGNATURE',
-  /** Synthesized — proof verification raised an error before reaching a verdict. */
+  /** Synthesized -- proof verification raised an error before reaching a verdict. */
   PROOF_VERIFICATION_ERROR:
     'https://www.w3.org/TR/vc-data-model#PROOF_VERIFICATION_ERROR',
   /** Synthesized -- a presentation proof does not bind to this request: its `challenge`, `domain`, or `proofPurpose` differs from what the caller expects. The signature itself may be valid. */
   PROOF_PURPOSE_MISMATCH:
     'https://www.w3.org/TR/vc-data-model#PROOF_PURPOSE_MISMATCH',
-  /** Synthesized — credential `issuer` does not match the controller of the proof's verification method. */
+  /** Synthesized -- credential `issuer` does not match the controller of the proof's verification method. */
   ISSUER_PROOF_MISMATCH:
     'https://www.w3.org/TR/vc-data-model#ISSUER_PROOF_MISMATCH',
   /** Synthesized -- a `did:web` document could not be fetched, or a DID driver reported the DID as unresolvable (e.g. an unreachable `did:webvh` log). */
   DID_WEB_UNRESOLVED: 'https://www.w3.org/TR/vc-data-model#DID_WEB_UNRESOLVED',
-  /** Synthesized — the proof's verification method uses a DID method the document loader has no resolver/driver for. */
+  /** Synthesized -- the proof's verification method uses a DID method the document loader has no resolver/driver for. */
   VERIFICATION_METHOD_UNRESOLVED:
     'https://www.w3.org/TR/vc-data-model#VERIFICATION_METHOD_UNRESOLVED',
-  /** Synthesized — HTTP error during signature/issuer resolution. */
+  /** Synthesized -- HTTP error during signature/issuer resolution. */
   HTTP_ERROR: 'https://www.w3.org/TR/vc-data-model#HTTP_ERROR',
-  /** Synthesized — credential `id` is missing or malformed. */
+  /** Synthesized -- credential `id` is missing or malformed. */
   INVALID_CREDENTIAL_ID:
     'https://www.w3.org/TR/vc-data-model#INVALID_CREDENTIAL_ID',
 
-  /** Synthesized — issuer DID was not found in any consulted registry. */
+  /** Synthesized -- issuer DID was not found in any consulted registry. */
   ISSUER_NOT_FOUND: 'https://www.w3.org/TR/vc-data-model#ISSUER_NOT_FOUND',
-  /** Synthesized — issuer DID was found but is not registered. */
+  /** Synthesized -- issuer DID was found but is not registered. */
   ISSUER_NOT_REGISTERED:
     'https://www.w3.org/TR/vc-data-model#ISSUER_NOT_REGISTERED',
-  /** Synthesized — one or more registries could not be checked. */
+  /** Synthesized -- one or more registries could not be checked. */
   REGISTRY_UNCHECKED: 'https://www.w3.org/TR/vc-data-model#REGISTRY_UNCHECKED',
-  /** Synthesized — registry lookup raised an error. */
+  /** Synthesized -- registry lookup raised an error. */
   REGISTRY_ERROR: 'https://www.w3.org/TR/vc-data-model#REGISTRY_ERROR',
 
-  /** Synthesized — schema validation failed. */
+  /** Synthesized -- schema validation failed. */
   SCHEMA_VALIDATION_FAILED:
     'https://www.w3.org/TR/vc-data-model#SCHEMA_VALIDATION_FAILED',
-  /** Synthesized — schema check raised an error before reaching a verdict. */
+  /** Synthesized -- schema check raised an error before reaching a verdict. */
   SCHEMA_VALIDATION_ERROR:
     'https://www.w3.org/TR/vc-data-model#SCHEMA_VALIDATION_ERROR',
 
-  /** Synthesized — referenced status list could not be fetched. */
+  /** Synthesized -- referenced status list could not be fetched. */
   STATUS_LIST_NOT_FOUND:
     'https://www.w3.org/TR/vc-data-model#STATUS_LIST_NOT_FOUND',
-  /** Synthesized — referenced status list has expired. */
+  /** Synthesized -- referenced status list has expired. */
   STATUS_LIST_EXPIRED:
     'https://www.w3.org/TR/vc-data-model#STATUS_LIST_EXPIRED',
-  /** Synthesized — status list VC signature did not verify. */
+  /** Synthesized -- status list VC signature did not verify. */
   STATUS_LIST_SIGNATURE_ERROR:
     'https://www.w3.org/TR/vc-data-model#STATUS_LIST_SIGNATURE_ERROR',
-  /** Synthesized — status list VC type is unrecognized. */
+  /** Synthesized -- status list VC type is unrecognized. */
   STATUS_LIST_TYPE_ERROR:
     'https://www.w3.org/TR/vc-data-model#STATUS_LIST_TYPE_ERROR',
-  /** Synthesized — status list VC `validFrom` is in the future. */
+  /** Synthesized -- status list VC `validFrom` is in the future. */
   STATUS_LIST_NOT_YET_VALID:
     'https://www.w3.org/TR/vc-data-model#STATUS_LIST_NOT_YET_VALID',
-  /** Synthesized — status list check raised an error before reaching a verdict. */
+  /** Synthesized -- status list check raised an error before reaching a verdict. */
   STATUS_LIST_ERROR: 'https://www.w3.org/TR/vc-data-model#STATUS_LIST_ERROR',
-  /** Synthesized — status list bit indicates revocation or suspension. */
+  /** Synthesized -- status list bit indicates revocation or suspension. */
   CREDENTIAL_REVOKED_OR_SUSPENDED:
     'https://www.w3.org/TR/vc-data-model#CREDENTIAL_REVOKED_OR_SUSPENDED'
 } as const;

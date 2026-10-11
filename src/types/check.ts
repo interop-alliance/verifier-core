@@ -100,8 +100,11 @@ export interface CheckResult {
  * presentations, or both. The orchestrator skips checks whose `appliesTo`
  * doesn't match the current subject.
  */
-export type VerificationSubjectType =
-  'verifiableCredential' | 'verifiablePresentation';
+export const SUBJECT_TYPES = [
+  'verifiableCredential',
+  'verifiablePresentation'
+] as const;
+export type VerificationSubjectType = (typeof SUBJECT_TYPES)[number];
 
 /**
  * Suite-phase classification for the two-pass verification workflow.

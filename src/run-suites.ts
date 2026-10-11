@@ -15,13 +15,15 @@ import {
   VerificationCheck,
   CheckResult,
   CheckOutcome,
-  SuitePhase
+  SuitePhase,
+  SUBJECT_TYPES
 } from './types/check.js';
 import { VerificationContext } from './types/context.js';
 import { VerificationSubject } from './types/subject.js';
 import type { TimeService } from './services/time-service/time-service.js';
 import type { TaskTiming } from './types/timing.js';
 import { computeId } from './fold-results.js';
+import { checkAppliesTo } from './util/check-applies.js';
 
 /**
  * Optional orchestration knobs.
@@ -64,27 +66,18 @@ function suiteRunsInPhases(
 }
 
 /**
- * Check if a verification check applies to the given subject.
- * If check.appliesTo is defined, the subject must have at least one
- * of the specified properties (verifiableCredential or verifiablePresentation).
+ * Check if a verification check applies to the given subject: its
+ * `appliesTo` (see {@link checkAppliesTo}) must admit one of the
+ * subject types the subject carries.
  */
 function appliesToSubject(
   check: VerificationCheck,
   subject: VerificationSubject
 ): boolean {
-  if (!check.appliesTo || check.appliesTo.length === 0) {
-    return true; // No restriction = applies to everything
-  }
-
-  return check.appliesTo.some(prop => {
-    if (prop === 'verifiableCredential') {
-      return subject.verifiableCredential !== undefined;
-    }
-    if (prop === 'verifiablePresentation') {
-      return subject.verifiablePresentation !== undefined;
-    }
-    return false;
-  });
+  return checkAppliesTo(
+    check,
+    SUBJECT_TYPES.filter(type => subject[type] !== undefined)
+  );
 }
 
 /**

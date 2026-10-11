@@ -251,6 +251,46 @@ describe('foldCheckResults', () => {
     );
   });
 
+  it('5b. subjectType: not-run counts only the checks that apply to the subject', () => {
+    const suite = mkSuite(
+      'core',
+      [
+        {
+          ...mkCheck('core.a', 'failure', { fatal: true }),
+          appliesTo: ['verifiableCredential']
+        },
+        {
+          ...mkCheck('core.b', 'success'),
+          appliesTo: ['verifiableCredential']
+        },
+        {
+          ...mkCheck('core.vp', 'success'),
+          appliesTo: ['verifiablePresentation']
+        },
+        mkCheck('core.any', 'success')
+      ],
+      { phase: 'cryptographic' }
+    );
+    const checks: CheckResult[] = [
+      mkResult('core', 'core.a', 'failure', {
+        fatal: true,
+        phase: 'cryptographic'
+      })
+    ];
+
+    const credential = foldCheckResults(checks, [suite], {
+      subjectType: 'verifiableCredential'
+    });
+    expect(credential.summaries[0].message).toBe(
+      '0 of 3 checks passed (1 failed, 2 not run after fatal)'
+    );
+
+    const everything = foldCheckResults(checks, [suite]);
+    expect(everything.summaries[0].message).toBe(
+      '0 of 4 checks passed (1 failed, 3 not run after fatal)'
+    );
+  });
+
   it('6. phase derivation: tagged suite carries through to summary', () => {
     const suite = mkSuite('registry', [mkCheck('registry.lookup', 'success')], {
       phase: 'trust'

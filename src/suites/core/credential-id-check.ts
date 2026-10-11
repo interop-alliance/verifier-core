@@ -2,6 +2,7 @@ import { VerificationCheck, CheckOutcome } from '../../types/check.js';
 import { VerificationSubject } from '../../types/subject.js';
 import { VerificationContext } from '../../types/context.js';
 import { ProblemTypes } from '../../problem-types.js';
+import { isUrl } from '../../util/json-shape.js';
 
 /**
  * Check that credential.id, if present, is a valid URL.
@@ -57,9 +58,7 @@ export const credentialIdCheck: VerificationCheck = {
       };
     }
 
-    try {
-      new URL(id);
-    } catch {
+    if (!isUrl(id)) {
       return {
         status: 'failure',
         problems: [

@@ -17,12 +17,11 @@
  */
 
 import { z } from 'zod';
+import { VC_CONTEXT_V1, VC_CONTEXT_V2 } from '../../util/vc-contexts.js';
 import {
   IriString,
   JsonLdTypeField,
   Obv3p0ContextArray,
-  VCDM_V1_CONTEXT,
-  VCDM_V2_CONTEXT,
   zodErrorToProblems
 } from './fields-v3p0.js';
 import { ImageField, ProfileRefField } from './classes-v3p0.js';
@@ -94,14 +93,14 @@ export const Obv3p0EndorsementCredentialSchema: z.ZodTypeAny = z
   .superRefine((cred, ctx) => {
     const ctxArr = cred['@context'];
     const head = ctxArr[0];
-    if (head === VCDM_V1_CONTEXT && cred.issuanceDate === undefined) {
+    if (head === VC_CONTEXT_V1 && cred.issuanceDate === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['issuanceDate'],
         message: 'issuanceDate is required for VCDM v1 credentials'
       });
     }
-    if (head === VCDM_V2_CONTEXT && cred.validFrom === undefined) {
+    if (head === VC_CONTEXT_V2 && cred.validFrom === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['validFrom'],

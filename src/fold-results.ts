@@ -28,10 +28,12 @@
 import type {
   CheckResult,
   SuitePhase,
+  VerificationSubjectType,
   VerificationSuite
 } from './types/check.js';
 import type { SuiteSummary, SuiteSummaryPhase } from './types/suite-summary.js';
 import type { TaskTiming } from './types/timing.js';
+import { checkAppliesTo } from './util/check-applies.js';
 
 export interface FoldOptions {
   /**
@@ -40,6 +42,14 @@ export interface FoldOptions {
    * and explicit `<suite>.applies` skips.
    */
   verbose?: boolean;
+  /**
+   * The subject the checks ran against. When set, the "not run after
+   * fatal" count in a suite's `message` counts only the checks whose
+   * `appliesTo` admits this subject, so a suite that mixes
+   * credential-only and presentation-only checks (such as `core`)
+   * reports the right total. When unset, every defined check counts.
+   */
+  subjectType?: VerificationSubjectType;
 }
 
 export function foldCheckResults(
@@ -58,7 +68,9 @@ export function foldCheckResults(
   for (const [suiteId, suiteChecks] of grouped) {
     const suiteDef = suiteIndex.get(suiteId);
     const phase = derivePhase(suiteDef);
-    summaries.push(summarizeSuite(suiteId, phase, suiteDef, suiteChecks));
+    summaries.push(
+      summarizeSuite(suiteId, phase, suiteDef, suiteChecks, opts.subjectType)
+    );
   }
 
   const results = selectResultsForVerbosity(checks, opts.verbose === true);
@@ -143,7 +155,8 @@ function summarizeSuite(
   suiteId: string,
   phase: SuitePhase | undefined,
   suiteDef: VerificationSuite | undefined,
-  suiteChecks: CheckResult[]
+  suiteChecks: CheckResult[],
+  subjectType: VerificationSubjectType | undefined
 ): SuiteSummary {
   const counts = {
     passed: suiteChecks.filter(c => c.outcome.status === 'success').length,
@@ -159,7 +172,7 @@ function summarizeSuite(
   const status = deriveStatus(counts);
   const verified = fatalCheck === undefined;
 
-  const totalDefined = suiteDef?.checks.length ?? 0;
+  const totalDefined = countApplicableChecks(suiteDef, subjectType);
   const message = formatMessage(
     suiteId,
     counts,
@@ -181,6 +194,24 @@ function summarizeSuite(
     ...(fatalFailureAt !== undefined ? { fatalFailureAt } : {}),
     ...(timing !== undefined ? { timing } : {})
   };
+}
+
+/**
+ * The number of a suite's checks that can run for `subjectType`: every
+ * check when the subject type is unknown, otherwise those whose
+ * `appliesTo` admits it (see {@link checkAppliesTo}).
+ */
+function countApplicableChecks(
+  suiteDef: VerificationSuite | undefined,
+  subjectType: VerificationSubjectType | undefined
+): number {
+  if (suiteDef === undefined) {
+    return 0;
+  }
+  if (subjectType === undefined) {
+    return suiteDef.checks.length;
+  }
+  return suiteDef.checks.filter(c => checkAppliesTo(c, [subjectType])).length;
 }
 
 /**

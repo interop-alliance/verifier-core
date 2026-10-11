@@ -15,7 +15,7 @@ export interface CredentialVerificationResult {
   verified: boolean;
 
   /**
-   * The Zod-parsed credential that was verified.
+   * The credential that was verified, as the caller supplied it.
    *
    * Field name matches the W3C / VCALM property name so the
    * verification result can be spread directly into a VCALM
@@ -100,7 +100,7 @@ export interface PresentationVerificationResult {
   verified: boolean;
 
   /**
-   * The Zod-parsed presentation that was verified.
+   * The presentation that was verified, as the caller supplied it.
    *
    * Mirror of {@link CredentialVerificationResult.verifiableCredential}.
    * Allows VCALM consumers to reach the parsed VP via the documented
@@ -111,7 +111,7 @@ export interface PresentationVerificationResult {
 
   /**
    * Check results from presentation-level verification (VP
-   * signature). Honors the `verbose` flag the same way
+   * structure and signature). Honors the `verbose` flag the same way
    * {@link CredentialVerificationResult.results} does.
    */
   presentationResults: CheckResult[];

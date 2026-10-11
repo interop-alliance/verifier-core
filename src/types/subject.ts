@@ -5,8 +5,9 @@
  * fields are optional because checks declare via `appliesTo` which type
  * they operate on — the orchestrator skips checks that don't match.
  *
- * The values are `unknown` because parsing has already validated structure
- * via Zod; checks cast to the shape they need internally.
+ * The values are `unknown`: the envelope gate checks only that the few
+ * properties the pipeline needs are readable, and the `core` suite judges
+ * the structure. Checks read the shape they need defensively.
  */
 export interface VerificationSubject {
   verifiableCredential?: unknown;

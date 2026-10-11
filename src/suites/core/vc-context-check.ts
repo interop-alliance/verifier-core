@@ -2,9 +2,11 @@ import { VerificationCheck, CheckOutcome } from '../../types/check.js';
 import { VerificationSubject } from '../../types/subject.js';
 import { VerificationContext } from '../../types/context.js';
 import { ProblemTypes } from '../../problem-types.js';
-
-const VC_CONTEXT_V1 = 'https://www.w3.org/2018/credentials/v1';
-const VC_CONTEXT_V2 = 'https://www.w3.org/ns/credentials/v2';
+import {
+  includesVcContext,
+  VC_CONTEXT_V1,
+  VC_CONTEXT_V2
+} from '../../util/vc-contexts.js';
 
 /**
  * Check that @context includes a valid VC context URI.
@@ -39,24 +41,7 @@ export const vcContextCheck: VerificationCheck = {
 
     const context = credential['@context'];
 
-    // Normalize context to array of strings
-    const contextUris: string[] = [];
-    if (typeof context === 'string') {
-      contextUris.push(context);
-    } else if (Array.isArray(context)) {
-      for (const ctx of context) {
-        if (typeof ctx === 'string') {
-          contextUris.push(ctx);
-        }
-        // Note: We ignore objects in context (they're JSON-LD context definitions)
-      }
-    }
-
-    const hasVcContext = contextUris.some(
-      uri => uri === VC_CONTEXT_V1 || uri === VC_CONTEXT_V2
-    );
-
-    if (!hasVcContext) {
+    if (!includesVcContext(context)) {
       return {
         status: 'failure',
         problems: [

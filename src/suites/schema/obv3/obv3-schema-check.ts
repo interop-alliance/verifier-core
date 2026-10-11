@@ -5,6 +5,7 @@ import { ProblemDetail } from '../../../types/problem-detail.js';
 import { VerificationSubject } from '../../../types/subject.js';
 import { VerificationContext } from '../../../types/context.js';
 import { ProblemTypes } from '../../../problem-types.js';
+import { VC_CONTEXT_V1, VC_CONTEXT_V2 } from '../../../util/vc-contexts.js';
 import {
   isOpenBadgeCredential,
   isEndorsementCredential
@@ -19,10 +20,6 @@ const OBV3_SCHEMA_V2_ACHIEVEMENT =
   'https://purl.imsglobal.org/spec/ob/v3p0/schema/json/ob_v3p0_achievementcredential_schema.json';
 const OBV3_SCHEMA_V2_ENDORSEMENT =
   'https://purl.imsglobal.org/spec/ob/v3p0/schema/json/ob_v3p0_endorsementcredential_schema.json';
-
-// VC context URLs
-const VC_V2_CONTEXT = 'https://www.w3.org/ns/credentials/v2';
-const VC_V1_CONTEXT = 'https://www.w3.org/2018/credentials/v1';
 
 /**
  * Validate credential against a schema URL using a per-run AJV instance (bound to
@@ -59,10 +56,10 @@ function getVcVersion(credential: Record<string, unknown>): 'v1' | 'v2' | null {
     (ctx): ctx is string => typeof ctx === 'string'
   );
 
-  if (stringContexts.some(ctx => ctx.startsWith(VC_V2_CONTEXT))) {
+  if (stringContexts.some(ctx => ctx.startsWith(VC_CONTEXT_V2))) {
     return 'v2';
   }
-  if (stringContexts.some(ctx => ctx.startsWith(VC_V1_CONTEXT))) {
+  if (stringContexts.some(ctx => ctx.startsWith(VC_CONTEXT_V1))) {
     return 'v1';
   }
   return null;

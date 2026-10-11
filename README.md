@@ -247,6 +247,7 @@ interface ProblemDetail {
   "results": [
     { "id": "cryptographic.core.context-exists", "suite": "core",   "check": "core.context-exists", "outcome": { "status": "success", "message": "Credential has a valid @context property." } },
     { "id": "cryptographic.core.vc-context", "suite": "core",   "check": "core.vc-context",     "outcome": { "status": "success", "message": "..." } },
+    { "id": "cryptographic.core.vc-structure", "suite": "core",   "check": "core.vc-structure",   "outcome": { "status": "success", "message": "..." } },
     { "id": "cryptographic.core.credential-id", "suite": "core",   "check": "core.credential-id",  "outcome": { "status": "success", "message": "..." } },
     { "id": "cryptographic.core.proof-exists", "suite": "core",   "check": "core.proof-exists",   "outcome": { "status": "success", "message": "..." } },
     { "id": "cryptographic.proof.signature", "suite": "proof",  "check": "proof.signature",     "outcome": { "status": "success", "message": "Signature verified successfully." } },
@@ -361,19 +362,20 @@ with no `credentialStatus` skips the status check:
 
 All failures use `ProblemDetail` with a `type` URI. Common error types:
 
-| Type URI                              | Title                                                              | When                                                                 |
-| ------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| `...#PARSING_ERROR`                   | Invalid JSON-LD / No VC Context / Invalid Credential ID / No Proof | Structural problems                                                  |
-| `...#INVALID_SIGNATURE`               | Invalid Signature                                                  | Signature doesn't match content                                      |
-| `...#PROOF_PURPOSE_MISMATCH`          | Challenge Mismatch / Domain Mismatch / Proof Purpose Mismatch      | VP proof does not bind to the caller's challenge, domain, or purpose |
-| `...#DID_WEB_UNRESOLVED`              | DID Web Unresolved                                                 | DID document (e.g. `did:web`) or `did:webvh` log couldn't be fetched |
-| `...#HTTP_ERROR`                      | HTTP Error                                                         | Network error during signature check                                 |
-| `...#CREDENTIAL_REVOKED_OR_SUSPENDED` | Credential Revoked or Suspended                                    | Status list indicates revocation                                     |
-| `...#STATUS_LIST_NOT_FOUND`           | Status List Not Found                                              | Status list URL unreachable                                          |
-| `...#STATUS_LIST_EXPIRED`             | Status List Expired                                                | Status list VC has expired                                           |
-| `...#STATUS_LIST_SIGNATURE_ERROR`     | Status List Signature Error                                        | Status list VC signature invalid                                     |
-| `...#ISSUER_NOT_REGISTERED`           | Issuer Not Registered                                              | Issuer DID not found in any registry that could be checked           |
-| `...#REGISTRY_UNCHECKED`              | Registry Unchecked                                                 | Some or all registries couldn't be reached; alone when none could    |
+| Type URI                              | Title                                                                                     | When                                                                     |
+| ------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `...#PARSING_ERROR`                   | Credential Parsing Failed / Presentation Parsing Failed / Invalid JSON-LD / No VC Context | Envelope gate or context problems                                        |
+| `...#MALFORMED_VALUE_ERROR`           | Invalid Credential Structure / Invalid Presentation Structure                             | A VC Data Model structure rule is broken; `instance` points at the field |
+| `...#INVALID_SIGNATURE`               | Invalid Signature                                                                         | Signature doesn't match content                                          |
+| `...#PROOF_PURPOSE_MISMATCH`          | Challenge Mismatch / Domain Mismatch / Proof Purpose Mismatch                             | VP proof does not bind to the caller's challenge, domain, or purpose     |
+| `...#DID_WEB_UNRESOLVED`              | DID Web Unresolved                                                                        | DID document (e.g. `did:web`) or `did:webvh` log couldn't be fetched     |
+| `...#HTTP_ERROR`                      | HTTP Error                                                                                | Network error during signature check                                     |
+| `...#CREDENTIAL_REVOKED_OR_SUSPENDED` | Credential Revoked or Suspended                                                           | Status list indicates revocation                                         |
+| `...#STATUS_LIST_NOT_FOUND`           | Status List Not Found                                                                     | Status list URL unreachable                                              |
+| `...#STATUS_LIST_EXPIRED`             | Status List Expired                                                                       | Status list VC has expired                                               |
+| `...#STATUS_LIST_SIGNATURE_ERROR`     | Status List Signature Error                                                               | Status list VC signature invalid                                         |
+| `...#ISSUER_NOT_REGISTERED`           | Issuer Not Registered                                                                     | Issuer DID not found in any registry that could be checked               |
+| `...#REGISTRY_UNCHECKED`              | Registry Unchecked                                                                        | Some or all registries couldn't be reached; alone when none could        |
 
 #### Problem types
 
@@ -400,8 +402,8 @@ switch (problem.type as ProblemType) {
 `ProblemDetail.type` stays typed as `string` so custom suites can emit their own
 problem URIs; the cast above is opt-in for callers that only need to branch on
 built-in types. See the per-token JSDoc on `ProblemTypes` for which entries are
-W3C-spec error identifiers (currently only `PARSING_ERROR`) and which are
-synthesized placeholders we use until a wider problem-type vocabulary is
+W3C-spec error identifiers (`PARSING_ERROR`, `MALFORMED_VALUE_ERROR`) and which
+are synthesized placeholders we use until a wider problem-type vocabulary is
 published.
 
 ### verifyPresentation
@@ -470,14 +472,15 @@ rollups live on `credentialResults[i].summary`.
 
 Presentation verification does two things:
 
-1. **Verifies the VP itself** — checks the presentation's own proof only. A VP
-   with no proof fails unless `unsignedPresentation: true`, in which case the
-   check is skipped. A proof that is present is always verified. When
-   `challenge` is passed, the presentation's proof must use the `authentication`
-   purpose and carry that challenge (and `domain`, if passed); a mismatch is
-   reported as `PROOF_PURPOSE_MISMATCH`. Without a challenge only the signature
-   is checked. A `domain` without a `challenge`, or an empty-string `challenge`,
-   is rejected before any check runs. Results go in `presentationResults`.
+1. **Verifies the VP itself** — checks the presentation's structure
+   (`core.vp-structure`), then its own proof only. A VP with no proof fails
+   unless `unsignedPresentation: true`, in which case the check is skipped. A
+   proof that is present is always verified. When `challenge` is passed, the
+   presentation's proof must use the `authentication` purpose and carry that
+   challenge (and `domain`, if passed); a mismatch is reported as
+   `PROOF_PURPOSE_MISMATCH`. Without a challenge only the signature is checked.
+   A `domain` without a `challenge`, or an empty-string `challenge`, is rejected
+   before any check runs. Results go in `presentationResults`.
 2. **Verifies each embedded credential** — extracts credentials from the VP and
    runs `verifyCredential` on each. Results go in `credentialResults`.
 

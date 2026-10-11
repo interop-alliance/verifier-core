@@ -21,18 +21,21 @@
  *
  * ## INVARIANT: suites see the bytes the issuer signed
  *
- * `parseCredential` / `parsePresentation` are validation gates only. Their
- * output is discarded and the caller's original object is what flows into
- * `runSuites` and back out as `result.verifiableCredential`.
+ * `parseCredential` / `parsePresentation` are minimal envelope gates only.
+ * They check just enough (`@context`, `type`, `issuer`, `credentialSubject`,
+ * `holder`) for the pipeline to run safely; structure is judged by the
+ * `core` suite. Their output is discarded and the caller's original object
+ * is what flows into `runSuites` and back out as
+ * `result.verifiableCredential`.
  *
  * Zod rewrites what it parses. `.passthrough()` does not extend into nested
  * object schemas, so any nested `z.object({...})` deletes the keys it does
- * not name, and `JsonLdField` rewrites scalars into arrays. Either change
+ * not name, and a `.transform` can rewrite scalars into arrays. Either change
  * alters the canonicalized N-Quads, which makes a valid proof fail as
  * `INVALID_SIGNATURE`. That failure looks like a bad credential and is
  * actually a bug here. It is not hypothetical: a spec-legal
- * `issuer.image.caption` was dropped by `IssuerObjectSchema`, which rejected
- * production Open Badges credentials.
+ * `issuer.image.caption` was once dropped by a nested issuer image schema,
+ * which rejected production Open Badges credentials.
  *
  * Returning the original object also matters downstream, because consumers
  * may re-verify `result.verifiableCredential` in a second pass. Handing them
@@ -76,6 +79,7 @@ import {
 import { runSuites } from './run-suites.js';
 import { extractCredentialsFrom } from './extract-credentials-from.js';
 import { defaultSuites } from './default-suites.js';
+import { coreSuite } from './suites/core/index.js';
 import { proofSuite } from './suites/proof/index.js';
 import { computeId, foldCheckResults } from './fold-results.js';
 import {
@@ -139,7 +143,7 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
         );
         return finalizeCredentialResult(result, topLevel, timeService);
       }
-      // Zod is a validation gate here, NOT a normalizer: `parseResult.data` is
+      // Zod is an envelope gate here, NOT a normalizer: `parseResult.data` is
       // deliberately discarded. See the invariant in this module's header.
       const credential = call.credential as VerifiableCredential;
 
@@ -174,7 +178,10 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
       const recognized = extractRecognition(rawChecks);
 
       const verbose = call.verbose ?? constructorVerbose ?? false;
-      const folded = foldCheckResults(rawChecks, suites, { verbose });
+      const folded = foldCheckResults(rawChecks, suites, {
+        verbose,
+        subjectType: 'verifiableCredential'
+      });
 
       const result: CredentialVerificationResult = {
         verified: !hasFatalFailures(rawChecks),
@@ -203,10 +210,11 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
         );
         return finalizePresentationResult(result, topLevel, timeService);
       }
-      // Same discipline as `verifyCredential`: validate with Zod, then verify
-      // the object the holder actually signed. Using `parseResult.data` here
-      // also handed the recursive `verifyCredential` calls below a rewritten
-      // copy of each embedded credential.
+      // Same discipline as `verifyCredential`: gate with Zod, then verify the
+      // object the holder actually signed. The gate does not look inside
+      // `verifiableCredential`; each embedded credential is gated and
+      // verified by its own `verifyCredential` call below, on the original
+      // object.
       const presentation = call.presentation as VerifiablePresentation;
 
       // Invalid challenge/domain options are rejected here, once, before any
@@ -249,6 +257,7 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
 
       const additionalSuites = call.additionalSuites ?? [];
       const presentationSuites: VerificationSuite[] = [
+        coreSuite,
         proofSuite,
         ...additionalSuites
       ];
@@ -266,7 +275,7 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
       const foldedPresentation = foldCheckResults(
         rawPresentationChecks,
         presentationSuites,
-        { verbose }
+        { verbose, subjectType: 'verifiablePresentation' }
       );
 
       const credentials = extractCredentialsFrom(presentation);
@@ -513,15 +522,13 @@ function syntheticFailureSummary(
 
 function parseFailureCredentialResult(
   credential: unknown,
-  error: { errors: Array<{ path: Array<string | number>; message: string }> },
+  error: { errors: Array<{ message: string }> },
   timeService: TimeService | undefined
 ): CredentialVerificationResult {
   const problem: ProblemDetail = {
     type: ProblemTypes.PARSING_ERROR,
     title: 'Credential Parsing Failed',
-    detail: error.errors
-      .map(e => `${e.path.join('.')}: ${e.message}`)
-      .join('; ')
+    detail: error.errors.map(e => e.message).join('; ')
   };
   const check = syntheticFailureResult(
     PARSING_SUITE,
@@ -539,15 +546,13 @@ function parseFailureCredentialResult(
 
 function parseFailurePresentationResult(
   presentation: unknown,
-  error: { errors: Array<{ path: Array<string | number>; message: string }> },
+  error: { errors: Array<{ message: string }> },
   timeService: TimeService | undefined
 ): PresentationVerificationResult {
   const problem: ProblemDetail = {
     type: ProblemTypes.PARSING_ERROR,
     title: 'Presentation Parsing Failed',
-    detail: error.errors
-      .map(e => `${e.path.join('.')}: ${e.message}`)
-      .join('; ')
+    detail: error.errors.map(e => e.message).join('; ')
   };
   const check = syntheticFailureResult(
     PARSING_SUITE,
