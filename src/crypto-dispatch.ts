@@ -18,6 +18,7 @@ import type {
 } from './types/crypto-service.js';
 import type { ProblemDetail } from './types/problem-detail.js';
 import type { VerificationSubject } from './types/subject.js';
+import { errorMessage } from './util/error-message.js';
 
 /**
  * Outcome of dispatching a proof to the registered {@link CryptoService}s.
@@ -53,15 +54,21 @@ export async function dispatchProofVerification({
   subject: VerificationSubject;
   options: CryptoVerifyOptions;
 }): Promise<CryptoDispatchResult> {
-  const service = services.find(s => s.canVerify(subject));
   const presentation = subject.verifiablePresentation;
   const credential = subject.verifiableCredential;
 
-  if (!service || (!presentation && !credential)) {
+  if (!presentation && !credential) {
     return { kind: 'no-service' };
   }
 
   try {
+    // Service selection sits inside the `try` so a throwing `canVerify`
+    // is reported as `threw` rather than rejecting the caller.
+    const service = services.find(s => s.canVerify(subject));
+    if (!service) {
+      return { kind: 'no-service' };
+    }
+
     const cryptoResult = presentation
       ? await service.verifyPresentation(presentation, options)
       : await service.verifyCredential(credential, options);
@@ -75,10 +82,10 @@ export async function dispatchProofVerification({
     return {
       kind: 'threw',
       error,
-      message:
-        error instanceof Error
-          ? error.message
-          : 'An unexpected error occurred during signature verification.'
+      message: errorMessage(
+        error,
+        'An unexpected error occurred during signature verification.'
+      )
     };
   }
 }

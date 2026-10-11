@@ -101,7 +101,7 @@ makes the difference between "the presentation envelope was tampered with" and
 | Scope             | Lives on                                                                     | Suites that contribute                                                                                                                                                                                            | How `verified` aggregates                                                                         |
 | ----------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Presentation-only | `result.presentationResults`, `result.summary`                               | `coreSuite` (only `core.vp-structure` applies to a VP) and `proofSuite`, each run **once** against the VP envelope itself, plus any `additionalSuites` whose `applies` accepts a `verifiablePresentation` subject | — (see top-level row)                                                                             |
-| Per credential    | `result.credentialResults[i].results`, `result.credentialResults[i].summary` | `core`, `recognition`, `proof`, `status`, `registry` (defaults) plus any `additionalSuites` whose `applies` accepts the VC subject                                                                                | `credentialResults[i].verified === no fatal failures across the per-credential checks`            |
+| Per credential    | `result.credentialResults[i].results`, `result.credentialResults[i].summary` | `core`, `recognition`, `proof`, `registry`, `status` (defaults) plus any `additionalSuites` whose `applies` accepts the VC subject                                                                                | `credentialResults[i].verified === no fatal failures across the per-credential checks`            |
 | Top-level         | `result.verified`                                                            | derived                                                                                                                                                                                                           | `presentationResults` has no fatal failures **AND** every `credentialResults[i].verified` is true |
 
 When verifying a VP, `cryptographic.proof.signature` runs once at the VP level
@@ -195,11 +195,12 @@ interface SuiteSummary {
 
 ### `message` format
 
-| Scenario                | Format                                                                                   |
-| ----------------------- | ---------------------------------------------------------------------------------------- |
-| Any run                 | `"<p> of <n> checks passed"` followed by the non-zero counts in parentheses              |
-| Parenthetical           | `(<k> failed)`, `(<k> skipped)`, `(<r> not run after fatal)`, comma-joined in that order |
-| Explicit `applies` skip | `"<suite-id> not applicable: <reason>"`                                                  |
+| Scenario                   | Format                                                                                   |
+| -------------------------- | ---------------------------------------------------------------------------------------- |
+| Any run                    | `"<p> of <n> checks passed"` followed by the non-zero counts in parentheses              |
+| Parenthetical              | `(<k> failed)`, `(<k> skipped)`, `(<r> not run after fatal)`, comma-joined in that order |
+| Halted by an earlier suite | `"<suite-id> not run: <check-id> failed"` (every check in the suite was halted)          |
+| Explicit `applies` skip    | `"<suite-id> not applicable: <reason>"`                                                  |
 
 The message always reads in one direction: passed out of total. Examples:
 
@@ -208,15 +209,19 @@ The message always reads in one direction: passed out of total. Examples:
 - `0 of 1 check passed (1 failed)`
 - `3 of 4 checks passed (1 failed)`
 - `1 of 4 checks passed (1 failed, 2 not run after fatal)`
+- `proof not run: core.proof-exists failed`
 
 > Singular `check` is used when the total is 1.
 
-The total `<n>` counts the checks that apply to the subject. `foldCheckResults`
-takes `subjectType` (`'verifiableCredential'` or `'verifiablePresentation'`) in
-its options and counts only the checks whose `appliesTo` admits that type, so
-`core`, which mixes credential-only and presentation-only checks, reports the
-right total for each. `createVerifier` passes it. Without `subjectType`, every
-check a suite defines counts.
+The total `<n>` counts every row the suite emitted. "Not run" rows are the
+`skipped` results `runSuites` emits, with code `NOT_RUN_AFTER_FATAL`, `haltedBy`
+naming the failed check, and reason `Not run: <check-id> failed`, for checks
+halted by a fatal failure. They count
+toward `counts.skipped` but not toward the "skipped" wording: the message
+reports them as "not run after fatal" instead. A suite whose every row is such a
+skip reads `<suite-id> not run: <check-id> failed` and has `status: 'skipped'`
+and `verified: true`; the fatal failure itself is on the earlier suite's
+`fatalFailureAt`.
 
 ### Per-status badge recommendations
 

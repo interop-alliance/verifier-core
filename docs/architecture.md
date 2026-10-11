@@ -30,7 +30,7 @@ src/
 ├── index.ts                         Public API barrel (all exports)
 ├── verifier.ts                      createVerifier(config) factory + internal context builder (composition root)
 ├── verify-suite.ts                  Standalone verifyCredential / verifyPresentation wrappers over createVerifier
-├── default-suites.ts                Internal: defaultSuites array (core → recognition → proof → status → registry); Open Badges suites are opt-in via the `/openbadges` submodule
+├── default-suites.ts                Internal: defaultSuites array (core → recognition → proof → registry → status); Open Badges suites are opt-in via the `/openbadges` submodule
 ├── default-services.ts              Internal: lazy factories for default httpGetService, cryptoServices, documentLoader (memoized) + per-call createDefaultCacheService
 ├── run-suites.ts                    Suite orchestration engine
 ├── crypto-dispatch.ts               Shared CryptoService selection + invocation (proof suite and status suite)
@@ -158,7 +158,7 @@ test/
                  ▼
             ┌──────────┐
             │  Suites  │  runSuites() → CheckResult[]
-            └────┬─────┘  core → recognition → proof → status → registry (+ additionalSuites)
+            └────┬─────┘  core → recognition → proof → registry → status (+ additionalSuites)
                  │        (phase filter applied first; `applies` predicates gate next)
                  ▼
             ┌──────────┐
@@ -205,7 +205,9 @@ same instance — this is what makes batch verification reuse fetches.
 
 **Suites.** `runSuites()` in `run-suites.ts` iterates suites in order, running
 each check sequentially. The default suite order is: **core → recognition →
-proof → status → registry**. Each suite carries a `phase` tag
+proof → registry → status**. The informational `registry` suite runs before the
+fatal `status` check so a revoked credential still reports its issuer lookup.
+Each suite carries a `phase` tag
 (`'cryptographic' | 'trust' | 'recognition' | 'semantic'`) that drives the
 optional phase filter (see
 [Phases and two-pass verification](#phases-and-two-pass-verification)) and may
@@ -377,12 +379,27 @@ top-level result only when the producing call ran with `timing: true`. Additive
 
 - **`appliesTo`** limits a check to credential-only or presentation-only
   subjects. If unset, the check runs for both.
-- **`fatal`** on a check means a failure stops remaining checks _in that suite
-  only_. Later suites still run. This ensures the report is always complete.
-  `proof.signature` reports `No Proof` (detail
+- **`fatal`** on a check means a failure halts every remaining check for the
+  subject, in that suite and in all later suites. Once the subject is known to
+  be invalid, later checks would only report misleading follow-on failures or do
+  needless network I/O. Each check that would have run still appears in the
+  report, as `skipped` with code `NOT_RUN_AFTER_FATAL` (exported as
+  `RUN_SUITES_SKIP_CODES.notRunAfterFatal`), `haltedBy` naming the failed
+  check, and reason `Not run: <check-id> failed`, visible with `verbose: true`,
+  so the report stays complete. Suites that would not have run anyway (phase filter, `applies`
+  false) stay silent.
+- **Throws are contained.** A check whose `execute` throws yields a `failure`
+  carrying `CHECK_ERROR` (detail `Check "<id>" threw: <message>`), keeping the
+  check's own `fatal` flag. A suite whose `applies` predicate throws yields a
+  `<suite-id>.applies` `CHECK_ERROR` failure, fatal when the suite has a fatal
+  check that applies to the subject. After a halt, a throwing `applies` is not
+  reported; the suite's checks are listed as not run. A `CryptoService.canVerify` that throws is reported by the crypto
+  dispatch as `threw`. Verification never rejects because a check threw.
+- `proof.signature` reports `No Proof` (detail
   `Subject has no proof to verify.`) for an unsigned credential, before it
-  consults any crypto service. Downstream rows then read consistently with
-  `core.proof-exists`. A presentation with no proof fails with
+  consults any crypto service. In the default pipeline the fatal
+  `core.proof-exists` halts first, so this outcome only appears when the proof
+  suite runs without `core`. A presentation with no proof fails with
   `Presentation Not Signed`, unless the call sets `unsignedPresentation: true`.
   In that case the check is `skipped` and `verified` stays true. A proof that is
   present is always verified, whatever the flag says. `CryptoVerifyOptions`
@@ -718,9 +735,9 @@ skips by default; the per-suite rollup lives in `summary[]`. Pass
 check" shape on `results[]`. The folding itself is implemented as a pure helper
 — `foldCheckResults` / `computeId` in `src/fold-results.ts` — and is also
 exported from the package barrel for consumers that append late results and want
-to re-fold. Pass `subjectType` in its options so the "not run after fatal" count
-covers only the checks whose `appliesTo` admits the subject (see
-[`message` format](api/verification-results.md#message-format)).
+to re-fold. Checks halted by a fatal failure are explicit `skipped` rows with
+code `NOT_RUN_AFTER_FATAL`, which the summary message reports as "not run after
+fatal" (see [`message` format](api/verification-results.md#message-format)).
 
 `SuiteSummary.verified` follows the same rule as the top-level `verified`. It is
 true unless a check marked `fatal` failed in that suite. A suite can therefore

@@ -25,7 +25,7 @@ import {
 } from '@interop/vc-bitstring-status-list';
 import { createVerifier } from '../src/verifier.js';
 import { VC_CONTEXT_V1, VC_CONTEXT_V2 } from '../src/util/vc-contexts.js';
-import type { CheckResult } from '../src/types/check.js';
+import { type CheckResult, RUN_SUITES_SKIP_CODES } from '../src/types/check.js';
 import type { DocumentLoader } from '../src/types/context.js';
 import { FakeCryptoService } from './factories/services/fake-crypto-service.js';
 import {
@@ -464,8 +464,14 @@ describe('structure failures fail verification at core', () => {
         '/credentialStatus/type'
       ]);
     }
-    expect(find(result.results, 'core.credential-id')).toBeUndefined();
-    expect(find(result.results, 'core.proof-exists')).toBeUndefined();
+    for (const check of ['core.credential-id', 'core.proof-exists']) {
+      expect(find(result.results, check)?.outcome).toEqual({
+        status: 'skipped',
+        code: RUN_SUITES_SKIP_CODES.notRunAfterFatal,
+        haltedBy: 'core.vc-structure',
+        reason: 'Not run: core.vc-structure failed'
+      });
+    }
     expect(result.summary.find(s => s.suite === 'core')?.message).toBe(
       '2 of 5 checks passed (1 failed, 2 not run after fatal)'
     );

@@ -5,7 +5,7 @@ import { proofExistsCheck } from '../../src/suites/core/proof-exists-check.js';
 import { vcStructureCheck } from '../../src/suites/core/vc-structure-check.js';
 import { vpStructureCheck } from '../../src/suites/core/vp-structure-check.js';
 import { ProblemTypes } from '../../src/problem-types.js';
-import type { CheckOutcome } from '../../src/types/check.js';
+import { type CheckOutcome, type CheckResult } from '../../src/types/check.js';
 import { buildTestContext } from '../factories/services/build-test-context.js';
 import { VerificationSubject } from '../../src/types/subject.js';
 import {
@@ -13,9 +13,18 @@ import {
   DEFAULT_TEST_ISSUER_DID
 } from '../factories/data/credential-factory.js';
 import { PresentationFactory } from '../factories/data/presentation-factory.js';
+import { notRunOutcome } from '../factories/index.js';
 
-// A fatal failure ends the suite: the rows after it are absent, so the
-// expected lengths below count the checks up to and including the failure.
+// A fatal failure halts the subject: the rows after it are present as
+// "not run" skips, so every run against a VC reports all five VC checks.
+
+/** Every row after a fatal failure is a "Not run" skip naming it. */
+const expectNotRunAfter = (rows: CheckResult[], haltedBy: string) => {
+  expect(rows.length).toBeGreaterThan(0);
+  for (const row of rows) {
+    expect(row.outcome).toEqual(notRunOutcome(haltedBy));
+  }
+};
 
 describe('Core Structure Suite', () => {
   const context = buildTestContext();
@@ -74,7 +83,7 @@ describe('Core Structure Suite', () => {
       const subject = createSubject(cred);
       const results = await runSuites([coreSuite], subject, context);
 
-      expect(results).toHaveLength(1);
+      expect(results).toHaveLength(5);
       expect(results[0].check).toBe('core.context-exists');
       expect(results[0].outcome.status).toBe('failure');
       if (results[0].outcome.status === 'failure') {
@@ -82,6 +91,7 @@ describe('Core Structure Suite', () => {
           'https://www.w3.org/TR/vc-data-model#PARSING_ERROR'
         );
       }
+      expectNotRunAfter(results.slice(1), 'core.context-exists');
     });
   });
 
@@ -94,12 +104,13 @@ describe('Core Structure Suite', () => {
       const subject = createSubject(cred);
       const results = await runSuites([coreSuite], subject, context);
 
-      expect(results).toHaveLength(1);
+      expect(results).toHaveLength(5);
       expect(results[0].check).toBe('core.context-exists');
       expect(results[0].outcome.status).toBe('failure');
       if (results[0].outcome.status === 'failure') {
         expect(results[0].outcome.problems[0].title).toBe('Invalid JSON-LD');
       }
+      expectNotRunAfter(results.slice(1), 'core.context-exists');
     });
 
     it('fails context check with empty string', async () => {
@@ -110,8 +121,9 @@ describe('Core Structure Suite', () => {
       const subject = createSubject(cred);
       const results = await runSuites([coreSuite], subject, context);
 
-      expect(results).toHaveLength(1);
+      expect(results).toHaveLength(5);
       expect(results[0].outcome.status).toBe('failure');
+      expectNotRunAfter(results.slice(1), 'core.context-exists');
     });
   });
 
@@ -167,7 +179,7 @@ describe('Core Structure Suite', () => {
       const subject = createSubject(cred);
       const results = await runSuites([coreSuite], subject, context);
 
-      expect(results).toHaveLength(2);
+      expect(results).toHaveLength(5);
       expect(results[0].check).toBe('core.context-exists');
       expect(results[0].outcome.status).toBe('success');
       expect(results[1].check).toBe('core.vc-context');
@@ -177,6 +189,7 @@ describe('Core Structure Suite', () => {
           'https://www.w3.org/TR/vc-data-model#PARSING_ERROR'
         );
       }
+      expectNotRunAfter(results.slice(2), 'core.vc-context');
     });
   });
 
@@ -189,7 +202,7 @@ describe('Core Structure Suite', () => {
       const subject = createSubject(cred);
       const results = await runSuites([coreSuite], subject, context);
 
-      expect(results).toHaveLength(4);
+      expect(results).toHaveLength(5);
       expect(results[3].check).toBe('core.credential-id');
       expect(results[3].outcome.status).toBe('failure');
       if (results[3].outcome.status === 'failure') {
@@ -197,6 +210,7 @@ describe('Core Structure Suite', () => {
           'https://www.w3.org/TR/vc-data-model#INVALID_CREDENTIAL_ID'
         );
       }
+      expectNotRunAfter(results.slice(4), 'core.credential-id');
     });
 
     it('fails credential-id check for non-string ID', async () => {
@@ -207,9 +221,10 @@ describe('Core Structure Suite', () => {
       const subject = createSubject(cred);
       const results = await runSuites([coreSuite], subject, context);
 
-      expect(results).toHaveLength(4);
+      expect(results).toHaveLength(5);
       expect(results[3].check).toBe('core.credential-id');
       expect(results[3].outcome.status).toBe('failure');
+      expectNotRunAfter(results.slice(4), 'core.credential-id');
     });
 
     it('fails credential-id check when id is explicitly null', async () => {
@@ -676,8 +691,11 @@ describe('vc-structure', () => {
       expect(results.map(r => [r.check, r.outcome.status])).toEqual([
         ['core.context-exists', 'success'],
         ['core.vc-context', 'success'],
-        ['core.vc-structure', 'failure']
+        ['core.vc-structure', 'failure'],
+        ['core.credential-id', 'skipped'],
+        ['core.proof-exists', 'skipped']
       ]);
+      expectNotRunAfter(results.slice(3), 'core.vc-structure');
     });
 
     it('applies only the version-independent rules when it is not a VC context', async () => {

@@ -30,15 +30,32 @@ import type { TaskTiming } from './timing.js';
  *   than parsing `reason` (which is prose and may be reworded). Each
  *   check documents and exports its own code catalog (e.g.
  *   `EXPIRATION_SKIP_CODES`); codes are only comparable within the check
- *   that emitted them.
+ *   that emitted them. `haltedBy` is set only on the orchestrator's
+ *   `NOT_RUN_AFTER_FATAL` rows and names the qualified id of the fatal
+ *   failure that halted the subject.
  *
  * Checks never throw for verification failures — they return a failure outcome.
- * Throws are reserved for unexpected infrastructure errors.
+ * Throws are reserved for unexpected infrastructure errors; the orchestrator
+ * contains them as `CHECK_ERROR` failures (see `run-suites.ts`).
  */
 export type CheckOutcome =
   | { status: 'success'; message: string; payload?: unknown }
   | { status: 'failure'; problems: ProblemDetail[]; payload?: unknown }
-  | { status: 'skipped'; reason: string; code?: string };
+  | { status: 'skipped'; reason: string; code?: string; haltedBy?: string };
+
+/**
+ * Machine-readable `code` values on the `'skipped'` rows the orchestrator
+ * itself emits (as opposed to codes a check emits for its own skips).
+ * Branch on these rather than on the prose `reason`.
+ */
+export const RUN_SUITES_SKIP_CODES = {
+  /**
+   * The check would have run but an earlier fatal failure halted the
+   * subject. The row's `haltedBy` carries the qualified id of the first
+   * fatal failure; the `reason` reads `Not run: <check-id> failed`.
+   */
+  notRunAfterFatal: 'NOT_RUN_AFTER_FATAL'
+} as const;
 
 /**
  * Tagged outcome emitted by the suite orchestrator.
@@ -80,9 +97,11 @@ export interface CheckResult {
   /**
    * Whether this check was marked fatal in its suite definition.
    * Only a fatal failure makes the overall `verified` (and the owning
-   * `SuiteSummary.verified`) false; a non-fatal failure is reported in
-   * `results[]` and `SuiteSummary.status` / `counts` but leaves
-   * `verified` untouched.
+   * `SuiteSummary.verified`) false and halts every later check for the
+   * subject; a non-fatal failure is reported in `results[]` and
+   * `SuiteSummary.status` / `counts` but leaves `verified` untouched.
+   * A `'skipped'` "not run" row carries its check's flag too, but only
+   * a `'failure'` counts as fatal.
    */
   fatal?: boolean;
   /**
@@ -152,7 +171,12 @@ export interface VerificationCheck {
   description?: string;
   /** Restricts this check to specific subject types. Unset = runs for all. */
   appliesTo?: readonly VerificationSubjectType[];
-  /** If true, a failure stops remaining checks in this suite (later suites still run). */
+  /**
+   * If true, a failure halts every remaining check for the subject, in
+   * this suite and all later suites. Checks that would have run are
+   * reported as `'skipped'` with code
+   * {@link RUN_SUITES_SKIP_CODES.notRunAfterFatal}.
+   */
   fatal?: boolean;
   execute: (
     subject: VerificationSubject,

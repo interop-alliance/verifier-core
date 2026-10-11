@@ -178,10 +178,7 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
       const recognized = extractRecognition(rawChecks);
 
       const verbose = call.verbose ?? constructorVerbose ?? false;
-      const folded = foldCheckResults(rawChecks, suites, {
-        verbose,
-        subjectType: 'verifiableCredential'
-      });
+      const folded = foldCheckResults(rawChecks, suites, { verbose });
 
       const result: CredentialVerificationResult = {
         verified: !hasFatalFailures(rawChecks),
@@ -275,7 +272,7 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
       const foldedPresentation = foldCheckResults(
         rawPresentationChecks,
         presentationSuites,
-        { verbose, subjectType: 'verifiablePresentation' }
+        { verbose }
       );
 
       const credentials = extractCredentialsFrom(presentation);

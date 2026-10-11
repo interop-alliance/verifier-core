@@ -6,9 +6,8 @@ import type {
 /**
  * Whether `check` applies to a subject of any of `subjectTypes`. A check
  * whose `appliesTo` is unset or empty applies to everything. This is the
- * one definition of `appliesTo`, shared by the orchestrator (which
- * decides whether to run the check) and result folding (which counts
- * the checks that could have run).
+ * one definition of `appliesTo`, used by the orchestrator to decide
+ * whether a check runs for the subject.
  */
 export function checkAppliesTo(
   check: VerificationCheck,

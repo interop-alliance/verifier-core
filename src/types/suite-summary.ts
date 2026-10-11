@@ -59,8 +59,9 @@ export interface SuiteSummary {
    *  - `'failure'` — every check that ran returned `failure`.
    *  - `'mixed'`   — at least one `failure` and at least one
    *    non-`failure` (`success` or `skipped`).
-   *  - `'skipped'` — no check ran (suite predicate returned false
-   *    or every check was filtered out by `appliesTo`).
+   *  - `'skipped'` -- no check ran (suite predicate returned false,
+   *    every check was filtered out by `appliesTo`, or every check
+   *    was halted by an earlier fatal failure).
    */
   status: 'success' | 'failure' | 'skipped' | 'mixed';
 
@@ -82,8 +83,13 @@ export interface SuiteSummary {
    *  - `"<n> of <m> checks passed (<k> failed)"`
    *  - `"<n> of <m> checks passed (<k> failed, <r> not run after fatal)"`
    *  - `"0 of <m> checks passed (<m> skipped)"`
+   *  - `"<suite> not run: <check-id> failed"` -- every check was
+   *    halted by an earlier suite's fatal failure
    *  - `"<suite> not applicable: <reason>"`
-   * `counts` carries the same numbers as data.
+   * `counts` carries the same numbers as data. "Not run" rows (skips
+   * with code `NOT_RUN_AFTER_FATAL`) count toward `counts.skipped`,
+   * but the message reports them as "not run after fatal" rather
+   * than as skips.
    */
   message: string;
 
@@ -92,8 +98,9 @@ export interface SuiteSummary {
 
   /**
    * Set when a fatal check failure halted the suite mid-run;
-   * carries the failing check's `id`. `counts` reflects what
-   * actually executed before the halt.
+   * carries the failing check's `id`. `counts.passed` and
+   * `counts.failed` reflect what actually executed before the
+   * halt; the halted checks count as `skipped`.
    */
   fatalFailureAt?: string;
 

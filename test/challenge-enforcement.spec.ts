@@ -15,7 +15,7 @@ import { Ed25519Signature2020 } from '@interop/ed25519-signature';
 import type { ISigner } from '@interop/data-integrity-core';
 import { createVerifier } from '../src/verifier.js';
 import { ProblemTypes } from '../src/problem-types.js';
-import type { CheckResult } from '../src/types/check.js';
+import { type CheckResult } from '../src/types/check.js';
 import {
   documentLoader,
   expectProblem,
@@ -26,6 +26,7 @@ import {
   tamper,
   unsignedPresentation
 } from './factories/services/offline-signing.js';
+import { notRunOutcome } from './factories/index.js';
 
 const { purposes } = jsonLdSignatures;
 
@@ -137,13 +138,19 @@ describe('challenge enforcement with the default crypto service', () => {
     const result = await verify(presentation, { challenge: 'a' });
 
     expect(result.verified).toBe(false);
-    const outcome = signatureResult(result.presentationResults)?.outcome;
+    // `core.vp-structure` is fatal, so the signature check is not reached.
+    const outcome = result.presentationResults.find(
+      r => r.check === 'core.vp-structure'
+    )?.outcome;
     expect(outcome?.status).toBe('failure');
     if (outcome?.status === 'failure') {
       expect(outcome.problems[0].detail).toContain(
         '"type" must include "VerifiablePresentation"'
       );
     }
+    expect(signatureResult(result.presentationResults)?.outcome).toEqual(
+      notRunOutcome('core.vp-structure')
+    );
   });
 
   it('verifies an authentication presentation with the matching challenge', async () => {

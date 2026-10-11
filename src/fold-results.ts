@@ -25,15 +25,14 @@
  * @see computeId
  */
 
-import type {
-  CheckResult,
-  SuitePhase,
-  VerificationSubjectType,
-  VerificationSuite
+import {
+  type CheckResult,
+  type SuitePhase,
+  type VerificationSuite,
+  RUN_SUITES_SKIP_CODES
 } from './types/check.js';
 import type { SuiteSummary, SuiteSummaryPhase } from './types/suite-summary.js';
 import type { TaskTiming } from './types/timing.js';
-import { checkAppliesTo } from './util/check-applies.js';
 
 export interface FoldOptions {
   /**
@@ -42,14 +41,6 @@ export interface FoldOptions {
    * and explicit `<suite>.applies` skips.
    */
   verbose?: boolean;
-  /**
-   * The subject the checks ran against. When set, the "not run after
-   * fatal" count in a suite's `message` counts only the checks whose
-   * `appliesTo` admits this subject, so a suite that mixes
-   * credential-only and presentation-only checks (such as `core`)
-   * reports the right total. When unset, every defined check counts.
-   */
-  subjectType?: VerificationSubjectType;
 }
 
 export function foldCheckResults(
@@ -68,9 +59,7 @@ export function foldCheckResults(
   for (const [suiteId, suiteChecks] of grouped) {
     const suiteDef = suiteIndex.get(suiteId);
     const phase = derivePhase(suiteDef);
-    summaries.push(
-      summarizeSuite(suiteId, phase, suiteDef, suiteChecks, opts.subjectType)
-    );
+    summaries.push(summarizeSuite(suiteId, phase, suiteChecks));
   }
 
   const results = selectResultsForVerbosity(checks, opts.verbose === true);
@@ -154,14 +143,13 @@ function derivePhase(
 function summarizeSuite(
   suiteId: string,
   phase: SuitePhase | undefined,
-  suiteDef: VerificationSuite | undefined,
-  suiteChecks: CheckResult[],
-  subjectType: VerificationSubjectType | undefined
+  suiteChecks: CheckResult[]
 ): SuiteSummary {
+  const tally = tallySuite(suiteChecks);
   const counts = {
-    passed: suiteChecks.filter(c => c.outcome.status === 'success').length,
-    failed: suiteChecks.filter(c => c.outcome.status === 'failure').length,
-    skipped: suiteChecks.filter(c => c.outcome.status === 'skipped').length
+    passed: tally.passed,
+    failed: tally.failed,
+    skipped: tally.skipped + tally.notRun
   };
 
   const fatalCheck = suiteChecks.find(
@@ -172,12 +160,9 @@ function summarizeSuite(
   const status = deriveStatus(counts);
   const verified = fatalCheck === undefined;
 
-  const totalDefined = countApplicableChecks(suiteDef, subjectType);
   const message = formatMessage(
     suiteId,
-    counts,
-    totalDefined,
-    fatalFailureAt !== undefined,
+    tally,
     pickAppliesSkipReason(suiteChecks, suiteId)
   );
 
@@ -194,24 +179,6 @@ function summarizeSuite(
     ...(fatalFailureAt !== undefined ? { fatalFailureAt } : {}),
     ...(timing !== undefined ? { timing } : {})
   };
-}
-
-/**
- * The number of a suite's checks that can run for `subjectType`: every
- * check when the subject type is unknown, otherwise those whose
- * `appliesTo` admits it (see {@link checkAppliesTo}).
- */
-function countApplicableChecks(
-  suiteDef: VerificationSuite | undefined,
-  subjectType: VerificationSubjectType | undefined
-): number {
-  if (suiteDef === undefined) {
-    return 0;
-  }
-  if (subjectType === undefined) {
-    return suiteDef.checks.length;
-  }
-  return suiteDef.checks.filter(c => checkAppliesTo(c, [subjectType])).length;
 }
 
 /**
@@ -297,40 +264,83 @@ function pickAppliesSkipReason(
 }
 
 /**
+ * Per-outcome counts for one suite, in a single pass. "Not run" rows
+ * (skips with code {@link RUN_SUITES_SKIP_CODES.notRunAfterFatal})
+ * are tallied apart from ordinary skips, and `haltedBy` records the
+ * halting check id from the first of them.
+ */
+interface SuiteTally {
+  passed: number;
+  failed: number;
+  skipped: number;
+  notRun: number;
+  haltedBy: string | undefined;
+}
+
+function tallySuite(suiteChecks: CheckResult[]): SuiteTally {
+  const tally: SuiteTally = {
+    passed: 0,
+    failed: 0,
+    skipped: 0,
+    notRun: 0,
+    haltedBy: undefined
+  };
+  for (const { outcome } of suiteChecks) {
+    if (outcome.status === 'success') {
+      tally.passed += 1;
+    } else if (outcome.status === 'failure') {
+      tally.failed += 1;
+    } else if (outcome.code === RUN_SUITES_SKIP_CODES.notRunAfterFatal) {
+      tally.notRun += 1;
+      tally.haltedBy ??= outcome.haltedBy;
+    } else {
+      tally.skipped += 1;
+    }
+  }
+  return tally;
+}
+
+/**
  * Build the human-readable `SuiteSummary.message`. See
  * `SuiteSummary.message` TSDoc for the exact wording conventions.
  *
  * The message always reads in one direction, `<passed> of <total>
  * checks passed`, so a column of suite rows compares at a glance.
  * Non-zero failed / skipped / not-run counts follow in parentheses.
+ * Two exceptions name a cause instead: a suite whose `applies`
+ * predicate declined, and a suite every check of which was halted by
+ * an earlier suite's fatal failure.
  */
 function formatMessage(
   suiteId: string,
-  counts: { passed: number; failed: number; skipped: number },
-  totalDefined: number,
-  fatalShortCircuited: boolean,
+  tally: SuiteTally,
   appliesSkipReason: string | undefined
 ): string {
   if (appliesSkipReason !== undefined) {
     return `${suiteId} not applicable: ${appliesSkipReason}`;
   }
 
-  const recorded = counts.passed + counts.failed + counts.skipped;
-  const notRun = fatalShortCircuited ? Math.max(0, totalDefined - recorded) : 0;
-  const total = recorded + notRun;
+  const total = tally.passed + tally.failed + tally.skipped + tally.notRun;
+
+  // Every row is a halt skip: an earlier suite's fatal failure stopped
+  // the whole suite. A row without `haltedBy` was not built by
+  // `runSuites`; fall through to the counted form for it.
+  if (tally.notRun === total && tally.haltedBy !== undefined) {
+    return `${suiteId} not run: ${tally.haltedBy} failed`;
+  }
 
   const tail: string[] = [];
-  if (counts.failed > 0) {
-    tail.push(`${counts.failed} failed`);
+  if (tally.failed > 0) {
+    tail.push(`${tally.failed} failed`);
   }
-  if (counts.skipped > 0) {
-    tail.push(`${counts.skipped} skipped`);
+  if (tally.skipped > 0) {
+    tail.push(`${tally.skipped} skipped`);
   }
-  if (notRun > 0) {
-    tail.push(`${notRun} not run after fatal`);
+  if (tally.notRun > 0) {
+    tail.push(`${tally.notRun} not run after fatal`);
   }
   const tailStr = tail.length > 0 ? ` (${tail.join(', ')})` : '';
-  return `${counts.passed} of ${total} ${pluralCheck(total)} passed${tailStr}`;
+  return `${tally.passed} of ${total} ${pluralCheck(total)} passed${tailStr}`;
 }
 
 function pluralCheck(n: number): 'check' | 'checks' {

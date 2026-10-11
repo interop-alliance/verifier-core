@@ -19,7 +19,7 @@ import { proofExistsCheck } from './proof-exists-check.js';
  * 5. Credential ID is valid URL (if present)
  * 6. Proof exists on the credential
  *
- * All checks are fatal - a failure stops remaining checks in this suite.
+ * All checks are fatal - a failure halts all remaining checks for this subject.
  */
 export const coreSuite: VerificationSuite = {
   id: 'core',

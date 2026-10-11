@@ -10,8 +10,13 @@
  *    also runs `core` against the VP, where only `core.vp-structure` applies
  * 2. **recognition** (recognition) -- pluggable credential-profile recognition (no-op when no recognizers configured)
  * 3. **proof** (cryptographic) -- cryptographic signature verification
- * 4. **status** (cryptographic) -- revocation/suspension via BitstringStatusList
- * 5. **registry** (trust) -- issuer DID lookup in known registries
+ * 4. **registry** (trust) -- issuer DID lookup in known registries
+ * 5. **status** (cryptographic) -- revocation/suspension via BitstringStatusList
+ *
+ * `registrySuite` runs before `statusSuite` because the status check is
+ * fatal and halts every later check. The registry check is informational,
+ * so a revoked credential or an unreachable status list still reports
+ * whether the issuer is known.
  *
  * The `recognitionSuite` runs after `core` so structurally
  * malformed credentials don't reach recognition, and before `proof`
@@ -54,6 +59,6 @@ export const defaultSuites: VerificationSuite[] = [
   coreSuite,
   recognitionSuite,
   proofSuite,
-  statusSuite,
-  registrySuite
+  registrySuite,
+  statusSuite
 ];

@@ -45,6 +45,9 @@ export const ProblemTypes = {
   MALFORMED_VALUE_ERROR:
     'https://www.w3.org/TR/vc-data-model#MALFORMED_VALUE_ERROR',
 
+  /** Synthesized -- a check threw instead of returning an outcome. */
+  CHECK_ERROR: 'https://www.w3.org/TR/vc-data-model#CHECK_ERROR',
+
   /** Synthesized -- cryptographic signature did not verify. */
   INVALID_SIGNATURE: 'https://www.w3.org/TR/vc-data-model#INVALID_SIGNATURE',
   /** Synthesized -- proof verification raised an error before reaching a verdict. */

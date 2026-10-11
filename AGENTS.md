@@ -38,7 +38,8 @@ with code changes. Quick map:
   violation. The inferred `VerifiableCredential` type is a passthrough object,
   so consumers reading other fields get `unknown`.
 - **Suite/check engine** (`src/run-suites.ts`): an ordered pipeline of suites ->
-  checks. Default order: `core -> recognition -> proof -> status -> registry`.
+  checks. Default order: `core -> recognition -> proof -> registry -> status`
+  (registry before the fatal status check so revocation keeps the issuer row).
   `verifyPresentation` runs `core` (only `core.vp-structure` applies) and then
   `proof` against the VP itself. Each check returns a discriminated
   `CheckOutcome` (`success | failure | skipped`) -- **no exceptions for

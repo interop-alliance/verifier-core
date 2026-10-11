@@ -251,8 +251,8 @@ interface ProblemDetail {
     { "id": "cryptographic.core.credential-id", "suite": "core",   "check": "core.credential-id",  "outcome": { "status": "success", "message": "..." } },
     { "id": "cryptographic.core.proof-exists", "suite": "core",   "check": "core.proof-exists",   "outcome": { "status": "success", "message": "..." } },
     { "id": "cryptographic.proof.signature", "suite": "proof",  "check": "proof.signature",     "outcome": { "status": "success", "message": "Signature verified successfully." } },
-    { "id": "cryptographic.status.bitstring", "suite": "status", "check": "status.bitstring",    "outcome": { "status": "success", "message": "Credential status is valid (not revoked or suspended)." } },
-    { "id": "trust.registry.issuer", "suite": "registry", "check": "registry.issuer",   "outcome": { "status": "success", "message": "Issuer found in registry: DCC Sandbox Registry", "payload": { "matches": [ { "registry": { "name": "DCC Sandbox Registry", "type": "dcc-legacy", "url": "https://digitalcredentials.github.io/sandbox-registry/registry.json" }, "entity": { "name": "Example University", "url": "https://example.edu", "raw": { "name": "Example University", "url": "https://example.edu" } } } ], "uncheckedRegistries": [] } } }
+    { "id": "trust.registry.issuer", "suite": "registry", "check": "registry.issuer",   "outcome": { "status": "success", "message": "Issuer found in registry: DCC Sandbox Registry", "payload": { "matches": [ { "registry": { "name": "DCC Sandbox Registry", "type": "dcc-legacy", "url": "https://digitalcredentials.github.io/sandbox-registry/registry.json" }, "entity": { "name": "Example University", "url": "https://example.edu", "raw": { "name": "Example University", "url": "https://example.edu" } } } ], "uncheckedRegistries": [] } } },
+    { "id": "cryptographic.status.bitstring", "suite": "status", "check": "status.bitstring",    "outcome": { "status": "success", "message": "Credential status is valid (not revoked or suspended)." } }
   ]
 }
 ```
@@ -260,8 +260,10 @@ interface ProblemDetail {
 #### Example: Invalid signature (fatal)
 
 An invalid signature is fatal — it means any part of the credential could have
-been tampered with, so subsequent checks within the proof suite stop. Other
-suites still run.
+been tampered with, so every later check for the credential, in any suite, is
+halted. With `verbose: true`, each check that would have run appears as
+`skipped` with code `NOT_RUN_AFTER_FATAL`, `haltedBy` naming the failed check,
+and reason `Not run: <check-id> failed`.
 
 ```json
 {
@@ -292,9 +294,24 @@ suites still run.
       }
     },
     {
+      "suite": "registry",
+      "check": "registry.issuer",
+      "outcome": {
+        "status": "skipped",
+        "code": "NOT_RUN_AFTER_FATAL",
+        "haltedBy": "proof.signature",
+        "reason": "Not run: proof.signature failed"
+      }
+    },
+    {
       "suite": "status",
       "check": "status.bitstring",
-      "outcome": { "status": "skipped", "reason": "..." }
+      "outcome": {
+        "status": "skipped",
+        "code": "NOT_RUN_AFTER_FATAL",
+        "haltedBy": "proof.signature",
+        "reason": "Not run: proof.signature failed"
+      }
     }
   ]
 }
@@ -304,8 +321,8 @@ suites still run.
 
 When a credential's status list marks it revoked or suspended — or the verifier
 can't confidently evaluate the list (missing, expired, wrong type, signature
-invalid) — the status suite fails the credential. The proof check still passes
-on its own merits.
+invalid) — the status suite fails the credential. The proof and registry checks
+still pass on their own merits.
 
 ```json
 {
@@ -323,6 +340,11 @@ on its own merits.
         "status": "success",
         "message": "Signature verified successfully."
       }
+    },
+    {
+      "suite": "registry",
+      "check": "registry.issuer",
+      "outcome": { "status": "success", "message": "..." }
     },
     {
       "suite": "status",

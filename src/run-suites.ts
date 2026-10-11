@@ -6,6 +6,17 @@
  * check, respects `appliesTo` filtering and `fatal` short-circuiting,
  * and returns a flat `CheckResult[]` report.
  *
+ * Invariants:
+ * - The first fatal failure halts the subject: no later check executes,
+ *   in the same suite or any later one. Each check that would have run is
+ *   reported as a `'skipped'` row with code
+ *   {@link RUN_SUITES_SKIP_CODES.notRunAfterFatal}, `haltedBy` naming the
+ *   failed check, and reason `Not run: <check-id> failed`, so the report
+ *   still lists it.
+ * - A throw never escapes. A throwing `execute` or `applies` becomes a
+ *   `failure` result carrying {@link ProblemTypes.CHECK_ERROR}, so
+ *   `runSuites` always resolves.
+ *
  * This module is pure orchestration — it has no knowledge of what any
  * check actually does.
  */
@@ -16,9 +27,12 @@ import {
   CheckResult,
   CheckOutcome,
   SuitePhase,
-  SUBJECT_TYPES
+  SUBJECT_TYPES,
+  RUN_SUITES_SKIP_CODES
 } from './types/check.js';
 import { VerificationContext } from './types/context.js';
+import { ProblemTypes } from './problem-types.js';
+import { errorMessage } from './util/error-message.js';
 import { VerificationSubject } from './types/subject.js';
 import type { TimeService } from './services/time-service/time-service.js';
 import type { TaskTiming } from './types/timing.js';
@@ -92,9 +106,22 @@ function appliesToSubject(
  *   silently skipped, except when their id appears in
  *   `options.explicitSuiteIds` — in which case a synthetic
  *   `<suite-id>.applies` `'skipped'` `CheckResult` is emitted.
+ * - A throwing `applies` predicate becomes a `<suite-id>.applies`
+ *   `failure` carrying `CHECK_ERROR`, and that suite's checks do not
+ *   run. The row is fatal when the suite has a fatal check that applies
+ *   to the subject (a suite that could have failed the subject must not
+ *   silently pass). After a halt the throw is not reported; the suite's
+ *   checks are listed as not run instead.
  * - Checks are executed in order within each suite.
  * - Checks with `appliesTo` restrictions are skipped if they don't match the subject.
- * - Fatal failures stop remaining checks in that suite only (other suites continue).
+ * - A throwing check becomes a `failure` carrying `CHECK_ERROR`, and
+ *   keeps the check's own `fatal` flag.
+ * - A fatal failure halts every remaining check for the subject, in
+ *   this suite and all later suites. Each check that would have run is
+ *   reported as `'skipped'` with code `NOT_RUN_AFTER_FATAL`, `haltedBy`
+ *   naming the failed check, and reason `Not run: <check-id> failed`.
+ *   Phase filtering and `applies` are still evaluated after a halt, so
+ *   suites that would not have run stay silent.
  * - Every result carries its namespaced `id` (see `computeId`).
  * - Returns a flat array of all check results.
  */
@@ -107,16 +134,52 @@ export async function runSuites(
   const results: CheckResult[] = [];
   const timing = context.timing === true;
   const timeService = context.timeService;
+  /** Qualified id of the first fatal failure; once set, no check executes. */
+  let haltedBy: string | undefined;
 
   for (const suite of suites) {
     if (!suiteRunsInPhases(suite, options.phases)) {
       continue;
     }
 
-    if (suite.applies && !suite.applies(subject, context)) {
+    const applies = evaluateApplies(suite, subject, context);
+
+    // A throwing predicate is reported once, before any halt. Once
+    // halted, nothing in the suite would have run anyway, so the throw
+    // is not reported and the suite's checks are listed as not run.
+    if (applies.threw && haltedBy === undefined) {
+      const checkId = `${suite.id}.applies`;
+      // A suite that could have failed the subject must not silently pass.
+      const fatal = suite.checks.some(
+        c => c.fatal === true && appliesToSubject(c, subject)
+      );
+      results.push(
+        syntheticResult(
+          suite,
+          checkId,
+          buildCheckErrorOutcome(checkId, applies.error),
+          fatal,
+          timing,
+          timeService
+        )
+      );
+      if (fatal) {
+        haltedBy = checkId;
+      }
+      continue;
+    }
+
+    if (!applies.threw && !applies.value) {
       if (options.explicitSuiteIds?.has(suite.id)) {
         results.push(
-          buildSyntheticAppliesSkipResult(suite, timing, timeService)
+          syntheticResult(
+            suite,
+            `${suite.id}.applies`,
+            { status: 'skipped', reason: 'suite predicate returned false' },
+            undefined,
+            timing,
+            timeService
+          )
         );
       }
       continue;
@@ -127,26 +190,44 @@ export async function runSuites(
         continue;
       }
 
+      if (haltedBy !== undefined) {
+        results.push(
+          syntheticResult(
+            suite,
+            check.id,
+            {
+              status: 'skipped',
+              code: RUN_SUITES_SKIP_CODES.notRunAfterFatal,
+              haltedBy,
+              reason: `Not run: ${haltedBy} failed`
+            },
+            check.fatal,
+            timing,
+            timeService
+          )
+        );
+        continue;
+      }
+
       const taskTiming = timing ? startTaskTiming(timeService) : undefined;
-      const outcome: CheckOutcome = await check.execute(subject, context);
+      let outcome: CheckOutcome;
+      try {
+        outcome = await check.execute(subject, context);
+      } catch (error) {
+        outcome = buildCheckErrorOutcome(check.id, error);
+      }
       const finishedTiming = taskTiming
         ? finishTaskTiming(taskTiming, timeService)
         : undefined;
 
-      const result: CheckResult = {
-        id: computeId(suite.phase, suite.id, check.id),
-        check: check.id,
-        suite: suite.id,
-        outcome,
-        fatal: check.fatal
-      };
+      const result = buildResult(suite, check.id, outcome, check.fatal);
       if (finishedTiming !== undefined) {
         result.timing = finishedTiming;
       }
       results.push(result);
 
       if (check.fatal && outcome.status === 'failure') {
-        break;
+        haltedBy = check.id;
       }
     }
   }
@@ -155,29 +236,80 @@ export async function runSuites(
 }
 
 /**
- * Internal: build the synthetic `<suite-id>.applies` skipped
- * result, instrumenting `timing` when requested. The synthetic
- * row represents an instantaneous decision (the `applies`
- * predicate was already evaluated), so its timing window
- * collapses to a single sample of each clock — `endedAt` and
- * `durationMs` reflect the cost of recording the decision, not
- * the predicate itself.
+ * Internal: evaluate a suite's `applies` predicate without letting a
+ * throw escape. A suite with no predicate applies.
  */
-function buildSyntheticAppliesSkipResult(
+function evaluateApplies(
   suite: VerificationSuite,
+  subject: VerificationSubject,
+  context: VerificationContext
+): { threw: false; value: boolean } | { threw: true; error: unknown } {
+  if (!suite.applies) {
+    return { threw: false, value: true };
+  }
+  try {
+    return { threw: false, value: suite.applies(subject, context) };
+  } catch (error) {
+    return { threw: true, error };
+  }
+}
+
+/**
+ * Internal: turn a throw from `check.execute` (or `suite.applies`) into
+ * a `failure` outcome carrying {@link ProblemTypes.CHECK_ERROR}. The
+ * stack is not kept, only the message.
+ */
+function buildCheckErrorOutcome(id: string, error: unknown): CheckOutcome {
+  const message = errorMessage(error, 'non-Error value thrown');
+  return {
+    status: 'failure',
+    problems: [
+      {
+        type: ProblemTypes.CHECK_ERROR,
+        title: 'Check Error',
+        detail: `Check "${id}" threw: ${message}`
+      }
+    ]
+  };
+}
+
+/**
+ * Internal: assemble a `CheckResult` row for `checkId` within `suite`.
+ * `fatal` is omitted from the row when undefined.
+ */
+function buildResult(
+  suite: VerificationSuite,
+  checkId: string,
+  outcome: CheckOutcome,
+  fatal: boolean | undefined
+): CheckResult {
+  return {
+    id: computeId(suite.phase, suite.id, checkId),
+    check: checkId,
+    suite: suite.id,
+    outcome,
+    ...(fatal !== undefined ? { fatal } : {})
+  };
+}
+
+/**
+ * Internal: build a row the orchestrator emits itself rather than from
+ * `check.execute`: the `<suite-id>.applies` skip or error, and the
+ * "not run after fatal" skip. Such a row records an instantaneous
+ * decision, so when `timing` is on its window collapses to a single
+ * sample of each clock. `endedAt` and `durationMs` then reflect the
+ * cost of recording the decision, not of any predicate, and suite
+ * rollups keep summing cleanly over synthetic rows.
+ */
+function syntheticResult(
+  suite: VerificationSuite,
+  checkId: string,
+  outcome: CheckOutcome,
+  fatal: boolean | undefined,
   timing: boolean,
   timeService: TimeService | undefined
 ): CheckResult {
-  const suiteId = suite.id;
-  const result: CheckResult = {
-    id: computeId(suite.phase, suiteId, `${suiteId}.applies`),
-    check: `${suiteId}.applies`,
-    suite: suiteId,
-    outcome: {
-      status: 'skipped',
-      reason: 'suite predicate returned false'
-    }
-  };
+  const result = buildResult(suite, checkId, outcome, fatal);
   if (timing) {
     const started = startTaskTiming(timeService);
     result.timing = finishTaskTiming(started, timeService);

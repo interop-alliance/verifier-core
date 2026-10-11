@@ -66,9 +66,27 @@
   path.
 - `coreSuite` runs for presentations, ahead of `proof`; only `core.vp-structure`
   applies to a VP. A presentation result's `summary` gains a `core` entry.
-- `foldCheckResults` takes `subjectType` in its options, so the "not run after
-  fatal" count in a suite message counts only the checks whose `appliesTo`
-  admits the subject. `createVerifier` passes it.
+- A fatal failure halts every remaining check for the subject, in its own suite
+  and in all later suites, instead of only its own suite. Each halted check is
+  reported as `skipped` with code `NOT_RUN_AFTER_FATAL` (exported as
+  `RUN_SUITES_SKIP_CODES.notRunAfterFatal`), `haltedBy` naming the failed
+  check, and reason `Not run: <check-id> failed`. Suite messages count these as "not run after
+  fatal"; a suite whose every check was halted reads
+  `<suite> not run: <check-id> failed`. `FoldOptions.subjectType` is gone:
+  halted checks are explicit rows, so the count no longer needs it. In the
+  default pipeline `core.proof-exists` now halts before `proof.signature`, so an
+  unsigned credential no longer also reports `No Applicable Crypto Service`.
+- `registrySuite` now runs before `statusSuite` in the default pipeline, so a
+  revoked credential or an unreachable status list still reports the issuer
+  registry lookup.
+- A throwing check no longer rejects the verify call. A throwing `execute`
+  becomes a failure carrying the new `CHECK_ERROR` problem type
+  (`Check "<id>" threw: <message>`) and keeps the check's `fatal` flag. A
+  throwing suite `applies` predicate becomes a `<suite>.applies` `CHECK_ERROR`
+  failure, fatal when the suite has a fatal check that applies to the subject;
+  after a halt the suite's checks are listed as not run instead. A throwing
+  `CryptoService.canVerify` is reported by `dispatchProofVerification` as
+  `threw`.
 - OIDF lookups work in browsers and React Native: JWT decoding uses
   `@scure/base` instead of `Buffer`. `@interop/ecdsa-multikey` and `@scure/base`
   are runtime dependencies.
