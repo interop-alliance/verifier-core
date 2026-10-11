@@ -45,7 +45,7 @@ Verification runs an ordered pipeline of **suites**, each containing one or more
 
 | Suite           | Phase           | What it checks                                                                                                                                                  | Fatal? |
 | --------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| **Core**        | `cryptographic` | `@context` exists, VC context URI present, resolve issuers, credential ID valid, proof exists                                                                   | Yes    |
+| **Core**        | `cryptographic` | `@context` exists, VC context URI present, credential ID valid, proof exists                                                                                    | Yes    |
 | **Recognition** | `recognition`   | Pluggable credential-profile recognition; produces a normalized credential form (no-op when no recognizers configured)                                          | No     |
 | **Proof**       | `cryptographic` | Cryptographic signature verification                                                                                                                            | Yes    |
 | **Status**      | `cryptographic` | Revocation/suspension via BitstringStatusList — sole owner of status verification. The list credential's proof is checked with the configured `cryptoServices`. | Yes    |
@@ -112,12 +112,19 @@ interface VerifyCredentialOptions {
   registries?: EntityIdentityRegistry[];
   additionalSuites?: VerificationSuite[];
 
+  // Pipeline controls:
+  recognizers?: RecognizerSpec[]; // See "Credential recognition + two-pass verification"
+  phases?: SuitePhase[]; // See "Two-pass verification"
+  verbose?: boolean; // Full check list in results[] (default: failures + skips only)
+  timing?: boolean; // Per-check / per-suite timing instrumentation
+
   // Service overrides (otherwise sensible defaults are used):
   httpGetService?: HttpGetService; // See "Network policy of the built-in HTTP service"
   cacheService?: CacheService;
   cryptoServices?: CryptoService[];
   registryHandlers?: RegistryHandlerMap;
   documentLoader?: DocumentLoader;
+  timeService?: TimeService; // See "Pluggable clock (TimeService)"
 }
 ```
 
@@ -362,12 +369,19 @@ interface VerifyPresentationOptions {
   registries?: EntityIdentityRegistry[];
   additionalSuites?: VerificationSuite[];
 
+  // Pipeline controls:
+  recognizers?: RecognizerSpec[]; // See "Credential recognition + two-pass verification"
+  phases?: SuitePhase[]; // See "Two-pass verification"
+  verbose?: boolean; // Full check list in results[] (default: failures + skips only)
+  timing?: boolean; // Per-check / per-suite timing instrumentation
+
   // Service overrides (otherwise sensible defaults are used):
   httpGetService?: HttpGetService; // See "Network policy of the built-in HTTP service"
   cacheService?: CacheService;
   cryptoServices?: CryptoService[];
   registryHandlers?: RegistryHandlerMap;
   documentLoader?: DocumentLoader;
+  timeService?: TimeService; // See "Pluggable clock (TimeService)"
 }
 ```
 

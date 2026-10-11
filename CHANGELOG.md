@@ -64,6 +64,15 @@
   exported `BuiltinHttpGetServiceOptions` type. Defaults are 10 s, 5 MiB and
   `false`. `allowInsecure` relaxes only the URL policy, for local development.
 
+### Documentation
+
+- README: the Core suite row no longer claims to "resolve issuers" (that is the
+  registry suite); the `verifyCredential` / `verifyPresentation` option blocks
+  now list `recognizers`, `phases`, `verbose`, `timing` and `timeService`.
+- Architecture doc: the "no `Clock` port" gap is restated as the cache layer
+  bypassing the existing `TimeService` seam.
+- `src/index.ts` license header now matches `LICENSE.md` (MIT, 2025).
+
 ## 3.7.0 - 2026-09-30
 
 ### Changed

@@ -852,8 +852,14 @@ wire in exactly the behavior they need.
   calls. (The check itself was already lifted into the opt-in `/openbadges`
   submodule's `openBadgesSchemaSuite` bundle, so consumers who don't care about
   Open Badges already pay zero cost for it.)
-- **No `Clock` port.** TTL math reads from `new Date()` / `Date.now()` directly,
-  which makes time-dependent behavior awkward to test.
+- **Cache TTL math bypasses the clock seam.** `TimeService` is the clock seam
+  for verification decisions (see above), but the caching layer does not route
+  through it. The registry handlers' TTL math
+  (`services/registry-handlers/cache-ttl.ts`) and the in-memory cache's expiry
+  comparison (`services/cache-service/in-memory-cache-service.ts`) both read
+  `Date.now()` directly. That makes TTL and cache-expiry behavior awkward to
+  test, and a verifier built on a `FakeTimeService` still ages its cache entries
+  against the real system clock.
 
 ### Direction
 
@@ -863,7 +869,8 @@ ports in place, the remaining hexagonal work is:
 1. Wrap AJV behind a `JsonSchemaValidator` port. (The "lift the OBv3 schema
    check into a separate vertical" half of this item is done — see the
    `/openbadges` submodule.)
-2. Introduce a `Clock` port for testable TTL behavior.
+2. Thread the existing `TimeService` seam through the caching layer so TTL and
+   cache-expiry behavior is testable on the same clock as verification.
 
 This is a direction, not a mandate. Progress is incremental — each change that
 moves a concrete dependency behind an interface moves the library closer to the
