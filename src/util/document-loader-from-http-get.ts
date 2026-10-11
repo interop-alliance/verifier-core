@@ -9,6 +9,7 @@ import type { DocumentLoader } from '../types/context.js';
 import type { HttpGetService } from '../services/http-get-service/http-get-service.js';
 import { didWebDriverWithHttpGet } from './did-web-driver-with-http-get.js';
 import { didWebvhDriverWithHttpGet } from './did-webvh-driver-with-http-get.js';
+import { parseJsonBody } from './json-body.js';
 
 /**
  * Build a JSON-LD document loader that uses {@link securityLoader} for static
@@ -56,12 +57,9 @@ export function documentLoaderFromHttpGet(
         // in `{ contextUrl, document, documentUrl }` itself. Returning the
         // wrapper here would double-nest it (`document.document`).
         //
-        // Parse string bodies here as well. `BuiltinHttpGetService` already
-        // does this, but `HttpGetService` is injectable and a custom adapter
-        // may hand back the raw text of a `text/plain` status list. A string
-        // that is not JSON throws inside this try and surfaces as a
-        // url-bearing NotFoundError.
-        return typeof body === 'string' ? JSON.parse(body) : body;
+        // A string body that is not JSON throws inside this try and surfaces
+        // as a url-bearing NotFoundError.
+        return parseJsonBody(body);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         throw new Error(`NotFoundError loading "${url}": ${msg}`, { cause: e });

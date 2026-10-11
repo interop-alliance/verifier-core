@@ -12,8 +12,8 @@ importers:
         specifier: ^8.8.0
         version: 8.8.0
       '@interop/data-integrity-proof':
-        specifier: ^3.4.6
-        version: 3.4.6
+        specifier: ^3.4.7
+        version: 3.4.7
       '@interop/did-io':
         specifier: ^4.2.0
         version: 4.2.0
@@ -21,23 +21,23 @@ importers:
         specifier: ^7.4.4
         version: 7.4.4
       '@interop/did-method-webvh':
-        specifier: ^5.11.1
-        version: 5.11.1
+        specifier: ^5.12.0
+        version: 5.12.0
       '@interop/did-web-resolver':
         specifier: ^6.3.5
         version: 6.3.5
       '@interop/ecdsa-signature':
         specifier: ^2.0.8
-        version: 2.0.8(@interop/jsonld-signatures@11.8.6)
+        version: 2.0.8(@interop/jsonld-signatures@11.8.7)
       '@interop/ed25519-signature':
         specifier: ^7.2.3
-        version: 7.2.3(@interop/jsonld-signatures@11.8.6)
+        version: 7.2.3(@interop/jsonld-signatures@11.8.7)
       '@interop/ed25519-verification-key':
         specifier: ^8.2.1
         version: 8.2.1
       '@interop/jsonld-signatures':
-        specifier: ^11.8.6
-        version: 11.8.6
+        specifier: ^11.8.7
+        version: 11.8.7
       '@interop/security-document-loader':
         specifier: ^10.1.4
         version: 10.1.4
@@ -45,8 +45,8 @@ importers:
         specifier: link:../vc
         version: link:../vc
       '@interop/vc-bitstring-status-list':
-        specifier: ^3.2.0
-        version: 3.2.0
+        specifier: ^3.2.1
+        version: 3.2.1
       ajv:
         specifier: ^8.17.1
         version: 8.20.0
@@ -240,8 +240,8 @@ packages:
     resolution: {integrity: sha512-c5zWCHMfMXmEBbJs8AZXvrvbNKVMnTXBcp5poojUtRhpEi9qHi81jF/F1NmLiVQApIQITpIDyBG7/79WxIjCzA==}
     engines: {node: '>=24.0'}
 
-  '@interop/data-integrity-proof@3.4.6':
-    resolution: {integrity: sha512-vteTivZmS9NYjX3nByHZPd164YgzgCmTnj55Y+IQMOfqbvDb14fWhXryPBXRoF9m/qcknAXae/y6r/M7qy9EIg==}
+  '@interop/data-integrity-proof@3.4.7':
+    resolution: {integrity: sha512-Rs0AxaZwkMjbCMm5IeVSQXCL7sUCJLBcJ6chnXiymP5CyG3W7KIKxFgF8kOKL5VWu11Rm/XNbT3fa3xxgKYDeA==}
     engines: {node: '>=24.0'}
 
   '@interop/did-io@4.2.0':
@@ -252,8 +252,8 @@ packages:
     resolution: {integrity: sha512-35ucLPgEWnH/erp9fpBxgRJiocJD48mcT35OPF9aokREThERSmwLmVn2y5/VUowPkWpck2QJg7yw2//0mwpKdQ==}
     engines: {node: '>=24.0'}
 
-  '@interop/did-method-webvh@5.11.1':
-    resolution: {integrity: sha512-Po3GoJLy2TqMc+nYtlNu/uFp7AnZFcMzaWOA+HklsCreFM9zZqegjcMgia+Mfgai37Vtr701OfrGkOBQszwjDQ==}
+  '@interop/did-method-webvh@5.12.0':
+    resolution: {integrity: sha512-QEANqs/IWr5UGD1vs3x5/tZWmRlaSUMp3/unZOQ7u8gzH4eLBKPI8AL/r0dmAc2CAvvpVJ5f+hn97KlXXk04Cg==}
     engines: {node: '>=22'}
 
   '@interop/did-web-resolver@6.3.5':
@@ -295,8 +295,8 @@ packages:
     resolution: {integrity: sha512-t/zL0+mQOjNkzj6usOv6MCOvG/HVOH1GG8Dbp03ympkf4NVOaJavBBJZuE05Xi1Sp4izmjHydDwnJLlzkZpzXQ==}
     engines: {node: '>=22.12'}
 
-  '@interop/jsonld-signatures@11.8.6':
-    resolution: {integrity: sha512-0SzSwXubk5Xa7jFQUOnjV2JEekj05V+0RCJ1D9GMMlj57hBZg1W61inQwwF0tIit5siVw3gzqWI5vLiWmn9/sQ==}
+  '@interop/jsonld-signatures@11.8.7':
+    resolution: {integrity: sha512-1STYDPvcMV50bBWbRNok6dIVY+zcEwaffgnwertYxNMllofvPcTcT5HLM2kernqyQ4IYM7e8hXkIko1zjGEpyw==}
     engines: {node: '>=18'}
 
   '@interop/jsonld@9.0.3':
@@ -311,12 +311,12 @@ packages:
     resolution: {integrity: sha512-kZI0rwUnUvwSYS5qfdOA7IuAEWjboSBzTdL06yET+Abg/4W5f/o1pFeQNTljOzzMETHJgyJS9vtYnWJcoxaIXw==}
     engines: {node: '>=24.0'}
 
-  '@interop/vc-bitstring-status-list@3.2.0':
-    resolution: {integrity: sha512-ZDhITLLfN658c9Dj2ojY3wmtPam2ZZQ9QPzniTdEJXVQYCccfCqvKUN3O4fxmv0kYnlqcZpSmBAbv54MXAcpUQ==}
+  '@interop/vc-bitstring-status-list@3.2.1':
+    resolution: {integrity: sha512-xuZEein/VGf/PZ+XJsTpyATUfB+Ud55JJ+rTORFoxVJBxSmvDD1i50Og8QW/AjGKutQbGsDdvmy3eMKAuc0Cgg==}
     engines: {node: '>=24.0'}
 
-  '@interop/vc@11.0.11':
-    resolution: {integrity: sha512-3bK2Lcs+4WlEJKv9Fl5kiNk4/YW0Qg6amupwEmQ9yN+xZc6vgFtwfLHUM3f/LPohRN8AsiZD7geINXQTE7XBFQ==}
+  '@interop/vc@11.1.0':
+    resolution: {integrity: sha512-2inkscRr4bh/3mFchnDkLs2zJXKQDCTqBvzK601/jvT4WuVVhyL6fYiPqbnEN7gY6id8Us52Edpdl/QWZGkYcw==}
     engines: {node: '>=24.0'}
 
   '@interop/x25519-key-agreement-key@5.4.1':
@@ -1405,10 +1405,10 @@ snapshots:
     dependencies:
       '@scure/base': 2.4.0
 
-  '@interop/data-integrity-proof@3.4.6':
+  '@interop/data-integrity-proof@3.4.7':
     dependencies:
       '@interop/data-integrity-core': 8.8.0
-      '@interop/jsonld-signatures': 11.8.6
+      '@interop/jsonld-signatures': 11.8.7
       '@noble/hashes': 2.4.0
       '@scure/base': 2.4.0
 
@@ -1426,7 +1426,7 @@ snapshots:
     transitivePeerDependencies:
       - react-native-get-random-values
 
-  '@interop/did-method-webvh@5.11.1':
+  '@interop/did-method-webvh@5.12.0':
     dependencies:
       '@interop/data-integrity-core': 8.8.0
       '@noble/curves': 2.4.0
@@ -1449,26 +1449,26 @@ snapshots:
       '@interop/data-integrity-core': 8.8.0
       '@scure/base': 2.4.0
 
-  '@interop/ecdsa-signature@2.0.8(@interop/jsonld-signatures@11.8.6)':
+  '@interop/ecdsa-signature@2.0.8(@interop/jsonld-signatures@11.8.7)':
     dependencies:
       '@interop/ecdsa-multikey': 2.4.1
       '@interop/jsonld': 9.0.3
       canonicalize: 3.0.0
       rdf-canonize: 5.0.0
     optionalDependencies:
-      '@interop/jsonld-signatures': 11.8.6
+      '@interop/jsonld-signatures': 11.8.7
 
-  '@interop/ed25519-signature@7.2.3(@interop/jsonld-signatures@11.8.6)':
+  '@interop/ed25519-signature@7.2.3(@interop/jsonld-signatures@11.8.7)':
     dependencies:
       '@interop/data-integrity-core': 8.8.0
-      '@interop/data-integrity-proof': 3.4.6
+      '@interop/data-integrity-proof': 3.4.7
       '@interop/ed25519-verification-key': 8.2.1
       '@interop/jsonld': 9.0.3
       canonicalize: 3.0.0
       ed25519-signature-2020-context: 1.1.0
       rdf-canonize: 5.0.0
     optionalDependencies:
-      '@interop/jsonld-signatures': 11.8.6
+      '@interop/jsonld-signatures': 11.8.7
     transitivePeerDependencies:
       - react-native-get-random-values
 
@@ -1484,7 +1484,7 @@ snapshots:
       ky: 1.14.3
       undici: 7.30.0
 
-  '@interop/jsonld-signatures@11.8.6':
+  '@interop/jsonld-signatures@11.8.7':
     dependencies:
       '@digitalbazaar/security-context': 1.0.1
       '@interop/data-integrity-core': 8.8.0
@@ -1531,19 +1531,19 @@ snapshots:
     transitivePeerDependencies:
       - react-native-get-random-values
 
-  '@interop/vc-bitstring-status-list@3.2.0':
+  '@interop/vc-bitstring-status-list@3.2.1':
     dependencies:
       '@digitalbazaar/bitstring': 3.1.0
       '@digitalbazaar/credentials-context': 3.2.0
       '@digitalbazaar/vc-bitstring-status-list-context': 1.1.0
-      '@interop/vc': 11.0.11
+      '@interop/vc': 11.1.0
 
-  '@interop/vc@11.0.11':
+  '@interop/vc@11.1.0':
     dependencies:
       '@digitalcredentials/credentials-v2-context': 1.0.0
       '@interop/data-integrity-core': 8.8.0
       '@interop/jsonld': 9.0.3
-      '@interop/jsonld-signatures': 11.8.6
+      '@interop/jsonld-signatures': 11.8.7
       credentials-context: 2.0.0
 
   '@interop/x25519-key-agreement-key@5.4.1':

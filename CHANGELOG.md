@@ -13,6 +13,15 @@
   `assertionMethod` VP verified even when the caller passed a `challenge`. A
   supplied `challenge` now selects `AuthenticationProofPurpose`, and an
   `assertionMethod` VP fails `proof.signature`.
+- The built-in HTTP service no longer fetches whatever a credential names. It
+  allows `https:` only and refuses `localhost`, loopback, private, link-local,
+  multicast, reserved and unspecified addresses, including NAT64, 6to4 and
+  IPv4-compatible IPv6 forms and cloud metadata hosts. On Node the check runs on
+  the first URL and on every redirect hop (at most five). Browsers and React
+  Native hide redirect hops, so there only the first and final URLs are checked.
+  Each request has a 10 s deadline and a 5 MiB body cap. Errors have fixed text
+  and do not quote the response. Injected `httpGetService` and `documentLoader`
+  implementations keep their own policy.
 
 ### Changed
 
@@ -41,6 +50,8 @@
   empty-string `challenge`, before any suite runs. Both produce a
   `proof.signature` failure with `Challenge Required`, whatever the input
   document.
+- The document loader reports a non-JSON body as `response is not JSON` instead
+  of quoting the parser message.
 
 ### Added
 
@@ -49,6 +60,9 @@
 - `ProblemTypes.PROOF_PURPOSE_MISMATCH`.
 - `SIGNATURE_SKIP_CODES.unsignedPresentation`, the `code` on the
   `proof.signature` skip for an accepted unsigned presentation.
+- `BuiltinHttpGetService({ timeoutMs, maxBytes, allowInsecure })` and the
+  exported `BuiltinHttpGetServiceOptions` type. Defaults are 10 s, 5 MiB and
+  `false`. `allowInsecure` relaxes only the URL policy, for local development.
 
 ## 3.7.0 - 2026-09-30
 

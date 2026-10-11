@@ -7,7 +7,7 @@
  * Result of HTTP GET. Includes status so callers can branch on 404 vs 5xx.
  */
 export interface HttpGetResult {
-  /** Response body -- parsed JSON when the body parses as JSON, else text. */
+  /** Response body -- parsed JSON when the body is valid JSON, whatever the content type; otherwise the body text. */
   body: unknown;
   headers: Headers;
   status: number;

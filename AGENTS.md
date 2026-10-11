@@ -134,7 +134,7 @@ vitest, playwright, eslint flat config, prettier 3). Package manager is **pnpm**
   from `tsconfig.json`; `src/**/*.spec.ts` excluded from the build output).
 - `pnpm test` = `lint` + `test-node`. `pnpm run test-node` = `vitest run` (runs
   TS directly via esbuild, v8 coverage via `pnpm run test-coverage`); config in
-  `vite.config.ts`, includes `test/**/*.spec.ts` + the two co-located
+  `vite.config.ts`, includes `test/**/*.spec.ts` + every co-located
   `src/**/*.spec.ts`, excludes the networked `smoke.spec.ts` and `test/browser`.
   `pnpm run test:smoke` runs the networked interop regression
   (`vitest.smoke.config.ts`).

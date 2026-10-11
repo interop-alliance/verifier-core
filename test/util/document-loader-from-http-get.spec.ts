@@ -27,10 +27,9 @@ const STATUS_LIST = {
 };
 
 /**
- * `BuiltinHttpGetService` parses the body only when the response carries a
- * JSON content type, and returns raw text otherwise. A custom `HttpGetService`
- * may skip parsing entirely. Both shapes are reproduced here because they fail
- * for different reasons.
+ * `BuiltinHttpGetService` returns any JSON body parsed, whatever the content
+ * type. A custom `HttpGetService` may skip parsing and return the raw text.
+ * Both shapes are reproduced here because they fail for different reasons.
  */
 const jsonService = FakeHttpGetService({
   [STATUS_LIST_URL]: okJsonBody(STATUS_LIST)
@@ -105,6 +104,14 @@ describe('documentLoaderFromHttpGet', () => {
     await expect(loader(STATUS_LIST_URL)).rejects.toThrow(
       `NotFoundError loading "${STATUS_LIST_URL}"`
     );
+
+    // The parser's message quotes the body, and loader messages reach
+    // problem details, so the body must not appear in the error.
+    const error = await loader(STATUS_LIST_URL).catch((e: unknown) => e);
+    const message = (error as Error).message;
+    expect(message).toContain('response is not JSON');
+    expect(message).not.toContain('DOCTYPE');
+    expect(message).not.toContain('<title>');
   });
 
   it('reports a non-2xx status as a NotFoundError naming the url', async () => {

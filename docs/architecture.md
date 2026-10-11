@@ -47,7 +47,8 @@ src/
 │   └── jsonld-field.ts              @context field schema
 ├── services/                        Ports and adapters for injectable dependencies
 │   ├── cache-service/               CacheService port + InMemoryCacheService adapter
-│   ├── http-get-service/            HttpGetService port + BuiltinHttpGetService (fetch-based) adapter
+│   ├── http-get-service/            HttpGetService port + BuiltinHttpGetService (fetch adapter with URL policy, deadline and byte cap)
+│   │   └── url-policy.ts            checkUrl: https only, no localhost / private / link-local / reserved addresses (applied per visible redirect hop)
 │   ├── data-integrity-crypto.ts     Default CryptoService implementation (Data Integrity / Linked Data Proofs)
 │   ├── registry-lookup.ts           createRegistryLookup factory: builds a LookupIssuers from handlers + cache
 │   └── registry-handlers/           Per-type registry handlers behind a port
@@ -281,6 +282,18 @@ callers pass their own `httpGetService`. Every remote fetch (JSON-LD contexts,
 `did:web` documents, status list credentials) therefore flows through the
 verifier's HTTP service, giving caller-installed mocks, retries, and (future)
 caches a single chokepoint to observe.
+
+That chokepoint is also where the network policy lives. With the default
+`BuiltinHttpGetService`, every fetch (unbundled contexts included) is https-only
+and refuses `localhost` and private addresses on every redirect hop it can see
+(all of them on Node; only the first and final URLs where the runtime follows
+redirects itself, as browsers and React Native do). It also has a deadline and a
+byte cap, and it reports failures with fixed text that does not quote the
+response. The `allowInsecure` option relaxes only the URL policy, for local
+development. The policy does not resolve DNS, so a public name that resolves to
+a private address is not caught. A caller-supplied `httpGetService` or
+`documentLoader` replaces that policy along with the fetch. See the README's
+"Network policy of the built-in HTTP service".
 
 To avoid re-allocating the loader's `CachedResolver` and DID drivers on every
 call, the per-service loader is memoized via a module-local

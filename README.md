@@ -12,6 +12,7 @@
   - [verifyCredential](#verifycredential)
   - [verifyPresentation](#verifypresentation)
   - [createVerifier (batch / repeated verification)](#createverifier-batch--repeated-verification)
+  - [Network policy of the built-in HTTP service](#network-policy-of-the-built-in-http-service)
 - [Custom Suites](#custom-suites)
 - [Verbose mode and folded summaries](#verbose-mode-and-folded-summaries)
 - [Capturing timing data](#capturing-timing-data)
@@ -112,7 +113,7 @@ interface VerifyCredentialOptions {
   additionalSuites?: VerificationSuite[];
 
   // Service overrides (otherwise sensible defaults are used):
-  httpGetService?: HttpGetService;
+  httpGetService?: HttpGetService; // See "Network policy of the built-in HTTP service"
   cacheService?: CacheService;
   cryptoServices?: CryptoService[];
   registryHandlers?: RegistryHandlerMap;
@@ -362,7 +363,7 @@ interface VerifyPresentationOptions {
   additionalSuites?: VerificationSuite[];
 
   // Service overrides (otherwise sensible defaults are used):
-  httpGetService?: HttpGetService;
+  httpGetService?: HttpGetService; // See "Network policy of the built-in HTTP service"
   cacheService?: CacheService;
   cryptoServices?: CryptoService[];
   registryHandlers?: RegistryHandlerMap;
@@ -478,6 +479,73 @@ all credentials embedded in a VP share the verifier's caches automatically:
 ```typescript
 const result = await verifier.verifyPresentation({ presentation });
 ```
+
+### Network policy of the built-in HTTP service
+
+Verification fetches URLs the credential chooses. These include JSON-LD
+contexts, `did:web` documents, status lists, schemas and registries. The
+built-in `BuiltinHttpGetService` applies a network policy to every fetch.
+
+- It allows `https:` only. It refuses `http:` and other schemes, `localhost` and
+  `*.localhost`, and loopback, private (10/8, 172.16/12, 192.168/16,
+  carrier-grade NAT 100.64/10, and Azure's `168.63.129.16`), link-local
+  (including `169.254.169.254`), multicast, reserved (192.0.0/24, 240/4) and
+  unspecified addresses. This covers IPv4 and IPv6, including site-local
+  `fec0::/10`. An IPv4-mapped, IPv4-compatible, NAT64 (`64:ff9b::/96`) or 6to4
+  IPv6 address is judged by the IPv4 address it embeds. Hosts are judged on the
+  parsed URL, so shorthand forms such as `0x7f.1` are caught.
+- On Node, redirects are followed manually. The policy is applied to each hop
+  before it is requested, and at most five hops are followed. Browsers and React
+  Native follow redirects themselves and hide the hops. There the request is
+  made with the runtime's own redirect handling, and the first URL and the URL
+  actually reached are judged before the body is read. An intermediate hop is
+  not checked, so the hop-by-hop protection is a server-side one.
+- Each request has a 10 s deadline and a 5 MiB body cap. Change them by
+  constructing the service yourself and passing it as `httpGetService`:
+
+  ```typescript
+  import {
+    BuiltinHttpGetService,
+    createVerifier
+  } from '@interop/verifier-core';
+
+  const verifier = createVerifier({
+    httpGetService: BuiltinHttpGetService({
+      timeoutMs: 20_000,
+      maxBytes: 1_000_000
+    })
+  });
+  ```
+
+- The body is read once and parsed as JSON whatever the content type. A body
+  that is not JSON is returned as text.
+- Error text is fixed and never quotes the response. It names the URL and the
+  reason, for example `Request to <url> refused: <reason>`,
+  `Request to <url> timed out after N ms` or
+  `Request to <url> exceeded N bytes`. A network error is reported as
+  `Request to <url> failed`, with the original error on `cause`. The document
+  loader and the did:webvh resolver report a non-JSON body as
+  `response is not JSON`.
+
+JSON-LD contexts that are not bundled are fetched under this same policy. To
+verify against a closed set of contexts, pass your own `documentLoader`.
+
+The `allowInsecure` option relaxes the URL policy only. It allows `http:` and
+local or private addresses on every hop. The deadline, the byte cap and the
+redirect limit still apply. Use it for local development against a server on
+`localhost`. Do not enable it on a server that verifies untrusted credentials.
+
+```typescript
+const devVerifier = createVerifier({
+  httpGetService: BuiltinHttpGetService({ allowInsecure: true })
+});
+```
+
+Hosts are judged by name or literal only. There is no portable DNS lookup, so a
+public name that resolves to a private address is not caught.
+
+The policy applies to the built-in service only. An injected `httpGetService` or
+`documentLoader` keeps its own network policy.
 
 ## Custom Suites
 

@@ -12,6 +12,7 @@ import type { DidMethodDriver } from '@interop/did-io';
 import { createDidWebvhDriver } from '@interop/did-method-webvh/driver';
 import type { FetchLike } from '@interop/did-method-webvh';
 import type { HttpGetService } from '../services/http-get-service/http-get-service.js';
+import { parseJsonBody } from './json-body.js';
 
 /**
  * Adapts an {@link HttpGetService} to the fetch shape the did:webvh resolver
@@ -34,8 +35,7 @@ function fetchFromHttpGet(httpGetService: HttpGetService): FetchLike {
       status,
       text: async () =>
         typeof body === 'string' ? body : (JSON.stringify(body) ?? ''),
-      json: async () =>
-        typeof body === 'string' ? (JSON.parse(body) as unknown) : body
+      json: async () => parseJsonBody(body)
     };
     // The resolver reads only the members above; the full `Response` class is
     // not needed (and its constructor refuses some statuses).
