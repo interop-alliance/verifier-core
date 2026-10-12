@@ -385,25 +385,26 @@ with no `credentialStatus` skips the status check:
 
 All failures use `ProblemDetail` with a `type` URI. Common error types:
 
-| Type URI                          | Title                                                                                     | When                                                                     |
-| --------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `...#PARSING_ERROR`               | Credential Parsing Failed / Presentation Parsing Failed / Invalid JSON-LD / No VC Context | Envelope gate or context problems                                        |
-| `...#MALFORMED_VALUE_ERROR`       | Invalid Credential Structure / Invalid Presentation Structure                             | A VC Data Model structure rule is broken; `instance` points at the field |
-| `...#INVALID_SIGNATURE`           | Invalid Signature                                                                         | Signature doesn't match content                                          |
-| `...#CREDENTIAL_EXPIRED`          | Credential Expired                                                                        | `validUntil` / `expirationDate` has passed; the signature verified       |
-| `...#CREDENTIAL_NOT_YET_VALID`    | Credential Not Yet Valid                                                                  | `validFrom` / `issuanceDate` is in the future; the signature verified    |
-| `...#PROOF_PURPOSE_MISMATCH`      | Challenge Mismatch / Domain Mismatch / Proof Purpose Mismatch                             | VP proof does not bind to the caller's challenge, domain, or purpose     |
-| `...#DID_WEB_UNRESOLVED`          | DID Web Unresolved                                                                        | DID document (e.g. `did:web`) or `did:webvh` log couldn't be fetched     |
-| `...#HTTP_ERROR`                  | HTTP Error                                                                                | Network error during signature check                                     |
-| `...#CREDENTIAL_REVOKED`          | Credential Revoked                                                                        | A revocation status list has the credential's bit set; one per entry     |
-| `...#CREDENTIAL_SUSPENDED`        | Credential Suspended                                                                      | A suspension status list has the credential's bit set; one per entry     |
-| `...#STATUS_LIST_NOT_FOUND`       | Status List Not Found                                                                     | Status list URL unreachable                                              |
-| `...#STATUS_LIST_EXPIRED`         | Status List Expired                                                                       | Status list VC has expired (v1 or v2 dates); its signature verified      |
-| `...#STATUS_LIST_NOT_YET_VALID`   | Status List Not Yet Valid                                                                 | Status list VC is not yet valid (v1 or v2 dates); its signature verified |
-| `...#STATUS_LIST_SIGNATURE_ERROR` | Status List Signature Error                                                               | Status list VC signature invalid                                         |
-| `...#STATUS_LIST_ISSUER_MISMATCH` | Status List Issuer Mismatch                                                               | Status list `issuer` differs from the credential's; non-fatal warning    |
-| `...#ISSUER_NOT_REGISTERED`       | Issuer Not Registered                                                                     | Issuer DID not found in any registry that could be checked               |
-| `...#REGISTRY_UNCHECKED`          | Registry Unchecked                                                                        | Some or all registries couldn't be reached; alone when none could        |
+| Type URI                          | Title                                                                                     | When                                                                           |
+| --------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `...#PARSING_ERROR`               | Credential Parsing Failed / Presentation Parsing Failed / Invalid JSON-LD / No VC Context | Envelope gate or context problems                                              |
+| `...#MALFORMED_VALUE_ERROR`       | Invalid Credential Structure / Invalid Presentation Structure                             | A VC Data Model structure rule is broken; `instance` points at the field       |
+| `...#INVALID_SIGNATURE`           | Invalid Signature                                                                         | Signature doesn't match content                                                |
+| `...#CREDENTIAL_EXPIRED`          | Credential Expired                                                                        | `validUntil` / `expirationDate` has passed; the signature verified             |
+| `...#CREDENTIAL_NOT_YET_VALID`    | Credential Not Yet Valid                                                                  | `validFrom` / `issuanceDate` is in the future; the signature verified          |
+| `...#PROOF_PURPOSE_MISMATCH`      | Challenge Mismatch / Domain Mismatch / Proof Purpose Mismatch                             | VP proof does not bind to the caller's challenge, domain, or purpose           |
+| `...#VERIFICATION_METHOD_ERROR`   | Verification Method Error                                                                 | Proof's key is not listed by its controller, or not authorized for the purpose |
+| `...#DID_WEB_UNRESOLVED`          | DID Web Unresolved                                                                        | DID document (e.g. `did:web`) or `did:webvh` log couldn't be fetched           |
+| `...#HTTP_ERROR`                  | HTTP Error                                                                                | Network error during signature check                                           |
+| `...#CREDENTIAL_REVOKED`          | Credential Revoked                                                                        | A revocation status list has the credential's bit set; one per entry           |
+| `...#CREDENTIAL_SUSPENDED`        | Credential Suspended                                                                      | A suspension status list has the credential's bit set; one per entry           |
+| `...#STATUS_LIST_NOT_FOUND`       | Status List Not Found                                                                     | Status list URL unreachable                                                    |
+| `...#STATUS_LIST_EXPIRED`         | Status List Expired                                                                       | Status list VC has expired (v1 or v2 dates); its signature verified            |
+| `...#STATUS_LIST_NOT_YET_VALID`   | Status List Not Yet Valid                                                                 | Status list VC is not yet valid (v1 or v2 dates); its signature verified       |
+| `...#STATUS_LIST_SIGNATURE_ERROR` | Status List Signature Error                                                               | Status list VC signature invalid                                               |
+| `...#STATUS_LIST_ISSUER_MISMATCH` | Status List Issuer Mismatch                                                               | Status list `issuer` differs from the credential's; non-fatal warning          |
+| `...#ISSUER_NOT_REGISTERED`       | Issuer Not Registered                                                                     | Issuer DID not found in any registry that could be checked                     |
+| `...#REGISTRY_UNCHECKED`          | Registry Unchecked                                                                        | Some or all registries couldn't be reached; alone when none could              |
 
 #### Problem types
 

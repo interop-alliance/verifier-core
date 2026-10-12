@@ -266,6 +266,14 @@
 - `RegistryCheckPayload`, `RegistryMatch`, `RegistryReference`, `RegistryEntity`
   and `HandlerResult` are exported from the main entry, so a custom
   `registryHandlers` handler can return an `entity`.
+- New fatal `VERIFICATION_METHOD_ERROR` problem type, reported by
+  `proof.signature` when the proof's verification method resolved but its
+  controller document does not list it, or does not authorize it for the proof
+  purpose. `detail` carries the library message. These used to read as
+  `INVALID_SIGNATURE`. The issuer-vs-controller case keeps
+  `ISSUER_PROOF_MISMATCH`. In a proof set, the other proofs' failures are
+  reported beside the fault. Same type and matching as the
+  digitalcredentials/verifier-core fork.
 
 ### Documentation
 

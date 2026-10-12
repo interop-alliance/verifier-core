@@ -26,6 +26,7 @@ import { ProblemTypes } from '../problem-types.js';
 import { errorMessage } from '../util/error-message.js';
 import { credentialIssuerId } from '../util/issuer-id.js';
 import { documentHasProof, proofEntries } from '../util/document-has-proof.js';
+import { isVerificationMethodMessage } from '../util/verification-method-messages.js';
 import {
   classifyDateRejection,
   dateRejectionProblem
@@ -54,12 +55,35 @@ const { purposes } = jsonLdSignatures;
 const HTTP_ERROR = 'HTTPError';
 const JSONLD_VALIDATION_ERROR = 'jsonld.ValidationError';
 
-function extractErrors(error: unknown): unknown[] {
+/**
+ * The sub-errors of an aggregate `VerificationError`, or the error itself.
+ * Only objects are kept: a `null` or primitive entry carries no name, code,
+ * or message to classify by, and must not turn a verdict into a throw.
+ */
+function extractErrors(error: unknown): object[] {
   const err = error as { errors?: unknown[] } | undefined;
-  if (err?.errors && Array.isArray(err.errors)) {
-    return err.errors;
+  const candidates =
+    err?.errors && Array.isArray(err.errors) ? err.errors : [error];
+  return candidates.filter(
+    (e): e is object => typeof e === 'object' && e !== null
+  );
+}
+
+/**
+ * The distinct messages of an aggregate's sub-errors, in order. A
+ * jsonld-signatures sub-error is either an `Error` or a `{ error }` wrapper
+ * around one.
+ */
+function subErrorMessages(errors: object[]): string[] {
+  const messages = new Set<string>();
+  for (const e of errors) {
+    const x = e as { message?: unknown; error?: { message?: unknown } | null };
+    const message = x.error?.message ?? x.message;
+    if (typeof message === 'string' && message !== '') {
+      messages.add(message);
+    }
   }
-  return error ? [error] : [];
+  return [...messages];
 }
 
 function isHttpError(errors: unknown[]): boolean {
@@ -77,11 +101,8 @@ const BINDING_MISMATCHES = [
   { text: 'The domain is not as expected', field: 'domain' }
 ] as const;
 
-function hasMessage(errors: unknown[], text: string): boolean {
-  return errors.some(e => {
-    const x = e as { message?: string; error?: { message?: string } };
-    return (x.error?.message ?? x.message)?.includes(text) ?? false;
-  });
+function hasMessage(messages: string[], text: string): boolean {
+  return messages.some(m => m.includes(text));
 }
 
 function isJsonLdError(errors: unknown[]): boolean {
@@ -146,14 +167,8 @@ function didWebToUrlPattern(did: string): string {
 // INVALID_SIGNATURE.
 const DRIVER_NOT_FOUND = /driver for did(?: method)? .* not found/i;
 
-function isVerificationMethodUnresolved(errors: unknown[]): boolean {
-  return errors.some(e => {
-    const x = e as { message?: string; error?: { message?: string } };
-    return (
-      DRIVER_NOT_FOUND.test(x.message ?? '') ||
-      DRIVER_NOT_FOUND.test(x.error?.message ?? '')
-    );
-  });
+function isVerificationMethodUnresolved(messages: string[]): boolean {
+  return messages.some(m => DRIVER_NOT_FOUND.test(m));
 }
 
 function proofVerificationMethod(
@@ -176,6 +191,7 @@ export function classifySignatureError(
   now: Date
 ): ProblemDetail[] {
   const errors = extractErrors(error);
+  const messages = subErrorMessages(errors);
 
   if (isJsonLdError(errors)) {
     return errors.map((e: unknown) => {
@@ -236,7 +252,7 @@ export function classifySignatureError(
   // cryptographically but its purpose validation fails because the credential's
   // `issuer` differs from the controller of the proof's verification method.
   // Surface it as a distinct, explicit problem rather than INVALID_SIGNATURE.
-  if (hasMessage(errors, ISSUER_CONTROLLER_MISMATCH)) {
+  if (hasMessage(messages, ISSUER_CONTROLLER_MISMATCH)) {
     const issuerId = credential ? credentialIssuerId(credential) : undefined;
     return [
       {
@@ -250,7 +266,7 @@ export function classifySignatureError(
   // The verification method's DID method has no driver in the document loader,
   // so its public key could never be fetched -- the signature was never actually
   // checked. Distinguish this from a genuine INVALID_SIGNATURE.
-  if (isVerificationMethodUnresolved(errors)) {
+  if (isVerificationMethodUnresolved(messages)) {
     return [
       {
         type: ProblemTypes.VERIFICATION_METHOD_UNRESOLVED,
@@ -264,10 +280,29 @@ export function classifySignatureError(
     ];
   }
 
+  // The verification method resolved but the controller document does not
+  // list it, or does not authorize it for the proof purpose. The issuer's key
+  // setup is wrong; the content was not shown to be altered. In a proof set,
+  // the other proofs' failures are kept beside the fault rather than hidden
+  // by it.
+  const faults = messages.filter(isVerificationMethodMessage);
+  if (faults.length > 0) {
+    const problems: ProblemDetail[] = faults.map(detail => ({
+      type: ProblemTypes.VERIFICATION_METHOD_ERROR,
+      title: 'Verification Method Error',
+      detail
+    }));
+    const others = messages.filter(m => !isVerificationMethodMessage(m));
+    if (others.length > 0) {
+      problems.push(invalidSignature(others));
+    }
+    return problems;
+  }
+
   // A challenge or domain mismatch is a purpose validation failure, not a bad
   // signature: the proof may verify cryptographically but does not bind to
   // this request.
-  const mismatch = BINDING_MISMATCHES.find(m => hasMessage(errors, m.text));
+  const mismatch = BINDING_MISMATCHES.find(m => hasMessage(messages, m.text));
   if (mismatch) {
     const { field } = mismatch;
     return [
@@ -279,20 +314,6 @@ export function classifySignatureError(
     ];
   }
 
-  // Prefer the unpacked sub-error messages: an aggregate jsonld-signatures
-  // error carries only "Verification error(s)." on itself, with the real
-  // causes in its `errors[]`.
-  const messages = [
-    ...new Set(
-      errors
-        .map(e => {
-          const x = e as { message?: string; error?: { message?: string } };
-          return x.error?.message || x.message;
-        })
-        .filter((m): m is string => !!m)
-    )
-  ];
-
   // The library reads validity dates only once the signature has verified,
   // so a date message proves the credential authentic and merely out of
   // date. INVALID_SIGNATURE would accuse an honest issuer of forgery.
@@ -303,13 +324,20 @@ export function classifySignatureError(
     }
   }
 
-  return [
-    {
-      type: ProblemTypes.INVALID_SIGNATURE,
-      title: 'Invalid Signature',
-      detail: messages.join('; ') || 'The signature is not valid.'
-    }
-  ];
+  return [invalidSignature(messages)];
+}
+
+/**
+ * The generic verdict, with the unpacked sub-error messages as detail: an
+ * aggregate jsonld-signatures error carries only "Verification error(s)." on
+ * itself, with the real causes in its `errors[]`.
+ */
+function invalidSignature(messages: string[]): ProblemDetail {
+  return {
+    type: ProblemTypes.INVALID_SIGNATURE,
+    title: 'Invalid Signature',
+    detail: messages.join('; ') || 'The signature is not valid.'
+  };
 }
 
 function isAuthenticationPurpose(proofPurpose: unknown): boolean {

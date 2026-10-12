@@ -78,6 +78,14 @@ export const ProblemTypes = {
   /** Synthesized -- the proof's verification method uses a DID method the document loader has no resolver/driver for. */
   VERIFICATION_METHOD_UNRESOLVED:
     'https://www.w3.org/TR/vc-data-model#VERIFICATION_METHOD_UNRESOLVED',
+  /**
+   * Synthesized -- the proof's verification method was resolved but cannot be
+   * used: the controller document does not list it, or does not authorize it
+   * for the proof's purpose. Fatal; `detail` carries the library message. The
+   * issuer-vs-controller case is {@link ProblemTypes.ISSUER_PROOF_MISMATCH}.
+   */
+  VERIFICATION_METHOD_ERROR:
+    'https://www.w3.org/TR/vc-data-model#VERIFICATION_METHOD_ERROR',
   /** Synthesized -- HTTP error during signature/issuer resolution. */
   HTTP_ERROR: 'https://www.w3.org/TR/vc-data-model#HTTP_ERROR',
   /** Synthesized -- credential `id` is missing or malformed. */
