@@ -1,5 +1,24 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.9.0 - TBD
+
+### Changed
+
+- `VERIFICATION_METHOD_ERROR` is detected from the typed
+  `VerificationMethodError` (matched by `name`) that
+  `@interop/jsonld-signatures` 11.9.0 and the DID drivers throw, before the
+  message patterns, which remain the fallback for plain `Error`s. A typed error
+  with a blank message is described by the method id it names, and a fault
+  message is no longer repeated under `INVALID_SIGNATURE`.
+- did:web resolution uses `DidWebResolver` from `@interop/did-web-resolver`
+  6.5.0 with its new `fetchDocument` option bound to the verifier's
+  `HttpGetService`, replacing the local copy of its `get()`. A document whose id
+  does not match the DID now throws `DIDResolutionError` (code `notFound`),
+  reported as `DID_WEB_UNRESOLVED`, and a missing fragment throws
+  `VerificationMethodError` (code `notFound`), as `@interop/did-method-key`
+  7.5.1 and `@interop/did-method-webvh` 5.15.0 do.
+- `@interop/data-integrity-core` 8.9.0.
+
 ## 3.8.1 - 2026-10-12
 
 ### Changed

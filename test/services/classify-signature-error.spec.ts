@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { classifySignatureError } from '../../src/services/data-integrity-crypto.js';
 import { ProblemTypes } from '../../src/problem-types.js';
+import { VerificationMethodError } from '@interop/data-integrity-core';
 
 const NOW = new Date('2026-01-01T00:00:00Z');
 
@@ -148,6 +149,107 @@ describe('classifySignatureError: verification method faults', () => {
       ]);
     });
   }
+
+  const typedFaults: Array<[string, string]> = [
+    ['notFound', 'Method did:example:123#key-1 is absent (reworded).'],
+    ['notAuthorized', 'Method not listed for this purpose (reworded).'],
+    ['invalidId', 'Method id is not a string (reworded).']
+  ];
+
+  for (const [code, message] of typedFaults) {
+    it(`classifies a VerificationMethodError with code ${code} without reading its message`, () => {
+      const typed = Object.assign(new Error(message), {
+        name: 'VerificationMethodError',
+        code
+      });
+      const problems = classifySignatureError(wrapped(typed), undefined, NOW);
+
+      expect(problems).toEqual([
+        {
+          type: ProblemTypes.VERIFICATION_METHOD_ERROR,
+          title: 'Verification Method Error',
+          detail: message
+        }
+      ]);
+    });
+  }
+
+  it('matches the typed error inside a { error } sub-error wrapper', () => {
+    const typed = Object.assign(new Error('reworded'), {
+      name: 'VerificationMethodError',
+      code: 'notAuthorized'
+    });
+    const problems = classifySignatureError(
+      wrapped({ error: typed }),
+      undefined,
+      NOW
+    );
+
+    expect(problems[0].type).toBe(ProblemTypes.VERIFICATION_METHOD_ERROR);
+  });
+
+  it('matches the real VerificationMethodError class', () => {
+    const typed = new VerificationMethodError(NOT_FOUND, {
+      code: 'notFound',
+      verificationMethod: 'did:example:123#key-1'
+    });
+    const problems = classifySignatureError(wrapped(typed), undefined, NOW);
+
+    expect(problems).toEqual([
+      {
+        type: ProblemTypes.VERIFICATION_METHOD_ERROR,
+        title: 'Verification Method Error',
+        detail: NOT_FOUND
+      }
+    ]);
+  });
+
+  it('classifies a VerificationMethodError with a code added upstream by name alone', () => {
+    const typed = Object.assign(new Error('reworded'), {
+      name: 'VerificationMethodError',
+      code: 'somethingElse'
+    });
+    const problems = classifySignatureError(wrapped(typed), undefined, NOW);
+
+    expect(problems[0].type).toBe(ProblemTypes.VERIFICATION_METHOD_ERROR);
+  });
+
+  it('describes a VerificationMethodError with a blank message by its method id', () => {
+    const typed = new VerificationMethodError('', {
+      code: 'notFound',
+      verificationMethod: 'did:example:123#key-1'
+    });
+    const problems = classifySignatureError(wrapped(typed), undefined, NOW);
+
+    expect(problems).toEqual([
+      {
+        type: ProblemTypes.VERIFICATION_METHOD_ERROR,
+        title: 'Verification Method Error',
+        detail:
+          'Verification method "did:example:123#key-1" cannot back the proof.'
+      }
+    ]);
+  });
+
+  it('does not repeat a fault message under INVALID_SIGNATURE', () => {
+    const typed = Object.assign(new Error('reworded'), {
+      name: 'VerificationMethodError',
+      code: 'notFound'
+    });
+    const problems = classifySignatureError(
+      wrapped(new Error('reworded'), typed),
+      undefined,
+      NOW
+    );
+
+    expect(problems).toEqual([
+      {
+        type: ProblemTypes.VERIFICATION_METHOD_ERROR,
+        title: 'Verification Method Error',
+        detail: 'reworded'
+      }
+    ]);
+  });
 
   it('keeps the issuer / controller mismatch as ISSUER_PROOF_MISMATCH', () => {
     const problems = classifySignatureError(

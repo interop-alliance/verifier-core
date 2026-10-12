@@ -101,8 +101,7 @@ src/
 │   ├── problem-detail.ts            ProblemDetail (RFC 9457-inspired; carries `instance` JSON Pointer)
 │   └── registry.ts                  EntityIdentityRegistry, LookupIssuers, RegistryLookupResult, RegistryCheckPayload (RegistryMatch / RegistryReference / RegistryEntity)
 └── util/                            Internal helpers
-    ├── document-loader-from-http-get.ts  Build a JSON-LD loader backed by an HttpGetService
-    ├── did-web-driver-with-http-get.ts   did:web resolution via HttpGetService (cache-sharing)
+    ├── document-loader-from-http-get.ts  Build a JSON-LD loader backed by an HttpGetService; did:web via DidWebResolver's fetchDocument
     ├── fetch-json-from-http-get.ts       Wrap an HttpGetService as a FetchJson
     ├── registry-cache-key.ts             Stable cache key for a registry list (the sorted ids, JSON-encoded)
     └── json-pointer.ts                   formatJsonPointer (RFC 6901) for ProblemDetail.instance values
@@ -259,6 +258,41 @@ The result is a `PresentationVerificationResult` with `verifiablePresentation`
 returns a single provenance-tagged `FlattenedCheckResult[]` view when callers
 want to iterate every check that ran without losing which credential a check
 came from.
+
+### Signature error classification
+
+The default crypto service does not surface `@interop/vc` rejections as a single
+`INVALID_SIGNATURE`. `classifySignatureError` in
+`src/services/data-integrity-crypto.ts` unwraps the `VerificationError`
+aggregate (its `errors[]` keeps each sub-error object, so `name` and other
+properties survive) and maps each sub-error onto a `ProblemDetail` type, in this
+order:
+
+| Signal                                                                                        | Problem type                     |
+| --------------------------------------------------------------------------------------------- | -------------------------------- |
+| A `jsonld` validation error                                                                   | `PARSING_ERROR`                  |
+| An HTTP error whose URL is the issuer's did:web document                                      | `DID_WEB_UNRESOLVED`             |
+| Any other HTTP error                                                                          | `HTTP_ERROR`                     |
+| `DIDResolutionError` with code `notFound` or `internalError` (a DID driver could not resolve) | `DID_WEB_UNRESOLVED`             |
+| The issuer / controller mismatch message                                                      | `ISSUER_PROOF_MISMATCH`          |
+| The "no driver for this DID method" message                                                   | `VERIFICATION_METHOD_UNRESOLVED` |
+| `VerificationMethodError` (any code), or a matching message                                   | `VERIFICATION_METHOD_ERROR`      |
+| A challenge or domain mismatch message                                                        | `PROOF_PURPOSE_MISMATCH`         |
+| Anything else                                                                                 | `INVALID_SIGNATURE`              |
+
+The two typed matches use `name` (and, for `DIDResolutionError`, `code`) rather
+than `instanceof`, since a duplicated package copy in `node_modules` would
+defeat the latter. Both error classes are defined in
+`@interop/data-integrity-core`. `DIDResolutionError` is thrown by the DID
+drivers when the DID itself does not resolve. `VerificationMethodError` means
+the DID resolved but the method cannot back the proof:
+`@interop/jsonld-signatures` throws `notFound` from
+`LinkedDataSignature.getVerificationMethod` and `notAuthorized` / `invalidId`
+from `ControllerProofPurpose.validate`, and the did:key, did:web and did:webvh
+drivers throw `notFound` for a fragment the DID document does not have.
+`src/util/verification-method-messages.ts` keeps the libraries' English messages
+as a fallback for builds that still throw plain `Error`s. In a proof set, the
+faults are reported beside the other proofs' failures rather than hiding them.
 
 ## The Verifier factory
 
@@ -815,7 +849,7 @@ suites can emit their own URIs without requiring an entry in any catalog.
 | `@interop/vc-bitstring-status-list` | Status list loading, purpose matching, bitstring decoding, and index reading |
 | `zod`                               | Minimal input envelope gate; strict OB 3.0 envelopes (`/openbadges`)         |
 | `ajv` / `ajv-formats`               | JSON Schema validation for OBv3 schema checks (`/openbadges` only)           |
-| `klona`                             | Deep clone of resolved did:web documents                                     |
+| `klona`                             | Deep clone of cached registry lookup results                                 |
 
 ### Test
 

@@ -4,12 +4,13 @@
  * a method the controller document does not authorize or frame. The DID
  * drivers throw them for a fragment the DID document does not have.
  *
- * The libraries throw these as plain `Error`s inside a `VerificationError`
- * wrapper, so the message text is the only machine-readable signal. The
- * patterns are pinned by unit tests, so a library upgrade that rewords one
- * fails a test instead of quietly demoting the fault to `INVALID_SIGNATURE`.
- * The jsonld-signatures patterns, with the same problem type, are shared
- * with the digitalcredentials/verifier-core fork.
+ * The current libraries throw these as a typed `VerificationMethodError`
+ * (`name` + `code`), which the classifier matches first. These patterns are
+ * the fallback for library builds that still throw plain `Error`s. They are
+ * pinned by unit tests, so a library that rewords one fails a test instead of
+ * quietly demoting the fault to `INVALID_SIGNATURE`. The jsonld-signatures
+ * patterns, with the same problem type, are shared with the
+ * digitalcredentials/verifier-core fork.
  *
  * None of these mean the content was altered. They mean the issuer's key
  * setup does not back the proof it published.

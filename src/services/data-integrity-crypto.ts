@@ -70,20 +70,69 @@ function extractErrors(error: unknown): object[] {
 }
 
 /**
- * The distinct messages of an aggregate's sub-errors, in order. A
- * jsonld-signatures sub-error is either an `Error` or a `{ error }` wrapper
- * around one.
+ * A jsonld-signatures sub-error is either an `Error` or a `{ error }`
+ * wrapper around one; this returns the error itself.
  */
-function subErrorMessages(errors: object[]): string[] {
+function unwrapSubError(e: object): object {
+  return (e as { error?: object | null }).error ?? e;
+}
+
+function subErrorMessage(e: object): string | undefined {
+  const { message } = unwrapSubError(e) as { message?: unknown };
+  return typeof message === 'string' && message !== '' ? message : undefined;
+}
+
+/**
+ * The `VerificationMethodError` (from `@interop/data-integrity-core`) that
+ * `@interop/jsonld-signatures` and the DID drivers throw, or `undefined` for
+ * any other sub-error. Matched by `name` only: every code it carries is the
+ * same fault, so a code added upstream must not demote it to a bad signature.
+ */
+function verificationMethodError(
+  e: object
+): { verificationMethod?: unknown } | undefined {
+  const inner = unwrapSubError(e) as {
+    name?: string;
+    verificationMethod?: unknown;
+  };
+  return inner.name === 'VerificationMethodError' ? inner : undefined;
+}
+
+/**
+ * The distinct sub-error messages, in order, with the verification method
+ * faults (the typed error, or a message matching the known library texts)
+ * listed separately from the rest. A typed error with a blank message is
+ * described by the method id it names.
+ */
+function partitionSubErrorMessages(errors: object[]): {
+  messages: string[];
+  faults: string[];
+  others: string[];
+} {
   const messages = new Set<string>();
+  const faults = new Set<string>();
   for (const e of errors) {
-    const x = e as { message?: unknown; error?: { message?: unknown } | null };
-    const message = x.error?.message ?? x.message;
-    if (typeof message === 'string' && message !== '') {
-      messages.add(message);
+    const typed = verificationMethodError(e);
+    const message = subErrorMessage(e) ?? (typed && typedFaultDetail(typed));
+    if (message === undefined) {
+      continue;
+    }
+    messages.add(message);
+    if (typed !== undefined || isVerificationMethodMessage(message)) {
+      faults.add(message);
     }
   }
-  return [...messages];
+  return {
+    messages: [...messages],
+    faults: [...faults],
+    others: [...messages].filter(m => !faults.has(m))
+  };
+}
+
+function typedFaultDetail(typed: { verificationMethod?: unknown }): string {
+  const id = typed.verificationMethod;
+  const named = typeof id === 'string' && id !== '' ? ` "${id}"` : '';
+  return `Verification method${named} cannot back the proof.`;
 }
 
 function isHttpError(errors: unknown[]): boolean {
@@ -131,14 +180,9 @@ function isDidWeb(did: string): boolean {
 // `notFound`, and any other HTTP error status or transport failure as
 // `internalError`. Matched by `name`, since a duplicate package copy would
 // defeat `instanceof`.
-function isDidUnresolved(errors: unknown[]): boolean {
+function isDidUnresolved(errors: object[]): boolean {
   return errors.some(e => {
-    const x = e as {
-      name?: string;
-      code?: string;
-      error?: { name?: string; code?: string };
-    };
-    const inner = x.error ?? x;
+    const inner = unwrapSubError(e) as { name?: string; code?: string };
     return (
       inner.name === 'DIDResolutionError' &&
       (inner.code === 'notFound' || inner.code === 'internalError')
@@ -191,7 +235,7 @@ export function classifySignatureError(
   now: Date
 ): ProblemDetail[] {
   const errors = extractErrors(error);
-  const messages = subErrorMessages(errors);
+  const { messages, faults, others } = partitionSubErrorMessages(errors);
 
   if (isJsonLdError(errors)) {
     return errors.map((e: unknown) => {
@@ -285,14 +329,12 @@ export function classifySignatureError(
   // setup is wrong; the content was not shown to be altered. In a proof set,
   // the other proofs' failures are kept beside the fault rather than hidden
   // by it.
-  const faults = messages.filter(isVerificationMethodMessage);
   if (faults.length > 0) {
     const problems: ProblemDetail[] = faults.map(detail => ({
       type: ProblemTypes.VERIFICATION_METHOD_ERROR,
       title: 'Verification Method Error',
       detail
     }));
-    const others = messages.filter(m => !isVerificationMethodMessage(m));
     if (others.length > 0) {
       problems.push(invalidSignature(others));
     }

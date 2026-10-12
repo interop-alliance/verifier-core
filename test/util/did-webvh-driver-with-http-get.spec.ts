@@ -100,6 +100,17 @@ describe('didWebvhDriverWithHttpGet', () => {
     });
   });
 
+  it('throws a typed notFound error for a fragment the DID document does not have', async () => {
+    const driver = didWebvhDriverWithHttpGet(serviceFor(jsonlResult(log)));
+
+    await expect(driver.get({ url: `${did}#missing` })).rejects.toMatchObject({
+      name: 'VerificationMethodError',
+      code: 'notFound',
+      verificationMethod: `${did}#missing`,
+      message: `DID document entity with id "${did}#missing" not found.`
+    });
+  });
+
   it('rejects a tampered log', async () => {
     const tampered = structuredClone(log);
     const state = tampered[0].state as {

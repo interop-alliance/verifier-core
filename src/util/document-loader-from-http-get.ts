@@ -5,10 +5,11 @@ import {
 import { CachedResolver } from '@interop/did-io';
 import * as didKey from '@interop/did-method-key';
 import { Ed25519VerificationKey } from '@interop/ed25519-verification-key';
+import { DidWebResolver } from '@interop/did-web-resolver';
 import type { DocumentLoader } from '../types/context.js';
 import type { HttpGetService } from '../services/http-get-service/http-get-service.js';
-import { didWebDriverWithHttpGet } from './did-web-driver-with-http-get.js';
 import { didWebvhDriverWithHttpGet } from './did-webvh-driver-with-http-get.js';
+import { fetchJsonFromHttpGet } from './fetch-json-from-http-get.js';
 import { parseJsonBody } from './json-body.js';
 import { errorMessage } from './error-message.js';
 
@@ -16,9 +17,9 @@ import { errorMessage } from './error-message.js';
  * Build a JSON-LD document loader that uses {@link securityLoader} for static
  * contexts and DID resolution, delegating http(s) remote documents to `httpGetService`.
  *
- * did:web resolution also uses `httpGetService` (stock `securityLoader` wires
- * `DidWebResolver` to `http-client`, which bypasses caller caching), and so
- * does did:webvh resolution (the `did.jsonl` log and `did-witness.json`).
+ * did:web resolution also uses `httpGetService` (the stock `securityLoader`
+ * wires `DidWebResolver` to `http-client`, which bypasses caller caching), and
+ * so does did:webvh resolution (the `did.jsonl` log and `did-witness.json`).
  */
 export function documentLoaderFromHttpGet(
   httpGetService: HttpGetService
@@ -27,7 +28,10 @@ export function documentLoaderFromHttpGet(
 
   const resolver = new CachedResolver();
   const didKeyDriver = didKey.driver();
-  const didWebDriver = didWebDriverWithHttpGet(httpGetService);
+  const fetchJson = fetchJsonFromHttpGet(httpGetService);
+  const didWebDriver = new DidWebResolver({
+    fetchDocument: async ({ url }) => parseJsonBody(await fetchJson(url))
+  });
   resolver.use(didKeyDriver);
   resolver.use(didWebDriver);
   resolver.use(didWebvhDriverWithHttpGet(httpGetService));

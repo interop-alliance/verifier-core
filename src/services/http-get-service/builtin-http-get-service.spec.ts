@@ -13,7 +13,7 @@ import {
   BuiltinHttpGetService,
   MAX_REDIRECTS
 } from './builtin-http-get-service.js';
-import { didWebDriverWithHttpGet } from '../../util/did-web-driver-with-http-get.js';
+import { documentLoaderFromHttpGet } from '../../util/document-loader-from-http-get.js';
 
 const SECRET_BODY = 'SECRET-TOK-1234 not json';
 
@@ -463,10 +463,8 @@ describe('BuiltinHttpGetService -- consumers agree', () => {
           { headers: { 'content-type': 'text/plain' } }
         )
     );
-    const driver = didWebDriverWithHttpGet(BuiltinHttpGetService());
-    const doc = (await driver.get({ did: 'did:web:example.com' })) as {
-      id: string;
-    };
-    expect(doc.id).toBe('did:web:example.com');
+    const loader = documentLoaderFromHttpGet(BuiltinHttpGetService());
+    const { document } = await loader('did:web:example.com');
+    expect((document as { id: string }).id).toBe('did:web:example.com');
   });
 });
