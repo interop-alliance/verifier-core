@@ -12,23 +12,25 @@ import { VerificationSubject } from '../../types/subject.js';
 import { VerificationContext } from '../../types/context.js';
 import { ProblemTypes } from '../../problem-types.js';
 import { formatJsonPointer } from '../../util/json-pointer.js';
-import { isPlainObject, stringValues } from '../../util/json-shape.js';
 import { errorMessage } from '../../util/error-message.js';
 import {
   classifyDateRejection,
   type DateRejection
 } from '../../util/vc-date-messages.js';
+import {
+  BITSTRING_ENTRY_TYPE,
+  CHECKED_STATUS_PURPOSES,
+  beginStatusListRun,
+  classifyStatusEntry,
+  credentialStatusEntries,
+  recordVerifiedStatusList
+} from './status-lists.js';
 
 // Legacy status types that are skipped
 const LEGACY_STATUS_TYPES: string[] = [
   'StatusList2021Entry',
   '1EdTechRevocationList'
 ];
-
-const BITSTRING_ENTRY_TYPE = 'BitstringStatusListEntry';
-
-// The purposes whose set bit means the credential is not currently valid.
-const CHECKED_STATUS_PURPOSES: string[] = ['revocation', 'suspension'];
 
 // Error pattern from the document loader.
 const NOT_FOUND_ERROR = 'NotFoundError';
@@ -92,15 +94,13 @@ function malformedEntryProblem(
 
 /**
  * The `credentialStatus` entries sorted by what `status.bitstring` does
- * with them. `checked` counts the `BitstringStatusListEntry` entries for
- * revocation or suspension, the ones `checkStatus` reads. An entry's
- * `type` may be a string or a one-element array. Every other entry is
- * ignored and its list is not fetched: `otherTypes` names the types of
+ * with them, one {@link classifyStatusEntry} verdict per entry. `checked`
+ * counts the entries `checkStatus` reads. Every other entry is ignored
+ * and its list is not fetched: `otherTypes` names the types of
  * non-Bitstring entries (legacy or unknown), `otherPurposes` the purposes
- * of Bitstring entries the check does not read (for example `refresh` or
- * `message`). `malformed` collects a problem for each entry that is not
- * an object, has no usable `type`, or is a Bitstring entry without a
- * string `statusPurpose`. `empty` is true when there is no entry at all.
+ * of Bitstring entries the check does not read. `malformed` collects a
+ * problem for each entry the check fails on. `empty` is true when there
+ * is no entry at all.
  */
 function sortStatusEntries(credential: Record<string, unknown>): {
   empty: boolean;
@@ -109,51 +109,33 @@ function sortStatusEntries(credential: Record<string, unknown>): {
   otherPurposes: string[];
   malformed: ProblemDetail[];
 } {
-  const { credentialStatus } = credential;
-  const single = !Array.isArray(credentialStatus);
-  const entries: unknown[] = single ? [credentialStatus] : credentialStatus;
+  const entries = credentialStatusEntries(credential);
   let checked = 0;
   const otherTypes: string[] = [];
   const otherPurposes: string[] = [];
   const malformed: ProblemDetail[] = [];
-  entries.forEach((entry, index) => {
-    const path: Array<string | number> = single
-      ? ['credentialStatus']
-      : ['credentialStatus', index];
-    if (!isPlainObject(entry)) {
-      malformed.push(
-        malformedEntryProblem(
-          path,
-          'A credentialStatus entry must be an object.'
-        )
-      );
-      return;
+  for (const [entry, pointer] of entries) {
+    const sorted = classifyStatusEntry(entry);
+    switch (sorted.kind) {
+      case 'checked':
+        checked += 1;
+        break;
+      case 'other-type':
+        otherTypes.push(sorted.type);
+        break;
+      case 'other-purpose':
+        otherPurposes.push(sorted.purpose);
+        break;
+      case 'malformed': {
+        const path =
+          sorted.field === undefined ? pointer : [...pointer, sorted.field];
+        malformed.push(malformedEntryProblem(path, sorted.detail));
+        break;
+      }
     }
-    const [type] = stringValues(entry.type);
-    if (type === undefined) {
-      malformed.push(
-        malformedEntryProblem(
-          [...path, 'type'],
-          'A credentialStatus entry must have a string type.'
-        )
-      );
-    } else if (type !== BITSTRING_ENTRY_TYPE) {
-      otherTypes.push(type);
-    } else if (typeof entry.statusPurpose !== 'string') {
-      malformed.push(
-        malformedEntryProblem(
-          [...path, 'statusPurpose'],
-          `A ${BITSTRING_ENTRY_TYPE} must have a string statusPurpose.`
-        )
-      );
-    } else if (CHECKED_STATUS_PURPOSES.includes(entry.statusPurpose)) {
-      checked += 1;
-    } else {
-      otherPurposes.push(entry.statusPurpose);
-    }
-  });
+  }
   return {
-    empty: !credentialStatus || entries.length === 0,
+    empty: entries.length === 0,
     checked,
     otherTypes,
     otherPurposes,
@@ -249,7 +231,8 @@ function statusListProofProblems(
  * each fetched BitstringStatusListCredential through
  * {@link dispatchProofVerification} against `context.cryptoServices`.
  * `checkStatus` itself loads and verifies each distinct list URL once and
- * tells the hook which `url` it loaded.
+ * tells the hook which `url` it loaded. A list whose proof verified is
+ * recorded for `status.list-issuer`, so that check needs no second fetch.
  */
 function verifyStatusListVia(
   context: VerificationContext
@@ -261,6 +244,7 @@ function verifyStatusListVia(
       options: { documentLoader }
     });
     if (dispatched.kind === 'verified') {
+      recordVerifiedStatusList(context, url, credential);
       return { verified: true };
     }
     return {
@@ -366,7 +350,10 @@ function setBitProblem(entry: Record<string, unknown>): ProblemDetail {
  * each fetched BitstringStatusListCredential is injected through its
  * `verifyStatusListCredential` hook and goes through
  * {@link dispatchProofVerification} against `context.cryptoServices`, the
- * same dispatch presentation and credential proofs use.
+ * same dispatch presentation and credential proofs use. Whether a list is
+ * issued by the credential's issuer is reported separately, by the
+ * non-fatal `status.list-issuer` check, which reads the lists this hook
+ * verified.
  *
  * `statusSuite` is the sole owner of status verification; the proof
  * suite no longer performs an embedded status check (P-E, 2026-04-19).
@@ -413,13 +400,20 @@ export const bitstringStatusCheck: VerificationCheck = {
       };
     }
 
+    // Whatever an earlier run on this context recorded is stale for the
+    // `status.list-issuer` check that follows this run.
+    beginStatusListRun(context);
+
     try {
       const statusResult = await checkStatus({
         credential,
         documentLoader: context.documentLoader,
         statusPurposes: CHECKED_STATUS_PURPOSES,
         verifyStatusListCredential: verifyStatusListVia(context),
-        // Hosted status lists may use a different issuer than the VC (see DataIntegrityCryptoService).
+        // Issuer binding is reported by the non-fatal `status.list-issuer`
+        // check. The library's own comparison throws, which would make a
+        // list signed by a separate status-service DID fatal, and real
+        // deployments sign lists that way.
         verifyMatchingIssuers: false
       });
 

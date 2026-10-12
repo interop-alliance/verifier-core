@@ -7,12 +7,18 @@
 
 import { describe, it, expect } from 'vitest';
 import { verifyCredential } from '../src/index.js';
+import { ProblemTypes } from '../src/problem-types.js';
+import type { CredentialVerificationResult } from '../src/types/result.js';
 import { v1NoStatus } from './fixtures/v1-no-status.js';
 import { v2NoStatus } from './fixtures/v2-no-status.js';
 import { v2WithValidStatus } from './fixtures/v2-with-valid-status.js';
 import { v2EddsaWithValidStatus } from './fixtures/v2-eddsa-with-valid-status.js';
 import { v2didWebWithValidStatus } from './fixtures/v2-did-web-with-valid-status.js';
 import { v2DoubleSigWithValidStatus } from './fixtures/v2-double-sig-with-valid-status.js';
+
+function listIssuerOutcome(result: CredentialVerificationResult) {
+  return result.results.find(r => r.check === 'status.list-issuer')?.outcome;
+}
 
 describe('smoke (golden credentials, real crypto + loader)', () => {
   it('v1NoStatus — VC 1.1 / Ed25519-2020 / did:key', async () => {
@@ -26,29 +32,46 @@ describe('smoke (golden credentials, real crypto + loader)', () => {
   });
 
   it('v2WithValidStatus — BitstringStatusList valid', async () => {
-    const result = await verifyCredential({ credential: v2WithValidStatus });
+    const result = await verifyCredential({
+      credential: v2WithValidStatus,
+      verbose: true
+    });
     expect(result.verified).toBe(true);
+    expect(listIssuerOutcome(result)?.status).toBe('success');
   });
 
   it('v2EddsaWithValidStatus — EdDSA RDFC-2022 Data Integrity', async () => {
     const result = await verifyCredential({
-      credential: v2EddsaWithValidStatus
+      credential: v2EddsaWithValidStatus,
+      verbose: true
     });
     expect(result.verified).toBe(true);
+    expect(listIssuerOutcome(result)?.status).toBe('success');
   });
 
-  it('v2didWebWithValidStatus — did:web issuer', async () => {
+  it('v2didWebWithValidStatus — did:web issuer, list signed by a did:key', async () => {
     const result = await verifyCredential({
-      credential: v2didWebWithValidStatus
+      credential: v2didWebWithValidStatus,
+      verbose: true
     });
     expect(result.verified).toBe(true);
+    // The list's signer is not the issuer: a warning, not a failure.
+    const outcome = listIssuerOutcome(result);
+    expect(outcome?.status).toBe('failure');
+    if (outcome?.status === 'failure') {
+      expect(outcome.problems[0].type).toBe(
+        ProblemTypes.STATUS_LIST_ISSUER_MISMATCH
+      );
+    }
   });
 
   it('v2DoubleSigWithValidStatus — dual Ed25519 + EdDSA proofs', async () => {
     const result = await verifyCredential({
-      credential: v2DoubleSigWithValidStatus
+      credential: v2DoubleSigWithValidStatus,
+      verbose: true
     });
     expect(result.verified).toBe(true);
+    expect(listIssuerOutcome(result)?.status).toBe('success');
   });
 
   it('detects tampering on a golden credential (real signature check)', async () => {

@@ -48,8 +48,8 @@ importers:
         specifier: ^11.1.1
         version: 11.1.1
       '@interop/vc-bitstring-status-list':
-        specifier: ^3.3.0
-        version: 3.3.0
+        specifier: ^3.4.0
+        version: 3.4.0
       '@scure/base':
         specifier: ^2.4.0
         version: 2.4.0
@@ -314,8 +314,8 @@ packages:
     resolution: {integrity: sha512-kZI0rwUnUvwSYS5qfdOA7IuAEWjboSBzTdL06yET+Abg/4W5f/o1pFeQNTljOzzMETHJgyJS9vtYnWJcoxaIXw==}
     engines: {node: '>=24.0'}
 
-  '@interop/vc-bitstring-status-list@3.3.0':
-    resolution: {integrity: sha512-7Jr/Ely+HURptXHGXpxz+j+jfDnRhbh5rk4UasnSn4A2eDsUcChFu5HURgnf4+HE8LBuDrEHwjO2CQ2x/xY9XA==}
+  '@interop/vc-bitstring-status-list@3.4.0':
+    resolution: {integrity: sha512-2LlQp5SiJ2YBvHAlxQ6NrGYfUOS5DHDeMbtKtX2hQuQ8vjkeIFp++QYSG+MwtBArWYps+OP79cZFYqrkWiX4lQ==}
     engines: {node: '>=24.0'}
 
   '@interop/vc@11.1.1':
@@ -1534,7 +1534,7 @@ snapshots:
     transitivePeerDependencies:
       - react-native-get-random-values
 
-  '@interop/vc-bitstring-status-list@3.3.0':
+  '@interop/vc-bitstring-status-list@3.4.0':
     dependencies:
       '@digitalbazaar/bitstring': 3.1.0
       '@digitalbazaar/credentials-context': 3.2.0

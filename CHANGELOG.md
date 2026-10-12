@@ -41,6 +41,26 @@
   of the sorted `[type, name, url]` triples (plus sorted `acceptedIssuers` for
   `vc-recognition`) instead of a 32-bit djb2 hash, so two registry lists cannot
   share a cache key.
+- A status list signed by someone other than the credential's issuer is now
+  reported. A new non-fatal check, `status.list-issuer`, runs after
+  `status.bitstring` and compares each verified list's `issuer` id (a string, or
+  the object's `id`) with the credential's. Each differing list is one
+  `STATUS_LIST_ISSUER_MISMATCH` problem naming both issuers; a missing issuer on
+  either side counts as a mismatch. `verified` is unchanged, since some status
+  services sign every tenant's list with one DID of their own. Consumers that
+  need the binding enforced should treat the problem as decisive. The lists are
+  the ones the `verifyStatusListCredential` hook already verified, so each list
+  is still fetched once per verification. The list's `issuer` is the proven
+  signer only when the crypto service binds the issuer to the signing key, as
+  the default `DataIntegrityCryptoService` does; with a signature-only
+  `CryptoService` it is the list's own claim. The check sits in the
+  `cryptographic` phase with `status.bitstring`, whose run it reads, so a
+  `phases: ['trust']` pass does not report it. Its skips carry a `code` from the
+  exported `STATUS_LIST_ISSUER_SKIP_CODES` (`no-list-checked`,
+  `list-not-verified`).
+- A `BitstringStatusListEntry` whose `type` array includes other types is
+  checked. Requires `@interop/vc-bitstring-status-list` 3.4.0, which matches
+  the entry type by inclusion; earlier versions ignored such an entry.
 
 ### Changed
 

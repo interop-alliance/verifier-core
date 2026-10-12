@@ -43,13 +43,13 @@ cryptosuites.
 Verification runs an ordered pipeline of **suites**, each containing one or more
 **checks**:
 
-| Suite           | Phase           | What it checks                                                                                                                                                  | Fatal? |
-| --------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| **Core**        | `cryptographic` | `@context` exists, VC context URI present, credential ID valid, proof exists                                                                                    | Yes    |
-| **Recognition** | `recognition`   | Pluggable credential-profile recognition; produces a normalized credential form (no-op when no recognizers configured)                                          | No     |
-| **Proof**       | `cryptographic` | Cryptographic signature verification                                                                                                                            | Yes    |
-| **Status**      | `cryptographic` | Revocation/suspension via BitstringStatusList — sole owner of status verification. The list credential's proof is checked with the configured `cryptoServices`. | Yes    |
-| **Registry**    | `trust`         | Issuer DID lookup in known trust registries                                                                                                                     | No     |
+| Suite           | Phase           | What it checks                                                                                                                                                                                                                                                                                                                   | Fatal? |
+| --------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| **Core**        | `cryptographic` | `@context` exists, VC context URI present, credential ID valid, proof exists                                                                                                                                                                                                                                                     | Yes    |
+| **Recognition** | `recognition`   | Pluggable credential-profile recognition; produces a normalized credential form (no-op when no recognizers configured)                                                                                                                                                                                                           | No     |
+| **Proof**       | `cryptographic` | Cryptographic signature verification                                                                                                                                                                                                                                                                                             | Yes    |
+| **Status**      | `cryptographic` | Revocation/suspension via BitstringStatusList — sole owner of status verification. The list credential's proof is checked with the configured `cryptoServices`. A non-fatal `status.list-issuer` check then reports a list not issued by the credential's issuer; its skips carry a `code` from `STATUS_LIST_ISSUER_SKIP_CODES`. | Yes    |
+| **Registry**    | `trust`         | Issuer DID lookup in known trust registries                                                                                                                                                                                                                                                                                      | No     |
 
 The **Phase** column drives the optional `phases:` filter on `VerifierConfig`
 and per-call args, used for
@@ -252,7 +252,8 @@ interface ProblemDetail {
     { "id": "cryptographic.core.proof-exists", "suite": "core",   "check": "core.proof-exists",   "outcome": { "status": "success", "message": "..." } },
     { "id": "cryptographic.proof.signature", "suite": "proof",  "check": "proof.signature",     "outcome": { "status": "success", "message": "Signature verified successfully." } },
     { "id": "trust.registry.issuer", "suite": "registry", "check": "registry.issuer",   "outcome": { "status": "success", "message": "Issuer found in registry: DCC Sandbox Registry", "payload": { "matches": [ { "registry": { "name": "DCC Sandbox Registry", "type": "dcc-legacy", "url": "https://digitalcredentials.github.io/sandbox-registry/registry.json" }, "entity": { "name": "Example University", "url": "https://example.edu", "raw": { "name": "Example University", "url": "https://example.edu" } } } ], "uncheckedRegistries": [] } } },
-    { "id": "cryptographic.status.bitstring", "suite": "status", "check": "status.bitstring",    "outcome": { "status": "success", "message": "Credential status is valid (not revoked or suspended)." } }
+    { "id": "cryptographic.status.bitstring", "suite": "status", "check": "status.bitstring",    "outcome": { "status": "success", "message": "Credential status is valid (not revoked or suspended)." } },
+    { "id": "cryptographic.status.list-issuer", "suite": "status", "check": "status.list-issuer", "fatal": false, "outcome": { "status": "success", "message": "Every status list is issued by the credential's issuer." } }
   ]
 }
 ```
@@ -398,6 +399,7 @@ All failures use `ProblemDetail` with a `type` URI. Common error types:
 | `...#STATUS_LIST_EXPIRED`         | Status List Expired                                                                       | Status list VC has expired (v1 or v2 dates); its signature verified      |
 | `...#STATUS_LIST_NOT_YET_VALID`   | Status List Not Yet Valid                                                                 | Status list VC is not yet valid (v1 or v2 dates); its signature verified |
 | `...#STATUS_LIST_SIGNATURE_ERROR` | Status List Signature Error                                                               | Status list VC signature invalid                                         |
+| `...#STATUS_LIST_ISSUER_MISMATCH` | Status List Issuer Mismatch                                                               | Status list `issuer` differs from the credential's; non-fatal warning    |
 | `...#ISSUER_NOT_REGISTERED`       | Issuer Not Registered                                                                     | Issuer DID not found in any registry that could be checked               |
 | `...#REGISTRY_UNCHECKED`          | Registry Unchecked                                                                        | Some or all registries couldn't be reached; alone when none could        |
 

@@ -4,27 +4,11 @@ import { VerificationSubject } from '../../types/subject.js';
 import { VerificationContext } from '../../types/context.js';
 import { ProblemTypes } from '../../problem-types.js';
 import { errorMessage } from '../../util/error-message.js';
+import { credentialIssuerId } from '../../util/issuer-id.js';
 
 /** The noun for a count of registries, as the messages pluralize it. */
 function registriesNoun(count: number): string {
   return count === 1 ? 'registry' : 'registries';
-}
-
-/**
- * Extract issuer DID from credential.
- */
-function getIssuerDid(credential: Record<string, unknown>): string | undefined {
-  const issuer = credential.issuer as string | { id: string } | undefined;
-
-  if (typeof issuer === 'string') {
-    return issuer;
-  }
-
-  if (issuer && typeof issuer === 'object' && 'id' in issuer) {
-    return (issuer as { id: string }).id;
-  }
-
-  return undefined;
 }
 
 /**
@@ -85,7 +69,7 @@ export const issuerRegistryCheck: VerificationCheck = {
       };
     }
 
-    const issuerDid = getIssuerDid(credential);
+    const issuerDid = credentialIssuerId(credential);
 
     if (!issuerDid) {
       return {

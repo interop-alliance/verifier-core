@@ -24,6 +24,7 @@ import type { ProblemDetail } from '../types/problem-detail.js';
 import type { VerificationSubject } from '../types/subject.js';
 import { ProblemTypes } from '../problem-types.js';
 import { errorMessage } from '../util/error-message.js';
+import { credentialIssuerId } from '../util/issuer-id.js';
 import { documentHasProof, proofEntries } from '../util/document-has-proof.js';
 
 /**
@@ -190,8 +191,7 @@ export function classifySignatureError(
     const requestUrl = httpError?.requestUrl || httpError?.url || '';
 
     if (credential) {
-      const issuer = credential.issuer as string | { id: string } | undefined;
-      const issuerDid = typeof issuer === 'string' ? issuer : issuer?.id || '';
+      const issuerDid = credentialIssuerId(credential) ?? '';
 
       if (isDidWeb(issuerDid)) {
         const didUrlPattern = didWebToUrlPattern(issuerDid);
@@ -229,8 +229,7 @@ export function classifySignatureError(
   // `issuer` differs from the controller of the proof's verification method.
   // Surface it as a distinct, explicit problem rather than INVALID_SIGNATURE.
   if (hasMessage(errors, ISSUER_CONTROLLER_MISMATCH)) {
-    const issuer = credential?.issuer as string | { id?: string } | undefined;
-    const issuerId = typeof issuer === 'string' ? issuer : issuer?.id;
+    const issuerId = credential ? credentialIssuerId(credential) : undefined;
     return [
       {
         type: ProblemTypes.ISSUER_PROOF_MISMATCH,

@@ -56,7 +56,7 @@
     "@interop/jsonld-signatures": "^11.8.7",
     "@interop/security-document-loader": "^10.1.4",
     "@interop/vc": "^11.1.1",
-    "@interop/vc-bitstring-status-list": "^3.3.0",
+    "@interop/vc-bitstring-status-list": "^3.4.0",
     "@scure/base": "^2.4.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",

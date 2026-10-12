@@ -1,5 +1,6 @@
 import type { VcRecognitionEntityIdentityRegistry } from '../../types/registry.js';
 import type { HttpGetService } from '../http-get-service/http-get-service.js';
+import { credentialIssuerId } from '../../util/issuer-id.js';
 import { DEFAULT_TTL_MS, resolveTtl, ttlFromValidUntil } from './cache-ttl.js';
 import type {
   HandlerResult,
@@ -51,7 +52,7 @@ async function lookupVcRecognitionForRegistry(
       return { status: 'unchecked' };
     }
 
-    const issuerId = getIssuerId(loaded);
+    const issuerId = credentialIssuerId(loaded);
     if (!issuerId || !registry.acceptedIssuers.includes(issuerId)) {
       return { status: 'unchecked' };
     }
@@ -104,18 +105,6 @@ async function fetchRecognitionCredentialJson(
     return null;
   }
   return json as Record<string, unknown>;
-}
-
-function getIssuerId(credential: Record<string, unknown>): string | undefined {
-  const issuer = credential.issuer;
-  if (typeof issuer === 'string') {
-    return issuer;
-  }
-  if (issuer && typeof issuer === 'object' && 'id' in issuer) {
-    const id = (issuer as { id: unknown }).id;
-    return typeof id === 'string' ? id : undefined;
-  }
-  return undefined;
 }
 
 function subjectContainsDid(

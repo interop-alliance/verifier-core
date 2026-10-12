@@ -1,21 +1,7 @@
 import { VerificationCheck, CheckOutcome } from '../../types/check.js';
 import { VerificationSubject } from '../../types/subject.js';
 import { VerificationContext } from '../../types/context.js';
-
-/**
- * Extract the issuer DID from a credential, handling both the string and
- * `{ id }` object forms of the `issuer` property.
- */
-function getIssuerDid(credential: Record<string, unknown>): string | undefined {
-  const issuer = credential.issuer as string | { id?: string } | undefined;
-  if (typeof issuer === 'string') {
-    return issuer;
-  }
-  if (issuer && typeof issuer === 'object' && typeof issuer.id === 'string') {
-    return issuer.id;
-  }
-  return undefined;
-}
+import { credentialIssuerId } from '../../util/issuer-id.js';
 
 /**
  * Build the issuer-details check.
@@ -66,7 +52,7 @@ export function createIssuerDetailsCheck<TIssuer = unknown>(
         };
       }
 
-      const issuerDid = getIssuerDid(credential);
+      const issuerDid = credentialIssuerId(credential);
       if (!issuerDid) {
         return {
           status: 'skipped',
