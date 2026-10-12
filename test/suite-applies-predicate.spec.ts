@@ -13,7 +13,8 @@ const ctx: VerificationContext = {
   fetchJson: async () => ({}),
   cryptoServices: [],
   challenge: null,
-  unsignedPresentation: false
+  unsignedPresentation: false,
+  now: new Date()
 };
 
 function alwaysSuccess(id: string): VerificationCheck {

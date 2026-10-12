@@ -14,7 +14,8 @@ describe('runSuites', () => {
     fetchJson: async () => ({}),
     cryptoServices: [],
     challenge: null,
-    unsignedPresentation: false
+    unsignedPresentation: false,
+    now: new Date()
   };
 
   // Helper to create a mock check that returns a predetermined outcome

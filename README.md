@@ -390,6 +390,8 @@ All failures use `ProblemDetail` with a `type` URI. Common error types:
 | `...#PARSING_ERROR`               | Credential Parsing Failed / Presentation Parsing Failed / Invalid JSON-LD / No VC Context | Envelope gate or context problems                                        |
 | `...#MALFORMED_VALUE_ERROR`       | Invalid Credential Structure / Invalid Presentation Structure                             | A VC Data Model structure rule is broken; `instance` points at the field |
 | `...#INVALID_SIGNATURE`           | Invalid Signature                                                                         | Signature doesn't match content                                          |
+| `...#CREDENTIAL_EXPIRED`          | Credential Expired                                                                        | `validUntil` / `expirationDate` has passed; the signature verified       |
+| `...#CREDENTIAL_NOT_YET_VALID`    | Credential Not Yet Valid                                                                  | `validFrom` / `issuanceDate` is in the future; the signature verified    |
 | `...#PROOF_PURPOSE_MISMATCH`      | Challenge Mismatch / Domain Mismatch / Proof Purpose Mismatch                             | VP proof does not bind to the caller's challenge, domain, or purpose     |
 | `...#DID_WEB_UNRESOLVED`          | DID Web Unresolved                                                                        | DID document (e.g. `did:web`) or `did:webvh` log couldn't be fetched     |
 | `...#HTTP_ERROR`                  | HTTP Error                                                                                | Network error during signature check                                     |
@@ -744,9 +746,12 @@ table, recipes, and a prompt-ready appendix.
 `performance.now`); pass `{ timeService: FakeTimeService() }` on
 `createVerifier(...)` in tests to make every `TaskTiming` field
 exact-value-assertable. Both factories are exported from the package barrel. The
-same abstraction will back upcoming work on credential expiration, signature
-clock-skew windows, key rotation, and status-list freshness — see
-[`docs/api/timing.md`](./docs/api/timing.md) for the reference.
+same clock decides credential validity: the instant is read once per verify
+call, and `proof.signature` and `status.bitstring` pass it to the crypto service
+as `now`, so a `FakeTimeService` set inside an expired credential's validity
+window verifies it. Dates are compared exactly against that instant, with no
+clock-skew allowance. See [`docs/api/timing.md`](./docs/api/timing.md) for the
+reference.
 
 ## Open Badges 3.0 verification (opt-in submodule)
 

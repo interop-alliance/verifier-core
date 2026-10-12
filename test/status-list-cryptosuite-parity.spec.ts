@@ -24,6 +24,7 @@ import {
   createList
 } from '@interop/vc-bitstring-status-list';
 import { createVerifier } from '../src/verifier.js';
+import { FakeTimeService } from '../src/services/time-service/fake-time-service.js';
 import { DataIntegrityCryptoService } from '../src/services/data-integrity-crypto.js';
 import { ProblemTypes } from '../src/problem-types.js';
 import type { DocumentLoader } from '../src/types/context.js';
@@ -213,8 +214,60 @@ describe('status list cryptosuite parity', () => {
         EXPIRED_STATUS_LIST_URL
       );
       expect(statusResult.outcome.problems[0].detail).toContain(
-        'is after "validUntil"'
+        'has expired. Validity ended at 2021-01-01T00:00:00Z (validUntil)'
       );
     }
+  });
+
+  it('(c2) judges the credential and its status list at one instant per verification', async () => {
+    const seen: Date[] = [];
+    const inner = eddsaAndEd25519();
+    const capturing: typeof inner = {
+      ...inner,
+      verifyCredential: (credential, options) => {
+        seen.push(options.now as Date);
+        return inner.verifyCredential(credential, options);
+      }
+    };
+    // `FakeTimeService` advances one millisecond per `dateNowMs()` call, so
+    // instants read per check would differ.
+    const verifier = createVerifier({
+      httpGetService: offlineHttpGetService,
+      documentLoader,
+      cryptoServices: [capturing],
+      timeService: FakeTimeService(),
+      verbose: true
+    });
+    await verifier.verifyCredential({
+      credential: signedSubject,
+      phases: ['cryptographic']
+    });
+
+    expect(seen).toHaveLength(2);
+    expect(seen[0]).toBeInstanceOf(Date);
+    expect(seen[1]).toBe(seen[0]);
+  });
+
+  it('(d) judges the list at the verifier clock: the expired list verifies when the clock is inside its validity window', async () => {
+    // The list is valid from 2020-01-01 until 2021-01-01.
+    const verifier = createVerifier({
+      httpGetService: offlineHttpGetService,
+      documentLoader,
+      cryptoServices: [eddsaAndEd25519()],
+      timeService: FakeTimeService({
+        baseDateMs: Date.parse('2020-06-01T00:00:00Z')
+      }),
+      verbose: true
+    });
+    const result = await verifier.verifyCredential({
+      credential: signedSubjectWithExpiredList,
+      phases: ['cryptographic']
+    });
+
+    const statusResult = result.results.find(
+      r => r.check === 'status.bitstring'
+    );
+    expect(statusResult?.outcome.status).toBe('success');
+    expect(result.verified).toBe(true);
   });
 });

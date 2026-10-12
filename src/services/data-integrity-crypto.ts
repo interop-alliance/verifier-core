@@ -26,6 +26,10 @@ import { ProblemTypes } from '../problem-types.js';
 import { errorMessage } from '../util/error-message.js';
 import { credentialIssuerId } from '../util/issuer-id.js';
 import { documentHasProof, proofEntries } from '../util/document-has-proof.js';
+import {
+  classifyDateRejection,
+  dateRejectionProblem
+} from '../util/vc-date-messages.js';
 
 /**
  * No-op `checkStatus` passed to `@interop/vc` so its
@@ -162,10 +166,14 @@ function proofVerificationMethod(
   return typeof vm === 'string' ? vm : undefined;
 }
 
-/** Exported for unit testing. */
+/**
+ * Map an `@interop/vc` rejection onto problems. `now` is the instant the
+ * library judged validity dates against. Exported for unit testing.
+ */
 export function classifySignatureError(
   error: unknown,
-  credential: Record<string, unknown> | undefined
+  credential: Record<string, unknown> | undefined,
+  now: Date
 ): ProblemDetail[] {
   const errors = extractErrors(error);
 
@@ -284,6 +292,17 @@ export function classifySignatureError(
         .filter((m): m is string => !!m)
     )
   ];
+
+  // The library reads validity dates only once the signature has verified,
+  // so a date message proves the credential authentic and merely out of
+  // date. INVALID_SIGNATURE would accuse an honest issuer of forgery.
+  for (const message of messages) {
+    const rejection = classifyDateRejection(message);
+    if (rejection !== undefined) {
+      return [dateRejectionProblem(rejection, credential, now)];
+    }
+  }
+
   return [
     {
       type: ProblemTypes.INVALID_SIGNATURE,
@@ -387,6 +406,7 @@ export function DataIntegrityCryptoService(
       credential: unknown,
       options: CryptoVerifyOptions
     ): Promise<CryptoResult> => {
+      const now = options.now ?? new Date();
       try {
         const result = await vcVerifyCredential({
           // Untrusted input crossing into the typed `@interop/vc` API; `canVerify`
@@ -394,7 +414,14 @@ export function DataIntegrityCryptoService(
           credential: credential as IVerifiableCredential,
           suite: suites,
           documentLoader: options.documentLoader,
-          checkStatus: noopCheckStatus
+          checkStatus: noopCheckStatus,
+          // Validity dates are checked after the proof verifies, exactly
+          // against `now`. The library's default 300 seconds of clock skew
+          // would let a credential that expired moments ago pass here and
+          // fail `validity.expiration`; a consumer wanting tolerance moves
+          // the verifier's `timeService` instead.
+          now,
+          maxClockSkew: 0
         });
 
         const verified = result.verified ?? false;
@@ -409,7 +436,8 @@ export function DataIntegrityCryptoService(
           verified: false,
           problems: classifySignatureError(
             result.error,
-            credential as Record<string, unknown> | undefined
+            credential as Record<string, unknown> | undefined,
+            now
           )
         };
       } catch (e) {
@@ -474,7 +502,11 @@ export function DataIntegrityCryptoService(
 
         return {
           verified: false,
-          problems: classifySignatureError(result.error, undefined)
+          problems: classifySignatureError(
+            result.error,
+            undefined,
+            options.now ?? new Date()
+          )
         };
       } catch (e) {
         return {

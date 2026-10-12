@@ -353,6 +353,7 @@ function buildContext(input: BuildContextInput): VerificationContext {
     domain: input.domain,
     unsignedPresentation: input.unsignedPresentation ?? false,
     timeService: input.timeService,
+    now: new Date(input.timeService.dateNowMs()),
     timing: input.timing
   };
 }

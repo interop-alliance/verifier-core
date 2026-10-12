@@ -55,7 +55,8 @@ const fakeCtx: VerificationContext = {
   fetchJson: async () => ({}),
   cryptoServices: [],
   challenge: null,
-  unsignedPresentation: false
+  unsignedPresentation: false,
+  now: new Date()
 };
 
 const cloneCred = (): Record<string, unknown> =>

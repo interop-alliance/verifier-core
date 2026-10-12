@@ -255,7 +255,8 @@ describe('Foundation types', () => {
       const context: VerificationContext = {
         documentLoader: async () => ({ document: {} }),
         fetchJson: async () => ({}),
-        cryptoServices: []
+        cryptoServices: [],
+        now: new Date()
       };
 
       const outcomes = await Promise.all(

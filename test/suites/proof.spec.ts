@@ -137,6 +137,19 @@ describe('Proof Verification Suite', () => {
       }
     });
 
+    it('passes context.now to the crypto service as the verification instant', async () => {
+      const now = new Date('2024-05-05T00:00:00Z');
+      const service = FakeCryptoService({ verified: true });
+      const spy = vi.spyOn(service, 'verifyCredential');
+      const context = buildTestContext({ cryptoServices: [service], now });
+      const subject = createCredentialSubject(
+        CredentialFactory({ version: 'v2', credential: {} })
+      );
+      await runSuites([proofSuite], subject, context);
+
+      expect(spy.mock.calls[0][1].now).toBe(now);
+    });
+
     it('fails when no crypto service matches canVerify', async () => {
       const context = buildTestContext({
         cryptoServices: [

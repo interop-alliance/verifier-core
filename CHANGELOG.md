@@ -59,11 +59,43 @@
   exported `STATUS_LIST_ISSUER_SKIP_CODES` (`no-list-checked`,
   `list-not-verified`).
 - A `BitstringStatusListEntry` whose `type` array includes other types is
-  checked. Requires `@interop/vc-bitstring-status-list` 3.4.0, which matches
-  the entry type by inclusion; earlier versions ignored such an entry.
+  checked. Requires `@interop/vc-bitstring-status-list` 3.4.0, which matches the
+  entry type by inclusion; earlier versions ignored such an entry.
 
 ### Changed
 
+- **BREAKING**: `proof.signature` reports an authentic but out-of-date
+  credential as `CREDENTIAL_EXPIRED` (`validUntil` / `expirationDate` passed) or
+  `CREDENTIAL_NOT_YET_VALID` (`validFrom` / `issuanceDate` in the future)
+  instead of `INVALID_SIGNATURE`. `@interop/vc` judges dates only after the
+  proof verifies, so the date rejection proves the signature is good. Both are
+  new `ProblemTypes` entries; the failure stays fatal. A tampered credential
+  still reports `INVALID_SIGNATURE`. The default crypto service classifies the
+  rejection itself, so `proof.signature` passes its problems through. The
+  problem `detail` names the credential's date, the property it came from and
+  the verification instant
+  (`Validity ended at <date> (validUntil). Verified at <instant>.`), for VC 1.x
+  credentials too. Consumers that map `INVALID_SIGNATURE` on `proof.signature`
+  to a legacy "bad signature" row (the freewallet and dcw compatibility shims)
+  need a case for the two new URIs.
+- The verifier's `timeService` now decides credential and status list validity.
+  The instant is resolved once per verify call as `VerificationContext.now` (now
+  a required field); `proof.signature`, the status list hook and the opt-in
+  `validity.expiration` all use it, so a credential and its status lists are
+  judged at one instant however long the list fetches take. The checks pass it
+  to the crypto service as `CryptoVerifyOptions.now`, so a `FakeTimeService` set
+  inside an expired credential's validity window verifies it. A custom
+  `CryptoService` that judges dates should honour `now` and report an expired or
+  not-yet-valid document as `CREDENTIAL_EXPIRED` / `CREDENTIAL_NOT_YET_VALID`;
+  `status.bitstring` maps those onto `STATUS_LIST_EXPIRED` /
+  `STATUS_LIST_NOT_YET_VALID` and no longer inspects problem text.
+- Validity dates are compared exactly against the verification instant. The
+  default crypto service passes `maxClockSkew: 0` to `@interop/vc`, which would
+  otherwise allow 300 seconds of skew that `validity.expiration` does not, so a
+  credential that expired moments ago no longer passes one check and fails the
+  other.
+- **BREAKING**: `EXPIRED_PROBLEM_TYPE` is removed; `expirationSuite` reports
+  `ProblemTypes.CREDENTIAL_EXPIRED` (the URI string is unchanged).
 - **BREAKING**: the Zod gate in front of `verifyCredential` /
   `verifyPresentation` is now minimal. A credential needs only `@context`,
   `type`, `issuer` (a string or an object with a string `id`) and

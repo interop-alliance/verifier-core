@@ -1,20 +1,7 @@
 import { VerificationCheck, CheckOutcome } from '../../types/check.js';
 import { VerificationSubject } from '../../types/subject.js';
 import { VerificationContext } from '../../types/context.js';
-
-/**
- * Problem `type` URI for an expired credential.
- *
- * Uses the same `https://www.w3.org/TR/vc-data-model#...` placeholder host
- * as the rest of the catalog (see {@link ../../problem-types.ts}); treat it
- * as an opaque key until a real error registry exists. Kept as a standalone
- * constant rather than mirrored into the core `ProblemTypes` map because the
- * validity suite is opt-in (passed via `additionalSuites`), following the
- * same "vertical catalogs live with their suite" convention as the
- * OpenBadges submodule.
- */
-export const EXPIRED_PROBLEM_TYPE =
-  'https://www.w3.org/TR/vc-data-model#CREDENTIAL_EXPIRED';
+import { ProblemTypes } from '../../problem-types.js';
 
 /**
  * Machine-readable `code` values carried on this check's `'skipped'`
@@ -62,9 +49,10 @@ function getExpirationIso(
  * check: an expired credential is reported as a warning, not a hard
  * cryptographic failure.
  *
- * "Now" is read from the injected clock -- `context.timeService.dateNowMs()`
- * when present, else `Date.now()` -- so the check is deterministic under a
- * fake time service in tests.
+ * "Now" is `context.now`, the instant `proof.signature` judges the same
+ * credential at, so the check is deterministic under a fake time service in
+ * tests and agrees with the proof check. It fails with the same
+ * `ProblemTypes.CREDENTIAL_EXPIRED` URI as that check.
  *
  * Skipped when (each cause tagged with its {@link EXPIRATION_SKIP_CODES}
  * entry on the outcome's `code`):
@@ -75,7 +63,7 @@ function getExpirationIso(
  * Success when:
  * - The credential is within its validity period.
  *
- * Failure ({@link EXPIRED_PROBLEM_TYPE}) when:
+ * Failure when:
  * - The expiration instant is in the past.
  */
 export const expirationCheck: VerificationCheck = {
@@ -118,9 +106,7 @@ export const expirationCheck: VerificationCheck = {
       };
     }
 
-    const nowMs = context.timeService
-      ? context.timeService.dateNowMs()
-      : Date.now();
+    const nowMs = context.now.getTime();
 
     if (expiresMs >= nowMs) {
       return {
@@ -133,7 +119,7 @@ export const expirationCheck: VerificationCheck = {
       status: 'failure',
       problems: [
         {
-          type: EXPIRED_PROBLEM_TYPE,
+          type: ProblemTypes.CREDENTIAL_EXPIRED,
           title: 'Credential Expired',
           detail: `Credential expired on ${expirationIso}.`
         }

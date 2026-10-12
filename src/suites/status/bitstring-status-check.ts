@@ -14,10 +14,6 @@ import { ProblemTypes } from '../../problem-types.js';
 import { formatJsonPointer } from '../../util/json-pointer.js';
 import { errorMessage } from '../../util/error-message.js';
 import {
-  classifyDateRejection,
-  type DateRejection
-} from '../../util/vc-date-messages.js';
-import {
   BITSTRING_ENTRY_TYPE,
   CHECKED_STATUS_PURPOSES,
   beginStatusListRun,
@@ -38,17 +34,20 @@ const NOT_FOUND_ERROR = 'NotFoundError';
 const STATUS_TYPE_ERROR =
   'Status list credential type must include "BitstringStatusListCredential".';
 
-/** How each validity-period rejection of a status list is reported. */
+/**
+ * How a validity-period rejection of a status list is reported, keyed by
+ * the problem `type` the crypto service gives the list credential.
+ */
 const DATE_REJECTION_PROBLEMS: Record<
-  DateRejection,
+  string,
   { type: string; title: string; phrase: string }
 > = {
-  expired: {
+  [ProblemTypes.CREDENTIAL_EXPIRED]: {
     type: ProblemTypes.STATUS_LIST_EXPIRED,
     title: 'Status List Expired',
     phrase: 'has expired'
   },
-  'not-yet-valid': {
+  [ProblemTypes.CREDENTIAL_NOT_YET_VALID]: {
     type: ProblemTypes.STATUS_LIST_NOT_YET_VALID,
     title: 'Status List Not Yet Valid',
     phrase: 'is not yet valid'
@@ -183,12 +182,11 @@ function noCheckedEntryReason(
  * lands here. Passing that through as success would silently accept lists
  * the previous `vcVerifyCredential` path rejected.
  *
- * The crypto service also enforces the list credential's validity period,
- * and `@interop/vc` checks dates only after the signature has verified. A
- * date message in the rejection therefore proves the list is authentic and
- * merely out of date, and is surfaced as `STATUS_LIST_EXPIRED` /
- * `STATUS_LIST_NOT_YET_VALID` (naming the list and carrying the library's
- * message) rather than as a signature error.
+ * The crypto service also judges the list credential's validity period and
+ * reports an authentic but out-of-date list as `CREDENTIAL_EXPIRED` /
+ * `CREDENTIAL_NOT_YET_VALID`. That is surfaced as `STATUS_LIST_EXPIRED` /
+ * `STATUS_LIST_NOT_YET_VALID`, naming the list, rather than as a signature
+ * error.
  */
 function statusListProofProblems(
   dispatched: Exclude<CryptoDispatchResult, { kind: 'verified' }>,
@@ -204,18 +202,18 @@ function statusListProofProblems(
     case 'threw':
       return [statusListSignatureProblem(dispatched.message)];
     case 'rejected': {
-      for (const { detail } of dispatched.problems) {
-        const rejection = classifyDateRejection(detail);
-        if (rejection !== undefined) {
-          const { type, title, phrase } = DATE_REJECTION_PROBLEMS[rejection];
-          return [
-            {
-              type,
-              title,
-              detail: `The status list credential ${listName} ${phrase}: ${detail}`
-            }
-          ];
-        }
+      const dated = dispatched.problems.find(
+        problem => problem.type in DATE_REJECTION_PROBLEMS
+      );
+      if (dated !== undefined) {
+        const { type, title, phrase } = DATE_REJECTION_PROBLEMS[dated.type];
+        return [
+          {
+            type,
+            title,
+            detail: `The status list credential ${listName} ${phrase}. ${dated.detail}`
+          }
+        ];
       }
       return [
         statusListSignatureProblem(
@@ -233,6 +231,8 @@ function statusListProofProblems(
  * `checkStatus` itself loads and verifies each distinct list URL once and
  * tells the hook which `url` it loaded. A list whose proof verified is
  * recorded for `status.list-issuer`, so that check needs no second fetch.
+ * The list's validity dates are judged at the verifier's clock, the same
+ * instant `proof.signature` uses for the credential.
  */
 function verifyStatusListVia(
   context: VerificationContext
@@ -241,7 +241,7 @@ function verifyStatusListVia(
     const dispatched = await dispatchProofVerification({
       services: context.cryptoServices,
       subject: { verifiableCredential: credential },
-      options: { documentLoader }
+      options: { documentLoader, now: context.now }
     });
     if (dispatched.kind === 'verified') {
       recordVerifiedStatusList(context, url, credential);

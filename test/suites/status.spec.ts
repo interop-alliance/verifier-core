@@ -504,20 +504,14 @@ describe('Status Suite', () => {
   describe('status list validity dates', () => {
     const listUrl = 'https://factory.test/status/list-dated';
 
-    async function runRejected(detail: string) {
+    async function runRejected(type: string, detail: string) {
       const list = await StatusListCredentialFactory({ id: listUrl });
       const context = buildTestContext({
         documentLoader: FakeDocumentLoader({ [listUrl]: list }),
         cryptoServices: [
           FakeCryptoService({
             verified: false,
-            problems: [
-              {
-                type: ProblemTypes.INVALID_SIGNATURE,
-                title: 'Invalid Signature',
-                detail
-              }
-            ]
+            problems: [{ type, title: 'Rejected', detail }]
           })
         ]
       });
@@ -537,37 +531,42 @@ describe('Status Suite', () => {
       return results[0].outcome;
     }
 
+    const DATED =
+      'Validity ended at 2025-01-01T00:00:00Z (validUntil). Verified at 2026-10-01T00:00:00.000Z.';
+
     it.each([
       [
-        'The current date time (2026-10-01T00:00:00.000Z) is after "validUntil" (2025-01-01T00:00:00Z).',
-        ProblemTypes.STATUS_LIST_EXPIRED
-      ],
-      ['Credential has expired.', ProblemTypes.STATUS_LIST_EXPIRED],
-      [
-        'The current date time (2026-10-01T00:00:00.000Z) is before "validFrom" (2030-01-01T00:00:00Z).',
-        ProblemTypes.STATUS_LIST_NOT_YET_VALID
+        ProblemTypes.CREDENTIAL_EXPIRED,
+        ProblemTypes.STATUS_LIST_EXPIRED,
+        `has expired. ${DATED}`
       ],
       [
-        'The current date time (2026-10-01T00:00:00.000Z) is before the "issuanceDate" (2030-01-01T00:00:00Z).',
-        ProblemTypes.STATUS_LIST_NOT_YET_VALID
+        ProblemTypes.CREDENTIAL_NOT_YET_VALID,
+        ProblemTypes.STATUS_LIST_NOT_YET_VALID,
+        `is not yet valid. ${DATED}`
       ],
       [
-        'Signature verification failed.',
-        ProblemTypes.STATUS_LIST_SIGNATURE_ERROR
+        ProblemTypes.INVALID_SIGNATURE,
+        ProblemTypes.STATUS_LIST_SIGNATURE_ERROR,
+        undefined
       ]
-    ])('classifies a rejected list with "%s"', async (detail, type) => {
-      const outcome = await runRejected(detail);
+    ])(
+      'maps a rejected list with %s onto %s',
+      async (reported, type, phrase) => {
+        const outcome = await runRejected(reported, DATED);
 
-      expect(outcome.status).toBe('failure');
-      if (outcome.status === 'failure') {
-        expect(outcome.problems).toHaveLength(1);
-        expect(outcome.problems[0].type).toBe(type);
-        if (type !== ProblemTypes.STATUS_LIST_SIGNATURE_ERROR) {
-          expect(outcome.problems[0].detail).toContain(listUrl);
-          expect(outcome.problems[0].detail).toContain(detail);
+        expect(outcome.status).toBe('failure');
+        if (outcome.status === 'failure') {
+          expect(outcome.problems).toHaveLength(1);
+          expect(outcome.problems[0].type).toBe(type);
+          if (phrase !== undefined) {
+            expect(outcome.problems[0].detail).toBe(
+              `The status list credential ${listUrl} ${phrase}`
+            );
+          }
         }
       }
-    });
+    );
   });
 
   describe('list errors from checkStatus', () => {
@@ -680,74 +679,6 @@ describe('Status Suite', () => {
         );
         expect(results[0].outcome.problems[0].detail).toBe(
           'The status list credential signature could not be verified.'
-        );
-      }
-    });
-
-    it('fails with STATUS_LIST_EXPIRED when the injected service rejects an expired list', async () => {
-      const listUrl = 'https://factory.test/status/list-expired';
-      const { cred, documentLoader } = await credentialWithHostedList(listUrl);
-      const context = buildTestContext({
-        documentLoader,
-        cryptoServices: [
-          FakeCryptoService({
-            verified: false,
-            problems: [
-              {
-                type: ProblemTypes.INVALID_SIGNATURE,
-                title: 'Signature Verification Failed',
-                detail:
-                  'The current date time (2026-09-30T00:00:00.000Z) is after "validUntil" (2026-01-01T00:00:00Z).'
-              }
-            ]
-          })
-        ]
-      });
-
-      const results = await runSuites(
-        [statusSuite],
-        createSubject(cred),
-        context
-      );
-
-      expect(results[0].outcome.status).toBe('failure');
-      if (results[0].outcome.status === 'failure') {
-        expect(results[0].outcome.problems[0].type).toBe(
-          ProblemTypes.STATUS_LIST_EXPIRED
-        );
-      }
-    });
-
-    it('fails with STATUS_LIST_NOT_YET_VALID when the injected service rejects a not-yet-valid list', async () => {
-      const listUrl = 'https://factory.test/status/list-not-yet-valid';
-      const { cred, documentLoader } = await credentialWithHostedList(listUrl);
-      const context = buildTestContext({
-        documentLoader,
-        cryptoServices: [
-          FakeCryptoService({
-            verified: false,
-            problems: [
-              {
-                type: ProblemTypes.INVALID_SIGNATURE,
-                title: 'Signature Verification Failed',
-                detail:
-                  'The current date time (2026-09-30T00:00:00.000Z) is before "validFrom" (2027-01-01T00:00:00Z).'
-              }
-            ]
-          })
-        ]
-      });
-
-      const results = await runSuites(
-        [statusSuite],
-        createSubject(cred),
-        context
-      );
-
-      expect(results[0].outcome.status).toBe('failure');
-      if (results[0].outcome.status === 'failure') {
-        expect(results[0].outcome.problems[0].type).toBe(
-          ProblemTypes.STATUS_LIST_NOT_YET_VALID
         );
       }
     });

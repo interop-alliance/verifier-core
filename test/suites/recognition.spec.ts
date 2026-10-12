@@ -16,6 +16,7 @@ const baseContext = (
   cryptoServices: [],
   challenge: null,
   unsignedPresentation: false,
+  now: new Date(),
   ...overrides
 });
 

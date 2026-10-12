@@ -1,10 +1,7 @@
 import { VerificationSuite } from '../../types/check.js';
 import { expirationCheck } from './expiration-check.js';
 
-export {
-  EXPIRED_PROBLEM_TYPE,
-  EXPIRATION_SKIP_CODES
-} from './expiration-check.js';
+export { EXPIRATION_SKIP_CODES } from './expiration-check.js';
 
 /**
  * Credential validity-period suite.

@@ -109,6 +109,13 @@ export interface VerificationContext {
    */
   timeService?: TimeService;
   /**
+   * The instant this verification judges validity dates against. Read once
+   * per verify call from {@link timeService}, so the credential and each of
+   * its status lists are judged at the same instant however long the list
+   * fetches take.
+   */
+  now: Date;
+  /**
    * When true, every `CheckResult` produced under this
    * context carries `timing`, and top-level / suite-level
    * timing rolls up. Resolved by `createVerifier(...)` from

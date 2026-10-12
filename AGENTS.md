@@ -75,9 +75,10 @@ out of `defaultSuites` -- consumers pass them via a verify call's
 
 - `expirationSuite` (`src/suites/validity/`, check id `validity.expiration`) --
   non-fatal validity-period check (VC 2.0 `validUntil`, falling back to VC 1.x
-  `expirationDate`); reads "now" from `context.timeService` when present. Emits
-  the exported `EXPIRED_PROBLEM_TYPE` (kept standalone, not mirrored into the
-  core `ProblemTypes` map).
+  `expirationDate`); reads "now" from `context.now`, the same instant
+  `proof.signature` uses. Emits `ProblemTypes.CREDENTIAL_EXPIRED` (the fatal
+  `proof.signature` check reports the same URI for the default crypto service;
+  this suite covers custom services that do not judge dates).
 - `createIssuerDetailsSuite({ lookupDid })` (`src/suites/trust/`, check id
   `trust.issuer-details`) -- a factory for a non-fatal check that surfaces rich
   issuer registry metadata on the outcome `payload` for a UI. The lookup is
@@ -109,11 +110,12 @@ rewrite adds `zod` (main path) + `klona` (tiny).
 From a DCC-specific verifier -> a general-purpose, composable VC verification
 _framework_: environment-agnostic, network-free testability, consumers wire in
 only what they need. Stated remaining hexagonal work (`docs/architecture.md`
-§Direction): wrap AJV behind a `JsonSchemaValidator` port, and add a `Clock`
-port. (The bitstring-status check already verifies status list credential proofs
-through the injected `cryptoServices`.) Server-fit signals: per-verifier cache
-sharing, lean serializable results (Redis-friendly), timing instrumentation,
-OIDF.
+§Direction): wrap AJV behind a `JsonSchemaValidator` port. (`TimeService` is
+already the clock port: it drives timing and, via `VerificationContext.now`,
+credential and status list validity. The bitstring-status check already verifies
+status list credential proofs through the injected `cryptoServices`.) Server-fit
+signals: per-verifier cache sharing, lean serializable results (Redis-friendly),
+timing instrumentation, OIDF.
 
 ## v2.0.0 is NOT a drop-in for pre-Nate consumers
 

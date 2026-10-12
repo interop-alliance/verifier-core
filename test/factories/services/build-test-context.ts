@@ -66,6 +66,10 @@ export function buildTestContext(
       createRegistryLookup(effectiveHttpGetService, effectiveCacheService),
     challenge: overrides?.challenge ?? null,
     domain: overrides?.domain,
-    unsignedPresentation: overrides?.unsignedPresentation ?? false
+    unsignedPresentation: overrides?.unsignedPresentation ?? false,
+    timeService: overrides?.timeService,
+    now:
+      overrides?.now ??
+      new Date(overrides?.timeService?.dateNowMs() ?? Date.now())
   };
 }

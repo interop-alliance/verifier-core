@@ -2,12 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { runSuites } from '../../src/run-suites.js';
 import {
   expirationSuite,
-  EXPIRED_PROBLEM_TYPE,
   EXPIRATION_SKIP_CODES
 } from '../../src/suites/validity/index.js';
+import { ProblemTypes } from '../../src/problem-types.js';
 import { expirationCheck } from '../../src/suites/validity/expiration-check.js';
 import { buildTestContext } from '../factories/services/build-test-context.js';
-import { FakeTimeService } from '../../src/services/time-service/fake-time-service.js';
 import { CredentialFactory } from '../factories/data/credential-factory.js';
 import { VerificationSubject } from '../../src/types/subject.js';
 import { VerificationContext } from '../../src/types/context.js';
@@ -21,7 +20,7 @@ describe('Validity (Expiration) Suite', () => {
 
   const contextAt = (isoNow: string): VerificationContext => ({
     ...baseContext,
-    timeService: FakeTimeService({ baseDateMs: new Date(isoNow).getTime() })
+    now: new Date(isoNow)
   });
 
   it('succeeds when the credential is within its validity period', async () => {
@@ -58,7 +57,9 @@ describe('Validity (Expiration) Suite', () => {
     expect(results).toHaveLength(1);
     expect(results[0].outcome.status).toBe('failure');
     if (results[0].outcome.status === 'failure') {
-      expect(results[0].outcome.problems[0].type).toBe(EXPIRED_PROBLEM_TYPE);
+      expect(results[0].outcome.problems[0].type).toBe(
+        ProblemTypes.CREDENTIAL_EXPIRED
+      );
       expect(results[0].outcome.problems[0].detail).toContain('2020-01-01');
     }
   });
@@ -96,7 +97,9 @@ describe('Validity (Expiration) Suite', () => {
 
     expect(results[0].outcome.status).toBe('failure');
     if (results[0].outcome.status === 'failure') {
-      expect(results[0].outcome.problems[0].type).toBe(EXPIRED_PROBLEM_TYPE);
+      expect(results[0].outcome.problems[0].type).toBe(
+        ProblemTypes.CREDENTIAL_EXPIRED
+      );
     }
   });
 

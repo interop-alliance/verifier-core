@@ -56,6 +56,13 @@ const UNSIGNED_PRESENTATION_ACCEPTED =
  * {@link VerificationContext.domain}) is always enforced on a presentation's
  * proof. `verifyPresentation` rejects a `domain` without a `challenge` before
  * any suite runs.
+ *
+ * The credential's validity dates are judged here too, at
+ * {@link VerificationContext.now}, because the crypto service reads them
+ * once the signature has verified. The default service reports an expired
+ * or not-yet-valid credential as `CREDENTIAL_EXPIRED` /
+ * `CREDENTIAL_NOT_YET_VALID` rather than `INVALID_SIGNATURE`: authentic,
+ * but still a fatal failure, since the credential is not currently usable.
  */
 export const signatureCheck: VerificationCheck = {
   id: 'proof.signature',
@@ -102,7 +109,8 @@ export const signatureCheck: VerificationCheck = {
       options: {
         documentLoader: context.documentLoader,
         challenge: context.challenge,
-        domain: context.domain
+        domain: context.domain,
+        now: context.now
       }
     });
 

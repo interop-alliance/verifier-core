@@ -34,6 +34,15 @@ export interface CryptoVerifyOptions {
   challenge?: string | null;
   /** Expected `domain` on a presentation's authentication proof. */
   domain?: string;
+  /**
+   * The instant validity dates are judged against (`VerificationContext.now`).
+   * A service that judges dates reports an expired or not-yet-valid document
+   * as `CREDENTIAL_EXPIRED` / `CREDENTIAL_NOT_YET_VALID`, which the status
+   * check maps onto its own problem types. The default adapter compares
+   * dates exactly against it, with no clock-skew allowance, and uses the
+   * current time when undefined.
+   */
+  now?: Date;
 }
 
 /**
