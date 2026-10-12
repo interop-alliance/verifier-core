@@ -1,6 +1,6 @@
 # @interop/verifier-core CHANGELOG
 
-## 3.8.0 - TBD
+## 3.8.0 - 2026-10-12
 
 ### Security
 
