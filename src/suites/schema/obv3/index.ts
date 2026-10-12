@@ -6,7 +6,8 @@ import { obv3SchemaCheck } from './obv3-schema-check.js';
  *
  * AJV-driven JSON Schema validation against published OBv3 schemas
  * for OpenBadgeCredential and EndorsementCredential. Network-bound
- * (must fetch the schema document) and therefore opt-in — see the
+ * (must fetch the schema document; the published OB 3.0 schemas are
+ * cached, see `obv3-schema-check.ts`) and therefore opt-in -- see the
  * OpenBadges submodule for a curated bundle that combines this suite
  * with the lightweight semantic checks.
  *

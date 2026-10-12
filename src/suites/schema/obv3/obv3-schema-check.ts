@@ -1,9 +1,10 @@
-import { Ajv2019 } from 'ajv/dist/2019.js';
+import { Ajv2019, type ValidateFunction } from 'ajv/dist/2019.js';
 import addFormats from 'ajv-formats';
 import { VerificationCheck, CheckOutcome } from '../../../types/check.js';
 import { ProblemDetail } from '../../../types/problem-detail.js';
 import { VerificationSubject } from '../../../types/subject.js';
-import { VerificationContext } from '../../../types/context.js';
+import { FetchJson, VerificationContext } from '../../../types/context.js';
+import type { CacheService } from '../../../services/cache-service/cache-service.js';
 import { ProblemTypes } from '../../../problem-types.js';
 import { VC_CONTEXT_V1, VC_CONTEXT_V2 } from '../../../util/vc-contexts.js';
 import { errorMessage } from '../../../util/error-message.js';
@@ -11,6 +12,7 @@ import {
   isOpenBadgeCredential,
   isEndorsementCredential
 } from '../../../openbadges/recognize.js';
+import { createCachedSchemaLoader, SCHEMA_TTL_MS } from '../schema-loader.js';
 
 // OBv3 schema URLs
 const OBV3_SCHEMA_V1_ACHIEVEMENT =
@@ -23,25 +25,113 @@ const OBV3_SCHEMA_V2_ENDORSEMENT =
   'https://purl.imsglobal.org/spec/ob/v3p0/schema/json/ob_v3p0_endorsementcredential_schema.json';
 
 /**
- * Validate credential against a schema URL using a per-run AJV instance (bound to
- * {@link VerificationContext.fetchJson}).
+ * The published OBv3 schemas: the only URLs whose JSON is cached and whose
+ * validators are kept for the life of a verifier. Any other `credentialSchema`
+ * URL is issuer-chosen, and keeping those would grow both caches without
+ * bound.
+ *
+ * Each URL maps to the one `{ $ref }` wrapper handed to AJV for it. AJV keys
+ * its own schema cache by object identity, so a fresh wrapper per compile
+ * would leave one entry behind for every failed compile.
  */
-async function validateAgainstSchema(
-  ajv: Ajv2019,
-  schemaUrl: string,
-  credential: Record<string, unknown>
-): Promise<{
-  valid: boolean;
-  errors?: Array<{ message: string; instancePath: string }>;
-}> {
-  const validate =
-    ajv.getSchema(schemaUrl) || (await ajv.compileAsync({ $ref: schemaUrl }));
-  const valid = validate(credential) as boolean;
-  const errors = validate.errors?.map(e => ({
-    message: e.message || 'Validation error',
-    instancePath: e.instancePath || ''
-  }));
-  return { valid, errors };
+const KNOWN_OBV3_SCHEMA_REFS: ReadonlyMap<string, { $ref: string }> = new Map(
+  [
+    OBV3_SCHEMA_V1_ACHIEVEMENT,
+    OBV3_SCHEMA_V1_ENDORSEMENT,
+    OBV3_SCHEMA_V2_ACHIEVEMENT,
+    OBV3_SCHEMA_V2_ENDORSEMENT
+  ].map(url => [url, { $ref: url }])
+);
+
+/**
+ * Compiled validators, kept for the life of one verifier.
+ *
+ * A compiled validator is a function, so it cannot go in a `CacheService`.
+ * This check is a singleton shared by every verifier, and AJV binds
+ * `loadSchema` at construction, so the AJV must be per verifier rather than
+ * module-level. `createVerifier` builds one `fetchJson` per verifier, which
+ * makes it the verifier's identity here. An entry is replaced when a context
+ * arrives with a different `cacheService` (a caller driving `runSuites` with
+ * its own contexts) or after {@link SCHEMA_TTL_MS} on the context clock, so a
+ * republished schema is picked up on the same schedule as the cached JSON.
+ *
+ * A `JsonSchemaValidator` port built per verifier in `createVerifier` would
+ * retire this map (see docs/architecture.md, Direction).
+ */
+const validatorCaches = new WeakMap<
+  FetchJson,
+  {
+    ajv: Ajv2019;
+    validators: Map<string, Promise<ValidateFunction>>;
+    cacheService: CacheService | undefined;
+    expiresAtMs: number;
+  }
+>();
+
+function newAjv(context: VerificationContext): Ajv2019 {
+  const loadSchema = createCachedSchemaLoader(
+    context.fetchJson,
+    context.cacheService,
+    url => KNOWN_OBV3_SCHEMA_REFS.has(url)
+  );
+  const ajv = new Ajv2019({ allErrors: true, loadSchema });
+  addFormats.default(ajv);
+  return ajv;
+}
+
+function validatorCacheFor(context: VerificationContext) {
+  const nowMs = context.now.getTime();
+  const existing = validatorCaches.get(context.fetchJson);
+  if (
+    existing &&
+    existing.cacheService === context.cacheService &&
+    nowMs < existing.expiresAtMs
+  ) {
+    return existing;
+  }
+  const cache = {
+    ajv: newAjv(context),
+    validators: new Map<string, Promise<ValidateFunction>>(),
+    cacheService: context.cacheService,
+    expiresAtMs: nowMs + SCHEMA_TTL_MS
+  };
+  validatorCaches.set(context.fetchJson, cache);
+  return cache;
+}
+
+/**
+ * Resolve the validator for `schemaUrl`. A known OBv3 schema is compiled once
+ * per verifier; any other URL gets a throwaway AJV, as before.
+ *
+ * The compile promise is memoised so concurrent first verifications share one
+ * compile, and a rejected compile is dropped so the next call retries. The
+ * retry must go through `compileAsync`: `getSchema` would find a root that
+ * AJV registered before a nested `$ref` failed to load and rethrow the missing
+ * reference without loading it.
+ */
+function resolveValidator(
+  context: VerificationContext,
+  schemaUrl: string
+): Promise<ValidateFunction> {
+  const ref = KNOWN_OBV3_SCHEMA_REFS.get(schemaUrl);
+  if (!ref) {
+    return newAjv(context).compileAsync({ $ref: schemaUrl });
+  }
+
+  const { ajv, validators } = validatorCacheFor(context);
+  const existing = validators.get(schemaUrl);
+  if (existing) {
+    return existing;
+  }
+
+  const pending = ajv.compileAsync(ref);
+  validators.set(schemaUrl, pending);
+  pending.catch(() => {
+    if (validators.get(schemaUrl) === pending) {
+      validators.delete(schemaUrl);
+    }
+  });
+  return pending;
 }
 
 /**
@@ -165,36 +255,22 @@ export const obv3SchemaCheck: VerificationCheck = {
     }
 
     try {
-      const loadSchema = async (url: string): Promise<object> => {
-        const doc = await context.fetchJson(url);
-        if (doc === null || typeof doc !== 'object' || Array.isArray(doc)) {
-          throw new Error(`Expected JSON object schema at ${url}`);
-        }
-        return doc;
-      };
-
-      const ajv = new Ajv2019({ allErrors: true, loadSchema });
-      addFormats.default(ajv);
-
-      const result = await validateAgainstSchema(
-        ajv,
-        schemaInfo.schema,
-        credential
-      );
-
-      if (result.valid) {
+      const validate = await resolveValidator(context, schemaInfo.schema);
+      // A shared validator's `errors` is overwritten by its next call, so it
+      // is read straight after the call with nothing awaited in between.
+      if (validate(credential)) {
         return {
           status: 'success',
           message: `OBv3 schema validation passed. Schema: ${schemaInfo.schema}. Source: ${schemaInfo.source}`
         };
       }
 
-      // Validation failed - format AJV errors
       const errorDetails =
-        result.errors
-          ?.map(e =>
-            e.instancePath ? `${e.instancePath}: ${e.message}` : e.message
-          )
+        validate.errors
+          ?.map(e => {
+            const message = e.message || 'Validation error';
+            return e.instancePath ? `${e.instancePath}: ${message}` : message;
+          })
           .join('; ') || 'Unknown validation error';
 
       const problems: ProblemDetail[] = [

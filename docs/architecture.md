@@ -67,7 +67,9 @@ src/
 │   ├── registry/                    Issuer DID lookup via context.lookupIssuers
 │   ├── trust/                       Opt-in: createIssuerDetailsSuite factory (rich issuer registry metadata via injected lookupDid)
 │   ├── validity/                    Opt-in: expirationSuite (validUntil / expirationDate validity-period check)
-│   └── schema/obv3/                 AJV-backed OBv3 JSON Schema check; consumed by the openBadgesSchemaSuite bundle in the /openbadges submodule
+│   └── schema/
+│       ├── schema-loader.ts         Cached AJV loadSchema: schema JSON in cacheService under schema:<url> (24 h), for allow-listed URLs whose $id is the URL
+│       └── obv3/                    AJV-backed OBv3 JSON Schema check (validators compiled once per verifier, refreshed after 24 h); consumed by the openBadgesSchemaSuite bundle in the /openbadges submodule
 ├── openbadges/                      Opt-in submodule (published as `@interop/verifier-core/openbadges`)
 │   ├── index.ts                     Curated barrel — suites, individual checks, factory, recognition helpers, problem-type catalog, vocabulary
 │   ├── openbadges-suite.ts          Three suite bundles: openBadgesSuite, openBadgesSemanticSuite, openBadgesSchemaSuite (all phase: 'semantic')

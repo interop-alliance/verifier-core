@@ -36,6 +36,8 @@ export type DocumentLoader = IDocumentLoader;
  * future OIDF entity configs, OIDC discovery, JWKS). Kept separate from
  * {@link DocumentLoader} because JSON-LD loaders wrap results in
  * `{ contextUrl, document, documentUrl }` and use different fetch semantics.
+ *
+ * It does not cache; each caller owns its cache policy.
  */
 export type FetchJson = (url: string) => Promise<unknown>;
 
@@ -53,7 +55,8 @@ export interface VerificationContext {
    */
   httpGetService?: HttpGetService;
   /**
-   * Optional cache service for domain-level storage (registry handlers, etc.).
+   * Optional cache service for domain-level storage (registry handlers,
+   * schema documents, etc.).
    */
   cacheService?: CacheService;
   /**

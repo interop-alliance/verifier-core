@@ -219,6 +219,19 @@
 - The document loader reports a non-JSON body as `response is not JSON` instead
   of quoting the parser message.
 
+- The OBv3 schema check no longer fetches and compiles its schema on every
+  verification. The four published OB 3.0 schema documents are cached in the
+  verifier's `cacheService` under `schema:<url>` for 24 h, and their compiled
+  AJV validators are kept per verifier and recompiled after the same 24 h, so
+  verifiers that share a `cacheService` share the fetch and a long-lived
+  verifier still picks up a republished schema. A document is cached, or trusted
+  from the cache, only when its `$id` is the requested URL, so a corrupt or
+  wrong-shaped entry in a shared cache is a miss. A failed fetch, including a
+  nested `$ref`, is retried on the next verification. Any other
+  `credentialSchema` URL is still fetched and compiled on every verification
+  without being cached, so an issuer cannot grow the cache. The README
+  previously claimed the schema was cached after first use.
+
 ### Added
 
 - Fatal `core.vc-structure` and `core.vp-structure` checks validate VC Data
