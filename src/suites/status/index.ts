@@ -9,10 +9,13 @@ import { bitstringStatusCheck } from './bitstring-status-check.js';
  * underlying check is **fatal** — see {@link bitstringStatusCheck}
  * for the contract.
  *
- * Skipped when:
+ * Skipped when no entry is checked:
  * - Credential has no `credentialStatus`.
- * - Status type is a legacy type (`StatusList2021Entry`,
- *   `1EdTechRevocationList`).
+ * - Every entry is of another type (legacy `StatusList2021Entry` /
+ *   `1EdTechRevocationList`, or unknown), or is a
+ *   `BitstringStatusListEntry` for a purpose other than `revocation` or
+ *   `suspension` (for example `refresh` or `message`). Their lists are
+ *   not fetched, and the skip reason names them.
  */
 export const statusSuite: VerificationSuite = {
   id: 'status',

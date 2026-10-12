@@ -23,6 +23,7 @@ import type { CryptoSuite, ProofPurpose } from '../types/crypto-suite.js';
 import type { ProblemDetail } from '../types/problem-detail.js';
 import type { VerificationSubject } from '../types/subject.js';
 import { ProblemTypes } from '../problem-types.js';
+import { errorMessage } from '../util/error-message.js';
 import { documentHasProof, proofEntries } from '../util/document-has-proof.js';
 
 /**
@@ -419,10 +420,10 @@ export function DataIntegrityCryptoService(
             {
               type: ProblemTypes.PROOF_VERIFICATION_ERROR,
               title: 'Verification Error',
-              detail:
-                e instanceof Error
-                  ? e.message
-                  : 'An unexpected error occurred during signature verification.'
+              detail: errorMessage(
+                e,
+                'An unexpected error occurred during signature verification.'
+              )
             }
           ]
         };
@@ -483,10 +484,10 @@ export function DataIntegrityCryptoService(
             {
               type: ProblemTypes.PROOF_VERIFICATION_ERROR,
               title: 'Verification Error',
-              detail:
-                e instanceof Error
-                  ? e.message
-                  : 'An unexpected error occurred during signature verification.'
+              detail: errorMessage(
+                e,
+                'An unexpected error occurred during signature verification.'
+              )
             }
           ]
         };

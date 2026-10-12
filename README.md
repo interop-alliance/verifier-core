@@ -353,9 +353,9 @@ still pass on their own merits.
         "status": "failure",
         "problems": [
           {
-            "type": "https://www.w3.org/TR/vc-data-model#CREDENTIAL_REVOKED_OR_SUSPENDED",
-            "title": "Credential Revoked or Suspended",
-            "detail": "The credential has been revoked or suspended according to the status list."
+            "type": "https://www.w3.org/TR/vc-data-model#CREDENTIAL_REVOKED",
+            "title": "Credential Revoked",
+            "detail": "The status list https://example.edu/status/3 marks the credential revoked (index 94567)."
           }
         ]
       }
@@ -384,20 +384,22 @@ with no `credentialStatus` skips the status check:
 
 All failures use `ProblemDetail` with a `type` URI. Common error types:
 
-| Type URI                              | Title                                                                                     | When                                                                     |
-| ------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `...#PARSING_ERROR`                   | Credential Parsing Failed / Presentation Parsing Failed / Invalid JSON-LD / No VC Context | Envelope gate or context problems                                        |
-| `...#MALFORMED_VALUE_ERROR`           | Invalid Credential Structure / Invalid Presentation Structure                             | A VC Data Model structure rule is broken; `instance` points at the field |
-| `...#INVALID_SIGNATURE`               | Invalid Signature                                                                         | Signature doesn't match content                                          |
-| `...#PROOF_PURPOSE_MISMATCH`          | Challenge Mismatch / Domain Mismatch / Proof Purpose Mismatch                             | VP proof does not bind to the caller's challenge, domain, or purpose     |
-| `...#DID_WEB_UNRESOLVED`              | DID Web Unresolved                                                                        | DID document (e.g. `did:web`) or `did:webvh` log couldn't be fetched     |
-| `...#HTTP_ERROR`                      | HTTP Error                                                                                | Network error during signature check                                     |
-| `...#CREDENTIAL_REVOKED_OR_SUSPENDED` | Credential Revoked or Suspended                                                           | Status list indicates revocation                                         |
-| `...#STATUS_LIST_NOT_FOUND`           | Status List Not Found                                                                     | Status list URL unreachable                                              |
-| `...#STATUS_LIST_EXPIRED`             | Status List Expired                                                                       | Status list VC has expired                                               |
-| `...#STATUS_LIST_SIGNATURE_ERROR`     | Status List Signature Error                                                               | Status list VC signature invalid                                         |
-| `...#ISSUER_NOT_REGISTERED`           | Issuer Not Registered                                                                     | Issuer DID not found in any registry that could be checked               |
-| `...#REGISTRY_UNCHECKED`              | Registry Unchecked                                                                        | Some or all registries couldn't be reached; alone when none could        |
+| Type URI                          | Title                                                                                     | When                                                                     |
+| --------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `...#PARSING_ERROR`               | Credential Parsing Failed / Presentation Parsing Failed / Invalid JSON-LD / No VC Context | Envelope gate or context problems                                        |
+| `...#MALFORMED_VALUE_ERROR`       | Invalid Credential Structure / Invalid Presentation Structure                             | A VC Data Model structure rule is broken; `instance` points at the field |
+| `...#INVALID_SIGNATURE`           | Invalid Signature                                                                         | Signature doesn't match content                                          |
+| `...#PROOF_PURPOSE_MISMATCH`      | Challenge Mismatch / Domain Mismatch / Proof Purpose Mismatch                             | VP proof does not bind to the caller's challenge, domain, or purpose     |
+| `...#DID_WEB_UNRESOLVED`          | DID Web Unresolved                                                                        | DID document (e.g. `did:web`) or `did:webvh` log couldn't be fetched     |
+| `...#HTTP_ERROR`                  | HTTP Error                                                                                | Network error during signature check                                     |
+| `...#CREDENTIAL_REVOKED`          | Credential Revoked                                                                        | A revocation status list has the credential's bit set; one per entry     |
+| `...#CREDENTIAL_SUSPENDED`        | Credential Suspended                                                                      | A suspension status list has the credential's bit set; one per entry     |
+| `...#STATUS_LIST_NOT_FOUND`       | Status List Not Found                                                                     | Status list URL unreachable                                              |
+| `...#STATUS_LIST_EXPIRED`         | Status List Expired                                                                       | Status list VC has expired (v1 or v2 dates); its signature verified      |
+| `...#STATUS_LIST_NOT_YET_VALID`   | Status List Not Yet Valid                                                                 | Status list VC is not yet valid (v1 or v2 dates); its signature verified |
+| `...#STATUS_LIST_SIGNATURE_ERROR` | Status List Signature Error                                                               | Status list VC signature invalid                                         |
+| `...#ISSUER_NOT_REGISTERED`       | Issuer Not Registered                                                                     | Issuer DID not found in any registry that could be checked               |
+| `...#REGISTRY_UNCHECKED`          | Registry Unchecked                                                                        | Some or all registries couldn't be reached; alone when none could        |
 
 #### Problem types
 
@@ -411,7 +413,8 @@ switch (problem.type as ProblemType) {
   case ProblemTypes.INVALID_SIGNATURE:
     // ...
     break;
-  case ProblemTypes.CREDENTIAL_REVOKED_OR_SUSPENDED:
+  case ProblemTypes.CREDENTIAL_REVOKED:
+  case ProblemTypes.CREDENTIAL_SUSPENDED:
     // ...
     break;
   case ProblemTypes.STATUS_LIST_NOT_FOUND:

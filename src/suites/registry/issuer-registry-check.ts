@@ -3,6 +3,7 @@ import { ProblemDetail } from '../../types/problem-detail.js';
 import { VerificationSubject } from '../../types/subject.js';
 import { VerificationContext } from '../../types/context.js';
 import { ProblemTypes } from '../../problem-types.js';
+import { errorMessage } from '../../util/error-message.js';
 
 /** The noun for a count of registries, as the messages pluralize it. */
 function registriesNoun(count: number): string {
@@ -190,10 +191,10 @@ export const issuerRegistryCheck: VerificationCheck = {
           {
             type: ProblemTypes.REGISTRY_ERROR,
             title: 'Registry Lookup Error',
-            detail:
-              error instanceof Error
-                ? error.message
-                : 'An error occurred while looking up issuer in registries.'
+            detail: errorMessage(
+              error,
+              'An error occurred while looking up issuer in registries.'
+            )
           }
         ]
       };

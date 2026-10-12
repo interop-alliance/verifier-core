@@ -6,6 +6,7 @@ import { VerificationSubject } from '../../../types/subject.js';
 import { VerificationContext } from '../../../types/context.js';
 import { ProblemTypes } from '../../../problem-types.js';
 import { VC_CONTEXT_V1, VC_CONTEXT_V2 } from '../../../util/vc-contexts.js';
+import { errorMessage } from '../../../util/error-message.js';
 import {
   isOpenBadgeCredential,
   isEndorsementCredential
@@ -216,10 +217,10 @@ export const obv3SchemaCheck: VerificationCheck = {
           {
             type: ProblemTypes.SCHEMA_VALIDATION_ERROR,
             title: 'Schema Validation Error',
-            detail:
-              error instanceof Error
-                ? error.message
-                : 'An error occurred during schema validation.'
+            detail: errorMessage(
+              error,
+              'An error occurred during schema validation.'
+            )
           }
         ]
       };

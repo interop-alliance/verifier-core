@@ -36,6 +36,7 @@ import {
 } from './factories/services/offline-signing.js';
 
 const STATUS_LIST_URL = 'https://factory.test/status/parity-list';
+const EXPIRED_STATUS_LIST_URL = 'https://factory.test/status/expired-list';
 
 function subjectTemplate(
   issuerDid: string,
@@ -62,6 +63,7 @@ function subjectTemplate(
 describe('status list cryptosuite parity', () => {
   let signedStatusList: Record<string, unknown>;
   let signedSubject: Record<string, unknown>;
+  let signedSubjectWithExpiredList: Record<string, unknown>;
   let documentLoader: DocumentLoader;
 
   beforeAll(async () => {
@@ -96,13 +98,38 @@ describe('status list cryptosuite parity', () => {
       documentLoader: bundledLoader
     })) as Record<string, unknown>;
 
+    // A list from the subject's issuer whose validity has ended. vc's
+    // `issue` does not check dates, so it signs without complaint.
+    const signedExpiredStatusList = (await issue({
+      credential: {
+        ...unsignedList,
+        id: EXPIRED_STATUS_LIST_URL,
+        validUntil: '2021-01-01T00:00:00Z',
+        credentialSubject: {
+          ...(unsignedList.credentialSubject as Record<string, unknown>),
+          id: `${EXPIRED_STATUS_LIST_URL}#list`
+        }
+      } as never,
+      suite: new Ed25519Signature2020({ signer }),
+      documentLoader: bundledLoader
+    })) as Record<string, unknown>;
+
+    signedSubjectWithExpiredList = (await issue({
+      credential: subjectTemplate(issuerDid, EXPIRED_STATUS_LIST_URL) as never,
+      suite: new DataIntegrityProof({
+        signer,
+        cryptosuite: eddsaRdfc2022CryptoSuite
+      }),
+      documentLoader: bundledLoader
+    })) as Record<string, unknown>;
+
+    const hosted: Record<string, Record<string, unknown>> = {
+      [STATUS_LIST_URL]: signedStatusList,
+      [EXPIRED_STATUS_LIST_URL]: signedExpiredStatusList
+    };
     documentLoader = async (url: string) => {
-      if (url === STATUS_LIST_URL) {
-        return {
-          contextUrl: null,
-          document: signedStatusList,
-          documentUrl: url
-        };
+      if (hosted[url]) {
+        return { contextUrl: null, document: hosted[url], documentUrl: url };
       }
       return bundledLoader(url);
     };
@@ -165,5 +192,29 @@ describe('status list cryptosuite parity', () => {
     expect(statusResult, 'status.bitstring result present').toBeDefined();
     expect(statusResult?.outcome.status).toBe('success');
     expect(result.verified).toBe(true);
+  });
+
+  it('(c) reports an authentic but expired list as STATUS_LIST_EXPIRED, not as a bad signature', async () => {
+    const result = await verifierWith([eddsaAndEd25519()]).verifyCredential({
+      credential: signedSubjectWithExpiredList,
+      phases: ['cryptographic']
+    });
+
+    expect(result.verified).toBe(false);
+    const statusResult = result.results.find(
+      r => r.check === 'status.bitstring'
+    );
+    expect(statusResult?.outcome.status).toBe('failure');
+    if (statusResult?.outcome.status === 'failure') {
+      expect(statusResult.outcome.problems[0].type).toBe(
+        ProblemTypes.STATUS_LIST_EXPIRED
+      );
+      expect(statusResult.outcome.problems[0].detail).toContain(
+        EXPIRED_STATUS_LIST_URL
+      );
+      expect(statusResult.outcome.problems[0].detail).toContain(
+        'is after "validUntil"'
+      );
+    }
   });
 });

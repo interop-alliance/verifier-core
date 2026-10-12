@@ -66,12 +66,23 @@
   path.
 - `coreSuite` runs for presentations, ahead of `proof`; only `core.vp-structure`
   applies to a VP. A presentation result's `summary` gains a `core` entry.
+- **BREAKING**: `CREDENTIAL_REVOKED_OR_SUSPENDED` is replaced by
+  `CREDENTIAL_REVOKED` and `CREDENTIAL_SUSPENDED`. `status.bitstring` reports
+  one problem per set bit, naming the list URL and index in the detail, so a
+  consumer can tell a permanent revocation from a suspension without reading the
+  prose.
+- `status.bitstring` checks only `BitstringStatusListEntry` entries with purpose
+  `revocation` or `suspension`. Entries for other purposes (`refresh`,
+  `message`) are no longer fetched or read as revoked; the success message and
+  skip reason name them as `Unchecked status purposes`.
+- `STATUS_LIST_EXPIRED` and `STATUS_LIST_NOT_YET_VALID` details name the list
+  URL and carry the library's date message.
 - A fatal failure halts every remaining check for the subject, in its own suite
   and in all later suites, instead of only its own suite. Each halted check is
   reported as `skipped` with code `NOT_RUN_AFTER_FATAL` (exported as
-  `RUN_SUITES_SKIP_CODES.notRunAfterFatal`), `haltedBy` naming the failed
-  check, and reason `Not run: <check-id> failed`. Suite messages count these as "not run after
-  fatal"; a suite whose every check was halted reads
+  `RUN_SUITES_SKIP_CODES.notRunAfterFatal`), `haltedBy` naming the failed check,
+  and reason `Not run: <check-id> failed`. Suite messages count these as "not
+  run after fatal"; a suite whose every check was halted reads
   `<suite> not run: <check-id> failed`. `FoldOptions.subjectType` is gone:
   halted checks are explicit rows, so the count no longer needs it. In the
   default pipeline `core.proof-exists` now halts before `proof.signature`, so an
@@ -238,6 +249,22 @@
 
 ### Fixed
 
+- A VC 1.x status list that has expired or is not yet valid (`expirationDate` /
+  `issuanceDate`) is reported as `STATUS_LIST_EXPIRED` /
+  `STATUS_LIST_NOT_YET_VALID` instead of a signature error. The v1 and v2 date
+  patterns of `@interop/vc` live in one shared util.
+- `STATUS_LIST_TYPE_ERROR` fires. `checkStatus` throws the type error without a
+  `cause`, and only the `cause` was matched.
+- A set `refresh` bit no longer fails the credential as revoked, and an
+  unreachable `refresh` list no longer fails it at all.
+- A `BitstringStatusListEntry` whose `type` is a one-element array is checked
+  rather than skipped as an unknown type.
+- A malformed `credentialStatus` entry (not an object, no string `type`, or a
+  Bitstring entry without a string `statusPurpose`) fails `status.bitstring`
+  with a `MALFORMED_VALUE_ERROR` pointing at the entry, instead of a skip
+  message reading "undefined".
+- Error messages from error-like values that are not `Error` instances (for
+  example from another realm) are no longer replaced by a generic fallback.
 - The `verified` doc comments and docs state that only `fatal` failures make
   `verified` false.
 - Presentation `holder` accepts an object with an `id` as well as a URL string,

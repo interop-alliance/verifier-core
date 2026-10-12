@@ -10,6 +10,7 @@ import type { HttpGetService } from '../services/http-get-service/http-get-servi
 import { didWebDriverWithHttpGet } from './did-web-driver-with-http-get.js';
 import { didWebvhDriverWithHttpGet } from './did-webvh-driver-with-http-get.js';
 import { parseJsonBody } from './json-body.js';
+import { errorMessage } from './error-message.js';
 
 /**
  * Build a JSON-LD document loader that uses {@link securityLoader} for static
@@ -61,7 +62,7 @@ export function documentLoaderFromHttpGet(
         // as a url-bearing NotFoundError.
         return parseJsonBody(body);
       } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
+        const msg = errorMessage(e, 'non-Error value thrown');
         throw new Error(`NotFoundError loading "${url}": ${msg}`, { cause: e });
       }
     }
