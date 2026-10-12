@@ -74,7 +74,10 @@
 - `status.bitstring` checks only `BitstringStatusListEntry` entries with purpose
   `revocation` or `suspension`. Entries for other purposes (`refresh`,
   `message`) are no longer fetched or read as revoked; the success message and
-  skip reason name them as `Unchecked status purposes`.
+  skip reason name them as `Unchecked status purposes`. Entry selection is done
+  by `@interop/vc-bitstring-status-list` (now `^3.3.0`) through its
+  `statusPurposes` option, and the list URL in a `STATUS_LIST_*` detail comes
+  from the library rather than the list's `id`.
 - `STATUS_LIST_EXPIRED` and `STATUS_LIST_NOT_YET_VALID` details name the list
   URL and carry the library's date message.
 - A fatal failure halts every remaining check for the subject, in its own suite

@@ -92,21 +92,19 @@ function malformedEntryProblem(
 
 /**
  * The `credentialStatus` entries sorted by what `status.bitstring` does
- * with them. `checked` entries are `BitstringStatusListEntry` for
- * revocation or suspension and go to `checkStatus`. An entry's `type`
- * may be a string or a one-element array; a checked entry is handed on
- * with the string form, which is what the status-list library compares.
- * Every other entry is ignored and its list is not fetched: `otherTypes`
- * names the types of non-Bitstring entries (legacy or unknown),
- * `otherPurposes` the purposes of Bitstring entries the check does not
- * read (for example `refresh` or `message`). `malformed` collects a
- * problem for each entry that is not an object, has no usable `type`,
- * or is a Bitstring entry without a string `statusPurpose`. `empty` is
- * true when there is no entry at all.
+ * with them. `checked` counts the `BitstringStatusListEntry` entries for
+ * revocation or suspension, the ones `checkStatus` reads. An entry's
+ * `type` may be a string or a one-element array. Every other entry is
+ * ignored and its list is not fetched: `otherTypes` names the types of
+ * non-Bitstring entries (legacy or unknown), `otherPurposes` the purposes
+ * of Bitstring entries the check does not read (for example `refresh` or
+ * `message`). `malformed` collects a problem for each entry that is not
+ * an object, has no usable `type`, or is a Bitstring entry without a
+ * string `statusPurpose`. `empty` is true when there is no entry at all.
  */
 function sortStatusEntries(credential: Record<string, unknown>): {
   empty: boolean;
-  checked: Array<Record<string, unknown>>;
+  checked: number;
   otherTypes: string[];
   otherPurposes: string[];
   malformed: ProblemDetail[];
@@ -114,7 +112,7 @@ function sortStatusEntries(credential: Record<string, unknown>): {
   const { credentialStatus } = credential;
   const single = !Array.isArray(credentialStatus);
   const entries: unknown[] = single ? [credentialStatus] : credentialStatus;
-  const checked: Array<Record<string, unknown>> = [];
+  let checked = 0;
   const otherTypes: string[] = [];
   const otherPurposes: string[] = [];
   const malformed: ProblemDetail[] = [];
@@ -149,7 +147,7 @@ function sortStatusEntries(credential: Record<string, unknown>): {
         )
       );
     } else if (CHECKED_STATUS_PURPOSES.includes(entry.statusPurpose)) {
-      checked.push({ ...entry, type: BITSTRING_ENTRY_TYPE });
+      checked += 1;
     } else {
       otherPurposes.push(entry.statusPurpose);
     }
@@ -250,12 +248,13 @@ function statusListProofProblems(
  * The `verifyStatusListCredential` hook handed to `checkStatus`: routes
  * each fetched BitstringStatusListCredential through
  * {@link dispatchProofVerification} against `context.cryptoServices`.
- * `checkStatus` itself loads and verifies each distinct list URL once.
+ * `checkStatus` itself loads and verifies each distinct list URL once and
+ * tells the hook which `url` it loaded.
  */
 function verifyStatusListVia(
   context: VerificationContext
 ): VerifyStatusListCredential {
-  return async ({ credential, documentLoader }) => {
+  return async ({ credential, documentLoader, url }) => {
     const dispatched = await dispatchProofVerification({
       services: context.cryptoServices,
       subject: { verifiableCredential: credential },
@@ -264,14 +263,9 @@ function verifyStatusListVia(
     if (dispatched.kind === 'verified') {
       return { verified: true };
     }
-    // The hook is not told the URL; a status list credential's `id` is it.
-    const listName =
-      typeof credential?.id === 'string' ? credential.id : '(no id)';
     return {
       verified: false,
-      error: new StatusListProofError(
-        statusListProofProblems(dispatched, listName)
-      )
+      error: new StatusListProofError(statusListProofProblems(dispatched, url))
     };
   };
 }
@@ -366,8 +360,9 @@ function setBitProblem(entry: Record<string, unknown>): ProblemDetail {
  * `statusPurpose`) fails the check with a `MALFORMED_VALUE_ERROR` whose
  * `instance` points at the entry.
  *
- * `@interop/vc-bitstring-status-list` owns list loading, purpose
- * matching, bitstring decoding, and index reading. Proof verification of
+ * `@interop/vc-bitstring-status-list` owns entry selection (via its
+ * `statusPurposes` option), list loading, purpose matching, bitstring
+ * decoding, and index reading. Proof verification of
  * each fetched BitstringStatusListCredential is injected through its
  * `verifyStatusListCredential` hook and goes through
  * {@link dispatchProofVerification} against `context.cryptoServices`, the
@@ -411,7 +406,7 @@ export const bitstringStatusCheck: VerificationCheck = {
       return { status: 'failure', problems: malformed };
     }
 
-    if (checked.length === 0) {
+    if (checked === 0) {
       return {
         status: 'skipped',
         reason: noCheckedEntryReason(otherTypes, otherPurposes)
@@ -419,11 +414,10 @@ export const bitstringStatusCheck: VerificationCheck = {
     }
 
     try {
-      // Only the checked entries go to `checkStatus`; it reads the bit of
-      // every Bitstring entry it is given, whatever the purpose.
       const statusResult = await checkStatus({
-        credential: { ...credential, credentialStatus: checked },
+        credential,
         documentLoader: context.documentLoader,
+        statusPurposes: CHECKED_STATUS_PURPOSES,
         verifyStatusListCredential: verifyStatusListVia(context),
         // Hosted status lists may use a different issuer than the VC (see DataIntegrityCryptoService).
         verifyMatchingIssuers: false
