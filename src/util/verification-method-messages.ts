@@ -1,13 +1,15 @@
 /**
- * The `@interop/jsonld-signatures` messages for a verification method that
- * resolved but cannot back the proof.
+ * The library messages for a verification method whose DID resolved but
+ * which cannot back the proof. `@interop/jsonld-signatures` throws them for
+ * a method the controller document does not authorize or frame. The DID
+ * drivers throw them for a fragment the DID document does not have.
  *
- * The library throws these as plain `Error`s inside a `VerificationError`
+ * The libraries throw these as plain `Error`s inside a `VerificationError`
  * wrapper, so the message text is the only machine-readable signal. The
  * patterns are pinned by unit tests, so a library upgrade that rewords one
  * fails a test instead of quietly demoting the fault to `INVALID_SIGNATURE`.
- * The same patterns, with the same problem type, are used by the
- * digitalcredentials/verifier-core fork.
+ * The jsonld-signatures patterns, with the same problem type, are shared
+ * with the digitalcredentials/verifier-core fork.
  *
  * None of these mean the content was altered. They mean the issuer's key
  * setup does not back the proof it published.
@@ -21,7 +23,11 @@ export const VERIFICATION_METHOD_PATTERNS: readonly RegExp[] = [
   // ControllerProofPurpose: the resolved method has no string `id`.
   /^Verification method ID .+ must be a string\.$/,
   // LinkedDataSignature: the loaded document does not frame the method.
-  /^Verification method .+ not found\.$/
+  /^Verification method .+ not found\.$/,
+  // did:web driver: the fragment is not in the DID document.
+  /^DID document entity with id .+ not found\.$/,
+  // did-method-key: the fragment is not in the did:key document.
+  /^Key .+ not found in DID document\.$/
 ];
 
 /** Whether a library error message names a verification method fault. */

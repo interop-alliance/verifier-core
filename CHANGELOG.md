@@ -1,5 +1,17 @@
 # @interop/verifier-core CHANGELOG
 
+## 3.8.1 - TBD
+
+### Changed
+
+- `VERIFICATION_METHOD_ERROR` also covers a proof whose verification method
+  names a fragment the DID document does not have (the did:web driver's
+  `DID document entity with id "<id>" not found.` and did-method-key 7.4.5's
+  `Key "<id>" not found in DID document.`). These used to read as
+  `INVALID_SIGNATURE`.
+- `@interop/did-method-key` 7.4.5, which rejects an unknown did:key fragment
+  instead of throwing a `TypeError`.
+
 ## 3.8.0 - 2026-10-12
 
 ### Security

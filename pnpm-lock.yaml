@@ -18,8 +18,8 @@ importers:
         specifier: ^4.2.0
         version: 4.2.0
       '@interop/did-method-key':
-        specifier: ^7.4.4
-        version: 7.4.4
+        specifier: ^7.4.5
+        version: 7.4.5
       '@interop/did-method-webvh':
         specifier: ^5.14.0
         version: 5.14.0
@@ -251,8 +251,8 @@ packages:
     resolution: {integrity: sha512-irPL6CDwnYVhlii/8eJUG7fKXSmozCvV1bA9mzdtb/j8WwI89GAAwZtbT/ZB+aQy9rVR9Ghoe8fJypHZx8clKg==}
     engines: {node: '>=24.0'}
 
-  '@interop/did-method-key@7.4.4':
-    resolution: {integrity: sha512-35ucLPgEWnH/erp9fpBxgRJiocJD48mcT35OPF9aokREThERSmwLmVn2y5/VUowPkWpck2QJg7yw2//0mwpKdQ==}
+  '@interop/did-method-key@7.4.5':
+    resolution: {integrity: sha512-LMZ79yA8fzL7DGKtb2oUE2Hmrlx7smLh+0JEKviz7n6qeto97VAXLXU/TM3SwuH6VNXCaWLlvVg9Apk+iKTMMw==}
     engines: {node: '>=24.0'}
 
   '@interop/did-method-webvh@5.14.0':
@@ -1420,7 +1420,7 @@ snapshots:
       '@interop/data-integrity-core': 8.8.0
       '@interop/lru-memoize': 4.0.3
 
-  '@interop/did-method-key@7.4.4':
+  '@interop/did-method-key@7.4.5':
     dependencies:
       '@interop/data-integrity-core': 8.8.0
       '@interop/did-io': 4.2.0
@@ -1518,7 +1518,7 @@ snapshots:
       '@digitalcredentials/open-badges-context': 3.0.0
       '@interop/data-integrity-core': 8.8.0
       '@interop/did-io': 4.2.0
-      '@interop/did-method-key': 7.4.4
+      '@interop/did-method-key': 7.4.5
       '@interop/did-web-resolver': 6.3.5
       '@interop/ecdsa-multikey': 2.4.1
       '@interop/ed25519-verification-key': 8.2.1

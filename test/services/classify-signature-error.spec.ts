@@ -120,7 +120,15 @@ describe('classifySignatureError: verification method faults', () => {
       'Verification method "did:example:123#key-1" not authorized by controller for proof purpose "authentication".'
     ],
     ["ControllerProofPurpose's id-must-be-a-string", ID_NOT_STRING],
-    ["LinkedDataSignature's not-found", NOT_FOUND]
+    ["LinkedDataSignature's not-found", NOT_FOUND],
+    [
+      "the did:web driver's entity-not-found",
+      'DID document entity with id "did:web:example.com#key-2" not found.'
+    ],
+    [
+      "did-method-key's key-not-found",
+      'Key "did:key:z6Mkexample#not-a-key" not found in DID document.'
+    ]
   ];
 
   for (const [source, message] of libraryMessages) {

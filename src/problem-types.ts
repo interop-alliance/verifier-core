@@ -79,9 +79,10 @@ export const ProblemTypes = {
   VERIFICATION_METHOD_UNRESOLVED:
     'https://www.w3.org/TR/vc-data-model#VERIFICATION_METHOD_UNRESOLVED',
   /**
-   * Synthesized -- the proof's verification method was resolved but cannot be
-   * used: the controller document does not list it, or does not authorize it
-   * for the proof's purpose. Fatal; `detail` carries the library message. The
+   * Synthesized -- the proof's verification method's DID resolved but the
+   * method cannot be used: the DID document has no entry for its fragment,
+   * the controller document does not list it, or does not authorize it for
+   * the proof's purpose. Fatal; `detail` carries the library message. The
    * issuer-vs-controller case is {@link ProblemTypes.ISSUER_PROOF_MISMATCH}.
    */
   VERIFICATION_METHOD_ERROR:
