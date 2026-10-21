@@ -1,6 +1,6 @@
 # @interop/verifier-core CHANGELOG
 
-## 4.0.0 - TBD
+## 4.0.0 - 2026-10-21
 
 ### Breaking
 
