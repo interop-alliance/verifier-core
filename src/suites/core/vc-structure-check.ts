@@ -2,11 +2,7 @@ import { VerificationCheck, CheckOutcome } from '../../types/check.js';
 import { VerificationSubject } from '../../types/subject.js';
 import { VerificationContext } from '../../types/context.js';
 import { isPlainObject, isUrl } from '../../util/json-shape.js';
-import {
-  firstContextEntry,
-  VC_CONTEXT_V1,
-  VC_CONTEXT_V2
-} from '../../util/vc-contexts.js';
+import { vcVersionOf } from '../../util/vc-contexts.js';
 import {
   asEntries,
   checkFirstContextEntry,
@@ -123,15 +119,15 @@ function checkCredentialSubject(
 }
 
 function checkDates(credential: Record<string, unknown>, report: Report): void {
-  const firstContext = firstContextEntry(credential['@context']);
+  const version = vcVersionOf(credential['@context']);
 
-  if (firstContext === VC_CONTEXT_V1) {
+  if (version === 'v1') {
     if (credential.issuanceDate === undefined) {
       report(['issuanceDate'], '"issuanceDate" is required.');
     }
     checkDateTime(credential, 'issuanceDate', report);
     checkDateTime(credential, 'expirationDate', report);
-  } else if (firstContext === VC_CONTEXT_V2) {
+  } else if (version === 'v2') {
     checkDateTime(credential, 'validFrom', report);
     checkDateTime(credential, 'validUntil', report);
   }

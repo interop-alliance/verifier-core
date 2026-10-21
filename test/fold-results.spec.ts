@@ -61,7 +61,6 @@ function mkResult(
     return {
       id,
       suite,
-      check,
       outcome: { status: 'success', message: 'ok' },
       ...(options.fatal !== undefined ? { fatal: options.fatal } : {})
     };
@@ -70,7 +69,6 @@ function mkResult(
     return {
       id,
       suite,
-      check,
       outcome: { status: 'failure', problems: [stubProblem] },
       ...(options.fatal !== undefined ? { fatal: options.fatal } : {})
     };
@@ -78,7 +76,6 @@ function mkResult(
   return {
     id,
     suite,
-    check,
     outcome: { status: 'skipped', reason: options.reason ?? 'n/a' }
   };
 }
@@ -93,13 +90,12 @@ function mkNotRun(
   return {
     id: computeId(options.phase, suite, check),
     suite,
-    check,
     outcome: notRunOutcome(haltedBy)
   };
 }
 
 describe('foldCheckResults', () => {
-  it('1. all-pass: folds 4 successes into one summary, no results entries', () => {
+  it('1. all-pass: rolls 4 successes into one summary, results[] keeps every row', () => {
     const suite = mkSuite(
       'core',
       [
@@ -119,7 +115,7 @@ describe('foldCheckResults', () => {
 
     const { results, summaries } = foldCheckResults(checks, [suite]);
 
-    expect(results).toHaveLength(0);
+    expect(results).toEqual(checks);
     expect(summaries).toHaveLength(1);
     expect(summaries[0].status).toBe('success');
     expect(summaries[0].verified).toBe(true);
@@ -173,7 +169,7 @@ describe('foldCheckResults', () => {
     expect(summaries[0].message).toBe('0 of 1 check passed (1 failed)');
   });
 
-  it('3. mixed: 1 fail + 3 pass surfaces 1 failure, summary status="mixed"', () => {
+  it('3. mixed: 1 fail + 3 pass keeps every row, summary status="mixed"', () => {
     const suite = mkSuite(
       'core',
       [
@@ -193,8 +189,7 @@ describe('foldCheckResults', () => {
 
     const { results, summaries } = foldCheckResults(checks, [suite]);
 
-    expect(results).toHaveLength(1);
-    expect(results[0].check).toBe('core.b');
+    expect(results).toEqual(checks);
     expect(summaries[0].status).toBe('mixed');
     expect(summaries[0].verified).toBe(true);
     expect(summaries[0].counts).toEqual({
@@ -211,14 +206,15 @@ describe('foldCheckResults', () => {
     });
     const checks: CheckResult[] = [
       mkResult('extra', 'extra.applies', 'skipped', {
-        reason: 'suite predicate returned false'
+        reason: 'suite predicate returned false',
+        phase: 'semantic'
       })
     ];
 
     const { results, summaries } = foldCheckResults(checks, [suite]);
 
     expect(results).toHaveLength(1);
-    expect(results[0].check).toBe('extra.applies');
+    expect(results[0].id).toBe('semantic.extra.applies');
     expect(summaries[0].status).toBe('skipped');
     expect(summaries[0].verified).toBe(true);
     expect(summaries[0].counts).toEqual({
@@ -254,8 +250,7 @@ describe('foldCheckResults', () => {
 
     const { results, summaries } = foldCheckResults(checks, [suite]);
 
-    expect(results).toHaveLength(1);
-    expect(results[0].check).toBe('proof.b');
+    expect(results).toEqual(checks);
     expect(summaries[0].status).toBe('mixed');
     expect(summaries[0].verified).toBe(false);
     expect(summaries[0].counts).toEqual({
@@ -267,6 +262,40 @@ describe('foldCheckResults', () => {
     expect(summaries[0].message).toBe(
       '1 of 4 checks passed (1 failed, 2 not run after fatal)'
     );
+  });
+
+  it('marks every suite with a non-halting fatal failure, without a "not run" clause', () => {
+    const suites = [
+      mkSuite('proof', [
+        mkCheck('proof.a', 'success'),
+        mkCheck('proof.b', 'failure', { fatal: true })
+      ]),
+      mkSuite('status', [mkCheck('status.a', 'failure', { fatal: true })]),
+      mkSuite('registry', [mkCheck('registry.a', 'success')])
+    ];
+    const checks: CheckResult[] = [
+      mkResult('proof', 'proof.a', 'success'),
+      {
+        ...mkResult('proof', 'proof.b', 'failure', { fatal: true }),
+        halts: false
+      },
+      {
+        ...mkResult('status', 'status.a', 'failure', { fatal: true }),
+        halts: false
+      },
+      mkResult('registry', 'registry.a', 'success')
+    ];
+
+    const { summaries } = foldCheckResults(checks, suites);
+
+    expect(summaries.map(s => s.fatalFailureAt)).toEqual([
+      'unknown.proof.b',
+      'unknown.status.a',
+      undefined
+    ]);
+    expect(summaries.map(s => s.verified)).toEqual([false, false, true]);
+    expect(summaries[0].message).toBe('1 of 2 checks passed (1 failed)');
+    expect(summaries[1].message).toBe('0 of 1 check passed (1 failed)');
   });
 
   describe('not-run rows after a fatal failure', () => {
@@ -329,10 +358,10 @@ describe('foldCheckResults', () => {
       expect(summaries[1].fatalFailureAt).toBeUndefined();
     });
 
-    it('does not surface not-run rows in non-verbose results', () => {
+    it('surfaces not-run rows in results', () => {
       const { results } = foldCheckResults(haltedChecks, [core, proof]);
 
-      expect(results.map(r => r.check)).toEqual(['core.context-exists']);
+      expect(results).toEqual(haltedChecks);
     });
 
     it('keeps an ordinary skip apart from the not-run count', () => {
@@ -420,32 +449,6 @@ describe('foldCheckResults', () => {
     expect(computeId('cryptographic', 'core', 'core.proof-exists')).toBe(
       'cryptographic.core.proof-exists'
     );
-  });
-
-  it('10. verbose pass-through: results[] carries every check, ids populated lazily', () => {
-    const suite = mkSuite(
-      'core',
-      [
-        mkCheck('core.a', 'success'),
-        mkCheck('core.b', 'failure'),
-        mkCheck('core.c', 'success'),
-        mkCheck('core.d', 'success')
-      ],
-      { phase: 'cryptographic' }
-    );
-    const checks: CheckResult[] = [
-      mkResult('core', 'core.a', 'success'),
-      mkResult('core', 'core.b', 'failure'),
-      mkResult('core', 'core.c', 'success'),
-      mkResult('core', 'core.d', 'success')
-    ];
-
-    const { results, summaries } = foldCheckResults(checks, [suite], {
-      verbose: true
-    });
-
-    expect(results).toHaveLength(4);
-    expect(summaries[0].status).toBe('mixed');
   });
 
   it('emits one summary per suite that produced results, in input order', () => {

@@ -6,7 +6,6 @@ import {
 } from './fake-crypto-service.js';
 import { FakeDocumentLoader } from './fake-document-loader.js';
 import { FakeCacheService } from './fake-cache-service.js';
-import { FakeFetchJson } from './fake-fetch-json.js';
 import { FakeHttpGetService, okJsonBody } from './fake-http-get-service.js';
 import { FakeRegistryLookup } from './fake-registry-lookup.js';
 
@@ -132,30 +131,6 @@ describe('service factories', () => {
     });
   });
 
-  describe('FakeFetchJson', () => {
-    it('returns mapped JSON with no envelope', async () => {
-      const payload = { $schema: 'https://example.test/schema' };
-      const fetchJson = FakeFetchJson({
-        'https://example.test/schema.json': payload
-      });
-      const out = await fetchJson('https://example.test/schema.json');
-      expect(out).toEqual(payload);
-    });
-
-    it('throws for unmapped URLs', async () => {
-      const fetchJson = FakeFetchJson({});
-      try {
-        await fetchJson('https://missing.test/x');
-        expect.fail('expected throw');
-      } catch (e) {
-        expect(e).toBeInstanceOf(Error);
-        expect((e as Error).message).toBe(
-          'No fake response for URL: https://missing.test/x'
-        );
-      }
-    });
-  });
-
   describe('FakeRegistryLookup', () => {
     it('returns expected shape when found: true', async () => {
       const lookup = FakeRegistryLookup({
@@ -202,16 +177,6 @@ describe('service factories', () => {
     });
   });
 
-  it('buildTestContext accepts fake crypto and fetchJson', async () => {
-    const ctx = buildTestContext({
-      cryptoServices: [FakeCryptoService({ verified: true })],
-      fetchJson: FakeFetchJson({ 'https://factory.test/json': { ok: true } })
-    });
-    expect(ctx.cryptoServices).toHaveLength(1);
-    const json = await ctx.fetchJson('https://factory.test/json');
-    expect(json).toEqual({ ok: true });
-  });
-
   describe('FakeHttpGetService', () => {
     it('returns mapped HttpGetResult', async () => {
       const httpGetService = FakeHttpGetService({
@@ -242,29 +207,6 @@ describe('service factories', () => {
   });
 
   describe('buildTestContext with httpGetService', () => {
-    it('derives fetchJson from httpGetService', async () => {
-      const httpGetService = FakeHttpGetService({
-        'https://factory.test/json': okJsonBody({ derived: true })
-      });
-      const ctx = buildTestContext({ httpGetService });
-      const json = await ctx.fetchJson('https://factory.test/json');
-      expect(json).toEqual({ derived: true });
-    });
-
-    it('keeps explicit fetchJson when httpGetService is also set', async () => {
-      const httpGetService = FakeHttpGetService({
-        'https://factory.test/json': okJsonBody({ fromHttp: true })
-      });
-      const ctx = buildTestContext({
-        httpGetService,
-        fetchJson: FakeFetchJson({
-          'https://factory.test/json': { fromExplicit: true }
-        })
-      });
-      const json = await ctx.fetchJson('https://factory.test/json');
-      expect(json).toEqual({ fromExplicit: true });
-    });
-
     it('keeps explicit documentLoader when httpGetService is also set', async () => {
       const doc = {
         '@context': ['https://example.test/ctx'],

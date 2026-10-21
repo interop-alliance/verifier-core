@@ -53,7 +53,15 @@ describe('lookupVcRecognition', () => {
       ctx
     );
     expect(result).toEqual({
-      status: 'found'
+      status: 'found',
+      entity: {
+        name: 'Example Tech',
+        raw: {
+          id: 'did:web:university.example',
+          type: 'RecognizedEntity',
+          name: 'Example Tech'
+        }
+      }
     });
   });
 
@@ -69,7 +77,84 @@ describe('lookupVcRecognition', () => {
     });
     const result = await lookupVcRecognition('did:key:single', registry, ctx);
     expect(result).toEqual({
-      status: 'found'
+      status: 'found',
+      entity: {
+        raw: { id: 'did:key:single', type: 'RecognizedEntity' }
+      }
+    });
+  });
+
+  it('copies a string url and keeps a language-map name only in raw', async () => {
+    const entry = {
+      id: 'did:web:university.example',
+      type: 'RecognizedEntity',
+      name: [{ '@value': 'Example Tech', '@language': 'en' }],
+      url: 'https://university.example'
+    };
+    const ctx = buildHandlerContext({
+      httpGetService: FakeHttpGetService({
+        [listUrl]: okJsonBody(buildVc({ credentialSubject: [entry] }))
+      })
+    });
+    const result = await lookupVcRecognition(
+      'did:web:university.example',
+      registry,
+      ctx
+    );
+    expect(result).toEqual({
+      status: 'found',
+      entity: { url: 'https://university.example', raw: entry }
+    });
+  });
+
+  it('hands out a copy of the entry, so the cached credential stays intact', async () => {
+    const ctx = buildHandlerContext({
+      httpGetService: FakeHttpGetService({ [listUrl]: okJsonBody(buildVc()) })
+    });
+    const first = await lookupVcRecognition(
+      'did:web:university.example',
+      registry,
+      ctx
+    );
+    if (first.status !== 'found' || first.entity === undefined) {
+      throw new Error('expected a found result with an entity');
+    }
+    (first.entity.raw as Record<string, unknown>).name = 'Tampered';
+
+    const second = await lookupVcRecognition(
+      'did:web:university.example',
+      registry,
+      ctx
+    );
+    expect(second).toEqual({
+      status: 'found',
+      entity: {
+        name: 'Example Tech',
+        raw: {
+          id: 'did:web:university.example',
+          type: 'RecognizedEntity',
+          name: 'Example Tech'
+        }
+      }
+    });
+  });
+
+  it('returns the entry that matches among several subjects', async () => {
+    const other = { id: 'did:web:other.example', name: 'Other' };
+    const mine = { id: 'did:web:university.example', name: 'Mine' };
+    const ctx = buildHandlerContext({
+      httpGetService: FakeHttpGetService({
+        [listUrl]: okJsonBody(buildVc({ credentialSubject: [other, mine] }))
+      })
+    });
+    const result = await lookupVcRecognition(
+      'did:web:university.example',
+      registry,
+      ctx
+    );
+    expect(result).toEqual({
+      status: 'found',
+      entity: { name: 'Mine', raw: mine }
     });
   });
 

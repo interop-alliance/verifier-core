@@ -23,15 +23,24 @@ const V1 = {
   credentialSubject: { id: 'did:example:subject' }
 };
 
-/** The message `@interop/vc` rejects `credential` with at `NOW`. */
-function libraryRejection(credential: Record<string, unknown>): string {
+/** The error `@interop/vc` rejects `credential` with at `NOW`. */
+function libraryRejection(credential: Record<string, unknown>): unknown {
   try {
     _checkCredential({ credential: credential as never, now: NOW });
   } catch (e) {
-    return (e as Error).message;
+    return e;
   }
   throw new Error('expected @interop/vc to reject the credential');
 }
+
+function named(name: string, message: string): Error {
+  const error = new Error(message);
+  error.name = name;
+  return error;
+}
+
+const EXPIRED_V2 =
+  'The current date time (2026-01-01T00:00:00.000Z) is after "validUntil" (2011-01-01T00:00:00Z).';
 
 describe('vc-date-messages', () => {
   it.each([
@@ -48,8 +57,8 @@ describe('vc-date-messages', () => {
       'The current date time (2026-01-01T00:00:00.000Z) is before the "issuanceDate" (2099-01-01T00:00:00Z).',
       'not-yet-valid'
     ]
-  ])('classifies %j as %s', (message, expected) => {
-    expect(classifyDateRejection(message)).toBe(expected);
+  ])('classifies a plain Error %j as %s', (message, expected) => {
+    expect(classifyDateRejection(new Error(message))).toBe(expected);
   });
 
   /**
@@ -88,7 +97,38 @@ describe('vc-date-messages', () => {
   });
 
   it('does not classify a signature failure as a date rejection', () => {
-    expect(classifyDateRejection('Invalid signature.')).toBeUndefined();
+    expect(
+      classifyDateRejection(new Error('Invalid signature.'))
+    ).toBeUndefined();
+  });
+
+  describe('matches strictly', () => {
+    it('rejects a bare message string', () => {
+      expect(classifyDateRejection(EXPIRED_V2)).toBeUndefined();
+    });
+
+    it('rejects a VerificationError carrying the message', () => {
+      expect(
+        classifyDateRejection(named('VerificationError', EXPIRED_V2))
+      ).toBeUndefined();
+    });
+
+    it('rejects an Error carrying errors[]', () => {
+      expect(
+        classifyDateRejection(
+          Object.assign(new Error(EXPIRED_V2), { errors: [] })
+        )
+      ).toBeUndefined();
+    });
+
+    it('rejects a date phrase inside a longer message', () => {
+      expect(
+        classifyDateRejection(new Error(`Proof failed: ${EXPIRED_V2}`))
+      ).toBeUndefined();
+      expect(
+        classifyDateRejection(new Error('Credential has expired. Also bad.'))
+      ).toBeUndefined();
+    });
   });
 
   describe('dateRejectionProblem', () => {
@@ -117,6 +157,22 @@ describe('vc-date-messages', () => {
       expect(problem.type).toBe(ProblemTypes.CREDENTIAL_NOT_YET_VALID);
       expect(problem.detail).toBe(
         'Validity starts at 2099-01-01T00:00:00Z (issuanceDate). Verified at 2026-01-01T00:00:00.000Z.'
+      );
+    });
+
+    it('quotes the property it is given', () => {
+      expect(
+        dateRejectionProblem(
+          'expired',
+          {
+            validUntil: '2011-01-01T00:00:00Z',
+            expirationDate: '2012-01-01T00:00:00Z'
+          },
+          NOW,
+          'expirationDate'
+        ).detail
+      ).toBe(
+        'Validity ended at 2012-01-01T00:00:00Z (expirationDate). Verified at 2026-01-01T00:00:00.000Z.'
       );
     });
 

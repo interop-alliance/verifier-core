@@ -4,7 +4,7 @@
 > carried on every result when it is enabled.
 >
 > **Audience.** Performance / observability work in `dcc-transaction-service`,
-> `skills-verifier`, and any future client building on `verifier-core`. The §10
+> `skills-verifier`, and any future client building on `verifier-core`. The §9
 > LLM-prompt appendix is written to be copy-pasted as the seed of an LLM prompt
 > for client-side instrumentation code-gen.
 
@@ -16,19 +16,17 @@
 4. [Granularity](#granularity)
 5. [Inclusive top-level convention](#inclusive-top-level-convention)
 6. [Parse-failure behavior](#parse-failure-behavior)
-7. [Folding caveat](#folding-caveat)
-8. [Recipes](#recipes)
-9. [`TimeService` reference](#timeservice-reference)
-10. [Prompt-ready appendix](#prompt-ready-appendix)
+7. [Recipes](#recipes)
+8. [`TimeService` reference](#timeservice-reference)
+9. [Prompt-ready appendix](#prompt-ready-appendix)
 
 ## Overview
 
 `verifier-core` can attach `TaskTiming` data to every `CheckResult`, every
 `SuiteSummary`, and every top-level `Credential|PresentationVerificationResult`.
-The feature is opt-in via a `timing: boolean` flag that mirrors the existing
-`verbose` flag's plumbing: settable on `VerifierConfig`, overridable per call,
-and automatically propagated from `verifyPresentation` into embedded
-`verifyCredential` calls.
+The feature is opt-in via a `timing: boolean` flag. It is settable on
+`VerifierConfig`, overridable per call, and automatically propagated from
+`verifyPresentation` into embedded `verifyCredential` calls.
 
 Cost when enabled: two `Date.now()`-equivalent reads and two
 `performance.now()`-equivalent reads per check, plus one of each for the
@@ -62,10 +60,6 @@ const result = await verifier.verifyCredential({
 `verifyCredential` calls automatically — every credential in
 `result.credentialResults[i]` shares the same `timing` decision, so the
 top-level call's `timing` is a true inclusive wrapper (see §5).
-
-Pairs naturally with `verbose: true` so per-check timings survive in
-`results[]`. Without verbose, individual `CheckResult.timing` entries fold away
-— but per-suite timing on `summary[]` still survives (see §7).
 
 ## The `TaskTiming` shape
 
@@ -106,9 +100,8 @@ compute `endedAt - startedAt` for performance work.
 | Per-suite | `result.summary[i].timing`                        | `min(child startedAt) → max(child endedAt)`; `durationMs = sum of child durationMs` (see §5) |
 | Per-call  | `result.timing` (and `presentationResult.timing`) | Inclusive wrapper around the entire `verifyCredential` / `verifyPresentation` body           |
 
-Per-suite timing is computed by `foldCheckResults` from the per-check timings
-before checks are folded out of `results[]`, so it survives `verbose: false`
-consumption (see §7).
+Per-suite timing is computed by `foldCheckResults` from the per-check timings.
+Every row in `results[]` keeps its own `timing`.
 
 ## Inclusive top-level convention
 
@@ -154,7 +147,7 @@ top-level result all carry `timing` — same as a normal run:
   "verified": false,
   "results": [
     {
-      "id": "cryptographic.parsing.parsing.envelope",
+      "id": "cryptographic.parsing.envelope",
       "outcome": { "status": "failure", "problems": [/* ... */] },
       "fatal": true,
       "timing": { "startedAt": "...", "endedAt": "...", "durationMs": 0.001 }
@@ -173,22 +166,9 @@ top-level result all carry `timing` — same as a normal run:
 This keeps the consumer's "extract timing from result" code path uniform across
 success and parse-failure outcomes.
 
-## Folding caveat
-
-`verbose: false` (the default) hides individual `CheckResult.timing` entries —
-they fold away into the per-suite rollup just like the checks themselves.
-Per-suite `SuiteSummary.timing` survives in `summary[]` and remains the
-canonical surface for non-verbose consumers.
-
-If you need per-check timing detail, opt into both:
-
-```ts
-const verifier = createVerifier({ timing: true, verbose: true });
-```
-
 ## Recipes
 
-### Slowest check (verbose mode)
+### Slowest check
 
 ```ts
 const slowestChecks = result.results
@@ -276,7 +256,7 @@ interface TaskTiming {
   events?: ReadonlyArray<TaskTiming & { name: string }>; // reserved
 }
 
-// Per-check (only in verbose: true mode):
+// Per-check (every row in results[]):
 result.results[i].timing;
 // Per-suite (always present in summary[] when timing: true):
 result.summary[i].timing;

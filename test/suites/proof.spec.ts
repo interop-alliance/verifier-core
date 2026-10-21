@@ -14,7 +14,15 @@ import {
   signatureCheck,
   SIGNATURE_SKIP_CODES
 } from '../../src/suites/proof/signature-check.js';
+import { unsupportedProofsCheck } from '../../src/suites/proof/unsupported-proofs-check.js';
+import {
+  VALIDITY_PERIOD_SKIP_CODES,
+  validityPeriodCheck
+} from '../../src/suites/proof/validity-period-check.js';
+import type { ProblemDetail } from '../../src/types/problem-detail.js';
+import type { CryptoService } from '../../src/types/crypto-service.js';
 import { buildTestContext } from '../factories/services/build-test-context.js';
+import { notRunOutcome } from '../factories/index.js';
 import { VerificationSubject } from '../../src/types/subject.js';
 import type { CheckOutcome } from '../../src/types/check.js';
 import { CredentialFactory } from '../factories/data/credential-factory.js';
@@ -107,12 +115,20 @@ describe('Proof Verification Suite', () => {
       );
       const results = await runSuites([proofSuite], subject, context);
 
-      expect(results).toHaveLength(1);
-      expect(results[0].check).toBe('proof.signature');
+      expect(results.map(r => r.id)).toEqual([
+        'cryptographic.proof.signature',
+        'cryptographic.proof.unsupported-proofs',
+        'cryptographic.proof.validity-period'
+      ]);
       expect(results[0].outcome.status).toBe('success');
       if (results[0].outcome.status === 'success') {
         expect(results[0].outcome.message).toBe('Fake verification passed.');
       }
+      expect(results[1].outcome).toEqual({
+        status: 'success',
+        message: 'Every proof was checked.'
+      });
+      expect(results[2].outcome.status).toBe('success');
     });
 
     it('returns failure with injected problems when service rejects', async () => {
@@ -202,9 +218,13 @@ describe('Proof Verification Suite', () => {
       const subject = createPresentationSubject(presentation);
       const results = await runSuites([proofSuite], subject, context);
 
-      expect(results).toHaveLength(1);
-      expect(results[0].check).toBe('proof.signature');
+      // `proof.validity-period` applies to credentials only.
+      expect(results.map(r => r.id)).toEqual([
+        'cryptographic.proof.signature',
+        'cryptographic.proof.unsupported-proofs'
+      ]);
       expect(results[0].outcome.status).toBe('success');
+      expect(results[1].outcome.status).toBe('success');
     });
 
     /**
@@ -384,11 +404,15 @@ describe('Proof Verification Suite', () => {
       const subject = createCredentialSubject(cred);
       const results = await runSuites([proofSuite], subject, context);
 
-      expect(results).toHaveLength(1);
+      expect(results).toHaveLength(3);
       expect(results[0].outcome.status).toBe('failure');
       if (results[0].outcome.status === 'failure') {
         expect(results[0].outcome.problems[0].title).toBe('No Proof');
       }
+      expect(results.slice(1).map(r => r.outcome)).toEqual([
+        notRunOutcome('proof.signature'),
+        notRunOutcome('proof.signature')
+      ]);
     });
   });
 
@@ -505,6 +529,347 @@ describe('Proof Verification Suite', () => {
       );
 
       expect(outcome.status).toBe('success');
+    });
+  });
+
+  describe('validityPeriodCheck', () => {
+    const NOW = '2026-10-20T12:00:00.000Z';
+    const run = (
+      version: 'v1' | 'v2',
+      dates: Record<string, unknown>,
+      at: string = NOW
+    ) =>
+      validityPeriodCheck.execute(
+        createCredentialSubject(
+          CredentialFactory({ version, credential: dates })
+        ),
+        buildTestContext({ now: new Date(at) })
+      );
+    const problemTypes = (outcome: Awaited<ReturnType<typeof run>>) =>
+      outcome.status === 'failure' ? outcome.problems.map(p => p.type) : [];
+
+    it('is fatal, does not halt, and runs after the other proof checks', () => {
+      expect(validityPeriodCheck.fatal).toBe(true);
+      expect(validityPeriodCheck.halts).toBe(false);
+      expect(proofSuite.checks.map(c => c.id)).toEqual([
+        'proof.signature',
+        'proof.unsupported-proofs',
+        'proof.validity-period'
+      ]);
+    });
+
+    it('reports a v2 credential past validUntil as expired', async () => {
+      const outcome = await run('v2', {
+        validFrom: '2020-01-01T00:00:00Z',
+        validUntil: '2021-01-01T00:00:00Z'
+      });
+
+      expect(outcome).toEqual({
+        status: 'failure',
+        problems: [
+          {
+            type: ProblemTypes.CREDENTIAL_EXPIRED,
+            title: 'Credential Expired',
+            detail: `Validity ended at 2021-01-01T00:00:00Z (validUntil). Verified at ${NOW}.`
+          }
+        ]
+      });
+    });
+
+    it('reports a v2 credential before validFrom as not yet valid', async () => {
+      const outcome = await run('v2', { validFrom: '2099-01-01T00:00:00Z' });
+
+      expect(problemTypes(outcome)).toEqual([
+        ProblemTypes.CREDENTIAL_NOT_YET_VALID
+      ]);
+    });
+
+    it('reports a v1 credential past expirationDate as expired', async () => {
+      const outcome = await run('v1', {
+        issuanceDate: '2020-01-01T00:00:00Z',
+        expirationDate: '2021-01-01T00:00:00Z'
+      });
+
+      expect(problemTypes(outcome)).toEqual([ProblemTypes.CREDENTIAL_EXPIRED]);
+      if (outcome.status === 'failure') {
+        expect(outcome.problems[0].detail).toBe(
+          `Validity ended at 2021-01-01T00:00:00Z (expirationDate). Verified at ${NOW}.`
+        );
+      }
+    });
+
+    it('reports a v1 credential before issuanceDate as not yet valid', async () => {
+      const outcome = await run('v1', { issuanceDate: '2099-01-01T00:00:00Z' });
+
+      expect(problemTypes(outcome)).toEqual([
+        ProblemTypes.CREDENTIAL_NOT_YET_VALID
+      ]);
+    });
+
+    it('reports both faults when both dates are wrong', async () => {
+      const outcome = await run('v2', {
+        validFrom: '2099-01-01T00:00:00Z',
+        validUntil: '2021-01-01T00:00:00Z'
+      });
+
+      expect(problemTypes(outcome)).toEqual([
+        ProblemTypes.CREDENTIAL_EXPIRED,
+        ProblemTypes.CREDENTIAL_NOT_YET_VALID
+      ]);
+    });
+
+    it('treats the end date itself as still valid, as the library does', async () => {
+      const outcome = await run('v2', {
+        validFrom: '2020-01-01T00:00:00Z',
+        validUntil: NOW
+      });
+
+      expect(outcome).toEqual({
+        status: 'success',
+        message: 'The credential is within its validity period.'
+      });
+    });
+
+    it('ignores v2 date names on a v1 credential, as the library does', async () => {
+      const outcome = await run('v1', {
+        issuanceDate: '2020-01-01T00:00:00Z',
+        validUntil: '2021-01-01T00:00:00Z'
+      });
+
+      expect(outcome.status).toBe('success');
+    });
+
+    it('passes a credential that states no validity period', async () => {
+      const credential = CredentialFactory({ version: 'v2' });
+      delete credential.validFrom;
+      const outcome = await validityPeriodCheck.execute(
+        createCredentialSubject(credential),
+        buildTestContext({ now: new Date(NOW) })
+      );
+
+      expect(outcome).toEqual({
+        status: 'success',
+        message: 'No validity period stated.'
+      });
+    });
+
+    it('skips a credential whose first @context is not a VC context', async () => {
+      const credential = CredentialFactory({
+        version: 'v2',
+        credential: {
+          '@context': [
+            'https://purl.imsglobal.org/spec/ob/v3p0/context-3.0.3.json',
+            'https://www.w3.org/ns/credentials/v2'
+          ],
+          validUntil: '2020-01-01T00:00:00Z'
+        }
+      });
+      const outcome = await validityPeriodCheck.execute(
+        createCredentialSubject(credential),
+        buildTestContext({ now: new Date(NOW) })
+      );
+
+      expect(outcome).toMatchObject({
+        status: 'skipped',
+        code: VALIDITY_PERIOD_SKIP_CODES.unknownVersion
+      });
+    });
+
+    it.each([
+      ['a number', 20200101],
+      ['prose', 'yesterday']
+    ])('skips a credential whose validUntil is %s', async (_label, value) => {
+      const outcome = await run('v2', { validUntil: value });
+
+      expect(outcome).toMatchObject({
+        status: 'skipped',
+        reason: 'validUntil is not a date, so the validity period cannot be judged.',
+        code: VALIDITY_PERIOD_SKIP_CODES.unparseableDate
+      });
+    });
+  });
+
+  describe('signatureCheck: validity-date rejections', () => {
+    const expired = {
+      type: ProblemTypes.CREDENTIAL_EXPIRED,
+      title: 'Credential Expired',
+      detail: 'Credential has expired.'
+    };
+    const run = (problems: ProblemDetail[], proofVerified?: boolean) =>
+      signatureCheck.execute(
+        createCredentialSubject(CredentialFactory({ version: 'v2' })),
+        buildTestContext({
+          cryptoServices: [
+            FakeCryptoService({ verified: false, problems, proofVerified })
+          ]
+        })
+      );
+
+    it('reads a rejection the service marks proofVerified as a verified signature', async () => {
+      const outcome = await run([expired], true);
+
+      expect(outcome).toEqual({
+        status: 'success',
+        message: 'Signature verified successfully.'
+      });
+    });
+
+    it('keeps a date-only rejection without proofVerified as a failure', async () => {
+      const outcome = await run([expired]);
+
+      expect(outcome).toEqual({ status: 'failure', problems: [expired] });
+    });
+
+    it('keeps a rejection that mixes a date problem with a signature problem as a failure', async () => {
+      const invalid = {
+        type: ProblemTypes.INVALID_SIGNATURE,
+        title: 'Invalid Signature',
+        detail: 'Invalid signature.'
+      };
+      const outcome = await run([expired, invalid]);
+
+      expect(outcome).toEqual({
+        status: 'failure',
+        problems: [expired, invalid]
+      });
+    });
+  });
+
+  describe('unsupportedProofsCheck', () => {
+    const supported = { type: 'Ed25519Signature2020' };
+    const alsoSupported = {
+      type: 'DataIntegrityProof',
+      cryptosuite: 'eddsa-rdfc-2022'
+    };
+    const unsupported = { type: 'DataIntegrityProof', cryptosuite: 'bbs-2023' };
+
+    /**
+     * Rejects a lone bbs-2023 proof as unsupported and verifies any other,
+     * recording every proof it is handed.
+     */
+    function bbsUnsupported(seen: unknown[]): CryptoService {
+      const answer = async (document: unknown) => {
+        const { proof } = document as { proof?: { cryptosuite?: string } };
+        seen.push(proof);
+        return proof?.cryptosuite === 'bbs-2023'
+          ? {
+              verified: false as const,
+              problems: [
+                {
+                  type: ProblemTypes.PROOF_UNSUPPORTED,
+                  title: 'Unsupported Proof',
+                  detail: 'Not supported here.'
+                }
+              ]
+            }
+          : { verified: true as const };
+      };
+      return {
+        canVerify: () => true,
+        verifyCredential: answer,
+        verifyPresentation: answer
+      };
+    }
+
+    const withProof = (proof: unknown) =>
+      createCredentialSubject(
+        CredentialFactory({ version: 'v2', credential: { proof } })
+      );
+
+    it('is a non-fatal check between proof.signature and proof.validity-period', () => {
+      expect(unsupportedProofsCheck.fatal).toBe(false);
+      expect(proofSuite.checks.indexOf(unsupportedProofsCheck)).toBe(1);
+    });
+
+    it('warns about an unsupported proof beside a verified one, reusing the verification', async () => {
+      const seen: unknown[] = [];
+      const results = await runSuites(
+        [proofSuite],
+        withProof([supported, unsupported]),
+        buildTestContext({ cryptoServices: [bbsUnsupported(seen)] })
+      );
+
+      expect(results[0].outcome.status).toBe('success');
+      expect(results[1]).toMatchObject({
+        id: 'cryptographic.proof.unsupported-proofs',
+        fatal: false,
+        outcome: {
+          status: 'failure',
+          problems: [
+            {
+              type: ProblemTypes.PROOF_UNSUPPORTED,
+              title: 'Unsupported Proof',
+              detail:
+                'Proof 2 of 2 (DataIntegrityProof, bbs-2023): Not supported here.'
+            }
+          ]
+        }
+      });
+      // One call per proof, shared by both checks.
+      expect(seen).toEqual([supported, unsupported]);
+    });
+
+    it('succeeds when every proof of a set was checked', async () => {
+      const outcome = await unsupportedProofsCheck.execute(
+        withProof([supported, alsoSupported]),
+        buildTestContext({ cryptoServices: [bbsUnsupported([])] })
+      );
+
+      expect(outcome).toEqual({
+        status: 'success',
+        message: 'Every proof was checked.'
+      });
+    });
+
+    it('succeeds for a single proof', async () => {
+      const outcome = await unsupportedProofsCheck.execute(
+        withProof(supported),
+        buildTestContext({ cryptoServices: [bbsUnsupported([])] })
+      );
+
+      expect(outcome).toEqual({
+        status: 'success',
+        message: 'Every proof was checked.'
+      });
+    });
+
+    it('is not run when the only proofs are unsupported, since proof.signature fails', async () => {
+      const results = await runSuites(
+        [proofSuite],
+        withProof([unsupported, { ...unsupported, id: 'urn:proof:2' }]),
+        buildTestContext({ cryptoServices: [bbsUnsupported([])] })
+      );
+
+      expect(results[0].outcome).toEqual({
+        status: 'failure',
+        problems: [1, 2].map(n => ({
+          type: ProblemTypes.PROOF_UNSUPPORTED,
+          title: 'Unsupported Proof',
+          detail: `Proof ${n} of 2 (DataIntegrityProof, bbs-2023): Not supported here.`
+        }))
+      });
+      expect(results[1].outcome).toEqual(notRunOutcome('proof.signature'));
+    });
+
+    it('skips an unsigned presentation without asking the crypto service', async () => {
+      const service = FakeCryptoService({ verified: true });
+      const verifySpy = vi.spyOn(service, 'verifyPresentation');
+      const presentation = PresentationFactory();
+      delete (presentation as { proof?: unknown }).proof;
+
+      const outcome = await unsupportedProofsCheck.execute(
+        createPresentationSubject(presentation),
+        buildTestContext({
+          cryptoServices: [service],
+          unsignedPresentation: true
+        })
+      );
+
+      expect(outcome).toEqual({
+        status: 'skipped',
+        reason: 'The document has no proof.'
+      });
+      expect(verifySpy).not.toHaveBeenCalled();
     });
   });
 });

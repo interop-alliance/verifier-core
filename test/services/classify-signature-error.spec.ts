@@ -71,7 +71,25 @@ describe('classifySignatureError', () => {
     ]);
   });
 
-  it('finds the date rejection among aggregate sub-errors', () => {
+  it('reports a plain not-yet-valid Error as CREDENTIAL_NOT_YET_VALID', () => {
+    const problems = classifySignatureError(
+      new Error(
+        'The current date time (2026-01-01T00:00:00.000Z) is before "validFrom" (2099-01-01T00:00:00Z).'
+      ),
+      { validFrom: '2099-01-01T00:00:00Z' },
+      NOW
+    );
+
+    expect(problems[0].type).toBe(ProblemTypes.CREDENTIAL_NOT_YET_VALID);
+    expect(problems[0].detail).toBe(
+      'Validity starts at 2099-01-01T00:00:00Z (validFrom). Verified at 2026-01-01T00:00:00.000Z.'
+    );
+  });
+
+  it('does not read a date message inside an aggregate error as a date rejection', () => {
+    // The library reports a date failure only as a plain Error, after the
+    // proof verified. A date phrase among a VerificationError's sub-errors
+    // is a proof failure.
     const problems = classifySignatureError(
       wrapped(
         new Error(
@@ -82,10 +100,8 @@ describe('classifySignatureError', () => {
       NOW
     );
 
-    expect(problems[0].type).toBe(ProblemTypes.CREDENTIAL_NOT_YET_VALID);
-    expect(problems[0].detail).toBe(
-      'Validity starts at 2099-01-01T00:00:00Z (validFrom). Verified at 2026-01-01T00:00:00.000Z.'
-    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0].type).toBe(ProblemTypes.INVALID_SIGNATURE);
   });
 
   it('skips sub-errors that carry no message instead of throwing', () => {

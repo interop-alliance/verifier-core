@@ -3,6 +3,7 @@ import type {
   RegistryEntity
 } from '../../types/registry.js';
 import type { HttpGetService } from '../http-get-service/http-get-service.js';
+import { klona } from 'klona';
 import { parseCacheControlMaxAge, resolveTtl } from './cache-ttl.js';
 import type {
   HandlerResult,
@@ -67,13 +68,13 @@ async function lookupDccLegacyForRegistry(
 /**
  * The registry's record of the issuer: its name and homepage as the list
  * gives them, plus the whole entry, so a consumer can read fields this
- * shape does not name. The lookup copies the result it hands out, so the
- * entry is not copied here.
+ * shape does not name. `raw` is a copy: the entry belongs to the cached
+ * registry body, which every later lookup sharing the cache reads.
  */
 function entityFromEntry(
   entry: NonNullable<DccLegacyRegistryBody['registry'][string]>
 ): RegistryEntity {
-  const entity: RegistryEntity = { raw: entry };
+  const entity: RegistryEntity = { raw: klona(entry) };
   if (entry.name !== undefined) {
     entity.name = entry.name;
   }

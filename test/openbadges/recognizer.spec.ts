@@ -14,7 +14,6 @@ import { sampleAchievementCredential } from './fixtures/sample-achievement-crede
 
 const ctx: VerificationContext = {
   documentLoader: async () => ({ document: {} }),
-  fetchJson: async () => ({}),
   cryptoServices: [],
   challenge: null,
   unsignedPresentation: false,

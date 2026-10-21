@@ -110,8 +110,8 @@ export function checkedStatusListUrls(
 type ListsByUrl = Map<string, Record<string, unknown>>;
 
 /**
- * Status lists whose proof verified during the current `status.bitstring`
- * run, by URL, keyed by the context the run received. The check starts
+ * Status lists whose proof verified (or was rejected only for the list's
+ * validity dates) during the current `status.bitstring` run, by URL, keyed by the context the run received. The check starts
  * its run with {@link beginStatusListRun}, which drops whatever an earlier
  * run on the same context left; its `verifyStatusListCredential` hook
  * records each list it verifies; `status.list-issuer` takes the lists
@@ -130,8 +130,9 @@ export function beginStatusListRun(context: VerificationContext): void {
 }
 
 /**
- * Record a status list whose proof verified in the current run. A record
- * outside a run begun with {@link beginStatusListRun} is dropped.
+ * Record a status list whose proof verified in the current run, or was
+ * rejected only for its validity dates. A record outside a run begun with
+ * {@link beginStatusListRun} is dropped.
  */
 export function recordVerifiedStatusList(
   context: VerificationContext,

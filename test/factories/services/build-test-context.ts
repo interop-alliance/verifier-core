@@ -23,7 +23,6 @@ import { createRegistryLookup } from '../../../src/services/registry-lookup.js';
 import { BuiltinHttpGetService } from '../../../src/services/http-get-service/builtin-http-get-service.js';
 import { InMemoryCacheService } from '../../../src/services/cache-service/in-memory-cache-service.js';
 import { documentLoaderFromHttpGet } from '../../../src/util/document-loader-from-http-get.js';
-import { fetchJsonFromHttpGet } from '../../../src/util/fetch-json-from-http-get.js';
 import type { VerificationContext } from '../../../src/types/context.js';
 import type { CryptoSuite } from '../../../src/types/crypto-suite.js';
 
@@ -51,12 +50,8 @@ export function buildTestContext(
     overrides?.documentLoader ??
     documentLoaderFromHttpGet(effectiveHttpGetService);
 
-  const fetchJson =
-    overrides?.fetchJson ?? fetchJsonFromHttpGet(effectiveHttpGetService);
-
   return {
     documentLoader,
-    fetchJson,
     httpGetService: effectiveHttpGetService,
     cacheService: effectiveCacheService,
     cryptoServices,

@@ -23,8 +23,7 @@ import { sampleAchievementCredential } from './openbadges/fixtures/sample-achiev
 // in `results[]` regardless of outcome (folded mode hides
 // successes / non-applies skips).
 const fakeVerified = {
-  cryptoServices: [FakeCryptoService({ verified: true })],
-  verbose: true
+  cryptoServices: [FakeCryptoService({ verified: true })]
 };
 
 describe('verifier recognition pipeline', () => {
@@ -35,7 +34,7 @@ describe('verifier recognition pipeline', () => {
     });
 
     const recognition = result.results.find(
-      r => r.check === 'recognition.profile'
+      r => r.id === 'recognition.profile'
     );
     expect(recognition?.outcome.status).toBe('skipped');
     expect(result.normalizedVerifiableCredential).toBe(undefined);
@@ -55,7 +54,7 @@ describe('verifier recognition pipeline', () => {
     expect(result.normalizedVerifiableCredential).toBeDefined();
 
     const recognition = result.results.find(
-      r => r.check === 'recognition.profile'
+      r => r.id === 'recognition.profile'
     );
     expect(recognition?.outcome.status).toBe('success');
   });
@@ -82,7 +81,7 @@ describe('verifier recognition pipeline', () => {
     expect(result.recognizedProfile).toBe(undefined);
     expect(result.normalizedVerifiableCredential).toBe(undefined);
     const recognition = result.results.find(
-      r => r.check === 'recognition.profile'
+      r => r.id === 'recognition.profile'
     );
     expect(recognition?.outcome.status).toBe('skipped');
   });

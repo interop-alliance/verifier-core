@@ -13,6 +13,22 @@ export function firstContextEntry(context: unknown): unknown {
 }
 
 /**
+ * The VC data model version named by the first `@context` entry, as
+ * `@interop/vc` reads it: `'v1'` for the VC 1.1 context, `'v2'` for the
+ * VC 2.0 context, else `null`.
+ */
+export function vcVersionOf(context: unknown): 'v1' | 'v2' | null {
+  const first = firstContextEntry(context);
+  if (first === VC_CONTEXT_V1) {
+    return 'v1';
+  }
+  if (first === VC_CONTEXT_V2) {
+    return 'v2';
+  }
+  return null;
+}
+
+/**
  * Whether `@context` includes either VC context anywhere. Inline
  * context objects (JSON-LD context definitions) are ignored.
  */

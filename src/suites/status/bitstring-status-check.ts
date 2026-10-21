@@ -3,7 +3,7 @@ import {
   type VerifyStatusListCredential
 } from '@interop/vc-bitstring-status-list';
 import {
-  dispatchProofVerification,
+  dispatchProofSetVerification,
   type CryptoDispatchResult
 } from '../../crypto-dispatch.js';
 import { VerificationCheck, CheckOutcome } from '../../types/check.js';
@@ -227,18 +227,23 @@ function statusListProofProblems(
 /**
  * The `verifyStatusListCredential` hook handed to `checkStatus`: routes
  * each fetched BitstringStatusListCredential through
- * {@link dispatchProofVerification} against `context.cryptoServices`.
- * `checkStatus` itself loads and verifies each distinct list URL once and
- * tells the hook which `url` it loaded. A list whose proof verified is
- * recorded for `status.list-issuer`, so that check needs no second fetch.
+ * {@link dispatchProofSetVerification} against `context.cryptoServices`.
+ * A list's proof set is verified proof by proof, like a credential's, so
+ * one bad proof makes a bad list. `checkStatus` itself loads and verifies
+ * each distinct list URL once and tells the hook which `url` it loaded.
  * The list's validity dates are judged at the verifier's clock, the same
  * instant `proof.signature` uses for the credential.
+ *
+ * A list whose proof verified is recorded for `status.list-issuer`, so
+ * that check needs no second fetch. So is a list the service rejected
+ * with `proofVerified` set, such as one that is only out of date: who
+ * signed it is still known.
  */
 function verifyStatusListVia(
   context: VerificationContext
 ): VerifyStatusListCredential {
   return async ({ credential, documentLoader, url }) => {
-    const dispatched = await dispatchProofVerification({
+    const { combined: dispatched } = await dispatchProofSetVerification({
       services: context.cryptoServices,
       subject: { verifiableCredential: credential },
       options: { documentLoader, now: context.now }
@@ -246,6 +251,9 @@ function verifyStatusListVia(
     if (dispatched.kind === 'verified') {
       recordVerifiedStatusList(context, url, credential);
       return { verified: true };
+    }
+    if (dispatched.kind === 'rejected' && dispatched.proofVerified) {
+      recordVerifiedStatusList(context, url, credential);
     }
     return {
       verified: false,
@@ -331,6 +339,9 @@ function setBitProblem(entry: Record<string, unknown>): ProblemDetail {
  * list is missing, has an invalid signature, is expired or not yet valid,
  * has a wrong type, or actually marks the credential as revoked or
  * suspended), the overall verification result is `verified: false`.
+ * It does not halt (`halts: false`): the credential is authentic by now,
+ * since `proof.signature` passed, so whether its issuer is registered and
+ * who signed its status list still matter to a verifier.
  *
  * Every `BitstringStatusListEntry` with `statusPurpose` `revocation` or
  * `suspension` is checked, wherever it sits in `credentialStatus`. Each
@@ -349,8 +360,8 @@ function setBitProblem(entry: Record<string, unknown>): ProblemDetail {
  * decoding, and index reading. Proof verification of
  * each fetched BitstringStatusListCredential is injected through its
  * `verifyStatusListCredential` hook and goes through
- * {@link dispatchProofVerification} against `context.cryptoServices`, the
- * same dispatch presentation and credential proofs use. Whether a list is
+ * {@link dispatchProofSetVerification} against `context.cryptoServices`,
+ * the same dispatch presentation and credential proofs use. Whether a list is
  * issued by the credential's issuer is reported separately, by the
  * non-fatal `status.list-issuer` check, which reads the lists this hook
  * verified.
@@ -364,6 +375,8 @@ export const bitstringStatusCheck: VerificationCheck = {
   description:
     'Checks revocation and suspension status via BitstringStatusList.',
   fatal: true,
+  // The credential is authentic by now; who signed its list still matters.
+  halts: false,
   appliesTo: ['verifiableCredential'],
   execute: async (
     subject: VerificationSubject,

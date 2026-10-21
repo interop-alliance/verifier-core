@@ -11,9 +11,12 @@ import { CredentialFactory } from '../factories/data/credential-factory.js';
 import { formatJsonPointer } from '../../src/util/json-pointer.js';
 
 const CHECK_ID = 'schema.obv3.unknown-achievement-type';
+const SUITE_ID = 'openbadges.unknown-achievement-type';
+// The wrapper suite has no phase, so result ids begin `unknown.`.
+const RESULT_ID = `unknown.${SUITE_ID}.${CHECK_ID}`;
 
 const wrap = (check: VerificationCheck): VerificationSuite => ({
-  id: 'openbadges.unknown-achievement-type',
+  id: SUITE_ID,
   name: 'OBv3 Unknown AchievementType (test wrapper)',
   description: 'Test-only single-check suite.',
   checks: [check]
@@ -40,7 +43,7 @@ async function runCheck(
     createSubject(credential),
     buildTestContext()
   );
-  return results.find(r => r.check === CHECK_ID);
+  return results.find(r => r.id === RESULT_ID);
 }
 
 describe('OBv3 unknown-achievement-type check', () => {

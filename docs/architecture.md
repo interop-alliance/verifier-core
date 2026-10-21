@@ -30,10 +30,10 @@ src/
 ├── index.ts                         Public API barrel (all exports)
 ├── verifier.ts                      createVerifier(config) factory + internal context builder (composition root)
 ├── verify-suite.ts                  Standalone verifyCredential / verifyPresentation wrappers over createVerifier
-├── default-suites.ts                Internal: defaultSuites array (core → recognition → proof → registry → status); Open Badges suites are opt-in via the `/openbadges` submodule
+├── default-suites.ts                Internal: defaultSuites array (core → recognition → proof → registry → status); Open Badges suites are opt-in via the `/openbadges` and `/openbadges/schema` submodules
 ├── default-services.ts              Internal: lazy factories for default httpGetService, cryptoServices, documentLoader (memoized) + per-call createDefaultCacheService
 ├── run-suites.ts                    Suite orchestration engine
-├── crypto-dispatch.ts               Shared CryptoService selection + invocation (proof suite and status suite)
+├── crypto-dispatch.ts               Shared CryptoService selection + invocation, one proof at a time for proof sets (proof suite and status suite)
 ├── extract-credentials-from.ts      Normalize VP's embedded credentials to array
 ├── flatten-presentation-results.ts  flattenPresentationResults helper + FlattenedCheckResult provenance-tagged union
 ├── problem-types.ts                 ProblemTypes const map + ProblemType union (catalog of built-in ProblemDetail.type URIs)
@@ -62,19 +62,15 @@ src/
 ├── suites/                          Verification suite implementations (default + opt-in suites)
 │   ├── core/                        Structure checks (context, VC context, VC structure, VP structure, credential id, proof exists)
 │   ├── recognition/                 Pluggable recognizer dispatch; produces normalized credential form
-│   ├── proof/                       Cryptographic signature verification (dispatches to CryptoService)
+│   ├── proof/                       Signature verification of every proof (dispatches to CryptoService), unsupported proofs, validity period
 │   ├── status/                      BitstringStatusList revocation/suspension; non-fatal list-issuer binding check
 │   ├── registry/                    Issuer DID lookup via context.lookupIssuers
-│   ├── trust/                       Opt-in: createIssuerDetailsSuite factory (rich issuer registry metadata via injected lookupDid)
-│   ├── validity/                    Opt-in: expirationSuite (validUntil / expirationDate validity-period check)
-│   └── schema/
-│       ├── schema-loader.ts         Cached AJV loadSchema: schema JSON in cacheService under schema:<url> (24 h), for allow-listed URLs whose $id is the URL
-│       └── obv3/                    AJV-backed OBv3 JSON Schema check (validators compiled once per verifier, refreshed after 24 h); consumed by the openBadgesSchemaSuite bundle in the /openbadges submodule
-├── openbadges/                      Opt-in submodule (published as `@interop/verifier-core/openbadges`)
-│   ├── index.ts                     Curated barrel — suites, individual checks, factory, recognition helpers, problem-type catalog, vocabulary
-│   ├── openbadges-suite.ts          Three suite bundles: openBadgesSuite, openBadgesSemanticSuite, openBadgesSchemaSuite (all phase: 'semantic')
+│   └── trust/                       Opt-in: createIssuerDetailsSuite factory (rich issuer registry metadata via injected lookupDid)
+├── openbadges/                      Opt-in submodule (published as `@interop/verifier-core/openbadges`); loads no AJV
+│   ├── index.ts                     Curated barrel: semantic suite, individual checks, factory, recognition helpers, problem-type catalog, vocabulary
+│   ├── openbadges-suite.ts          openBadgesSemanticSuite (phase: 'semantic', OpenBadgeCredential only)
 │   ├── openbadges-zod.ts            Internal tolerant Zod shapes (CredentialSubject / Achievement / Result / ResultDescription)
-│   ├── recognize.ts                 isOpenBadgeCredential / isEndorsementCredential predicates (also consumed by suites/schema/obv3/)
+│   ├── recognize.ts                 isOpenBadgeCredential / isEndorsementCredential predicates (also consumed by schema/)
 │   ├── recognizers.ts               obv3p0Recognizer + obv3p0EndorsementRecognizer (RecognizerSpec implementations)
 │   ├── problem-types.ts             Obv3ProblemTypes catalog (also exported as OpenBadgesProblemTypes)
 │   ├── known-achievement-types.ts   OB_3_0_ACHIEVEMENT_TYPES set + KNOWN_ACHIEVEMENT_TYPES default alias + ACHIEVEMENT_TYPE_EXT_PREFIX
@@ -82,6 +78,14 @@ src/
 │   ├── achieved-level-check.ts      Result.achievedLevel → RubricCriterionLevel.id reference check
 │   ├── missing-result-status-check.ts  Result.status presence check when ResultDescription.resultType is 'Status'
 │   ├── unknown-achievement-type-check.ts  AchievementType vocabulary check (+ createObv3UnknownAchievementTypeCheck factory)
+│   ├── schema/                      Opt-in submodule (published as `@interop/verifier-core/openbadges/schema`); AJV JSON Schema validation
+│   │   ├── index.ts                 Barrel: openBadgesSuite, openBadgesSchemaSuite, obv3SchemaCheck, obv3DeclaredSchemaCheck
+│   │   ├── schema-suites.ts         openBadgesSchemaSuite + openBadgesSuite (phase: 'semantic', OpenBadgeCredential and EndorsementCredential)
+│   │   ├── obv3-schema-check.ts     schema.obv3.json: validates against the vendored schema for the OB type and VC version (Ajv2020, compiled once per process)
+│   │   ├── obv3-declared-schema-check.ts  schema.obv3.declared: non-fatal report on a declared credentialSchema that does not fit
+│   │   ├── select-schema.ts         getObType / selectObSchema (never reads credentialSchema)
+│   │   ├── known-schema-urls.ts     The purl-published and spec-embedded OB 3.0 schema URLs, with the OB type and VC versions each fits
+│   │   └── json-schema/             The four OB 3.0 credential JSON Schemas from the spec appendix, generated by scripts/refresh-ob-schemas.mjs
 │   └── schemas/                     Strict OB 3.0 envelope Zod schemas (recognition pipeline)
 │       ├── fields-v3p0.ts           Shared field builders (IriString, JsonLdTypeField, Obv3p0ContextArray, zodErrorToProblems)
 │       ├── classes-v3p0.ts          Inner class schemas (Image, Profile, Achievement, AchievementSubject, Result, ResultDescription, RubricCriterionLevel) + ProfileRefField + ImageField
@@ -91,7 +95,7 @@ src/
 │   ├── verifier.ts                  Verifier, VerifierConfig (incl. `recognizers`, `phases`), VerifyCredentialCall, VerifyPresentationCall
 │   ├── options.ts                   VerifyCredentialOptions / VerifyPresentationOptions = VerifierConfig & VerifyXCall (compat aliases)
 │   ├── check.ts                     CheckOutcome, CheckResult, VerificationCheck, VerificationSuite (incl. `applies`, `phase`), SuitePhase
-│   ├── context.ts                   VerificationContext, DocumentLoader, FetchJson
+│   ├── context.ts                   VerificationContext, DocumentLoader
 │   ├── crypto-service.ts            CryptoService port
 │   ├── crypto-suite.ts              CryptoSuite types (legacy LDP / Data Integrity)
 │   ├── recognition.ts               RecognizerSpec, RecognitionResult (recognition plugin contract)
@@ -102,7 +106,6 @@ src/
 │   └── registry.ts                  EntityIdentityRegistry, LookupIssuers, RegistryLookupResult, RegistryCheckPayload (RegistryMatch / RegistryReference / RegistryEntity)
 └── util/                            Internal helpers
     ├── document-loader-from-http-get.ts  Build a JSON-LD loader backed by an HttpGetService; did:web via DidWebResolver's fetchDocument
-    ├── fetch-json-from-http-get.ts       Wrap an HttpGetService as a FetchJson
     ├── registry-cache-key.ts             Stable cache key for a registry list (the sorted ids, JSON-encoded)
     └── json-pointer.ts                   formatJsonPointer (RFC 6901) for ProblemDetail.instance values
 ```
@@ -133,6 +136,9 @@ test/
 │   ├── missing-result-status-check.spec.ts
 │   ├── unknown-achievement-type-check.spec.ts
 │   ├── openbadges-submodule.spec.ts     Integration spec: package.json#exports resolution, default-path invariant, opt-in path, factory composition
+│   ├── openbadges-no-ajv.spec.ts        /openbadges imports with every AJV module mocked to throw
+│   ├── schema/                          Zod class schemas, JSON Schema checks, declared-schema check, schema suites on endorsements
+│   ├── schema-files/                    Vendored-schema pins ($id, SHA-256, clean compile) + purl-published twins for the drift test
 │   └── fixtures/                        TS-module fixtures for the OB integration spec
 └── util/                                Util unit tests
 ```
@@ -205,25 +211,29 @@ consume; it is not a public composition point. Because `documentLoader` and
 same instance — this is what makes batch verification reuse fetches.
 
 **Suites.** `runSuites()` in `run-suites.ts` iterates suites in order, running
-each check sequentially. The default suite order is: **core → recognition →
-proof → registry → status**. The informational `registry` suite runs before the
-fatal `status` check so a revoked credential still reports its issuer lookup.
-Each suite carries a `phase` tag
+each check sequentially. The default suite order is: **core, recognition, proof,
+registry, status**. The proof suite runs `proof.signature`,
+`proof.unsupported-proofs` and `proof.validity-period`, in that order. The
+informational `registry` suite runs before the `status` suite.
+`status.bitstring` and `proof.validity-period` are fatal but set `halts: false`,
+so an expired or revoked credential still reports its issuer lookup, its status
+list issuer and any caller-added suites. A failed `proof.signature` still halts
+everything after it. Each suite carries a `phase` tag
 (`'cryptographic' | 'trust' | 'recognition' | 'semantic'`) that drives the
 optional phase filter (see
 [Phases and two-pass verification](#phases-and-two-pass-verification)) and may
 declare an `applies` predicate that gates execution against the current subject
 (see [The `applies` predicate](#the-applies-predicate)). Callers can append
 custom suites via `additionalSuites`. Open Badges 3.0 verification ships in the
-opt-in `/openbadges` submodule (see
+opt-in `/openbadges` and `/openbadges/schema` submodules (see
 [Vertical submodules](#vertical-submodules-openbadges-and-beyond)).
 
 **Report.** The result is a `CredentialVerificationResult`: a `verified` boolean
 (true if no check marked `fatal` failed) plus a flat `CheckResult[]` array.
 Non-fatal failures stay in `results` and `summary` but leave `verified` true.
-Each `CheckResult.id` is required and is populated by `runSuites`. By default,
-`results` contains failures and explicit applies-skips. Set `verbose: true` to
-include every check that ran.
+Each `CheckResult.id` is required and is populated by `runSuites`. `results`
+contains every check that ran, was skipped, or was not run after a fatal
+failure.
 
 ### Presentation flow
 
@@ -237,15 +247,16 @@ include every check that ran.
    and `VerifiablePresentation` type). Embedded credentials are not verified a
    second time there. A supplied `challenge` selects
    `AuthenticationProofPurpose` with that challenge (and `domain`, if given),
-   whatever `proofPurpose` the VP claims. A challenge, domain or purpose
-   mismatch is reported as `PROOF_PURPOSE_MISMATCH`, not `INVALID_SIGNATURE`.
-   Without a challenge, every proof in the proof set is scanned. If any declares
-   `authentication`, the set is verified under a `ControllerProofPurpose` with
-   the `authentication` term (signature and key authorization only, no challenge
-   or domain comparison). Otherwise `AssertionProofPurpose` is used.
-   `verifyPresentation` rejects a `domain` without a `challenge`, and an
-   empty-string `challenge`, before any suite runs, with a synthetic
-   `proof.signature` failure (`Challenge Required`).
+   whatever `proofPurpose` the VP claims. A challenge or domain mismatch is
+   reported as `PROOF_PURPOSE_MISMATCH`, not `INVALID_SIGNATURE`. A proof made
+   for another purpose is not checked and is reported as `PROOF_UNSUPPORTED`. A
+   proof set is verified one proof at a time, like a credential's. Without a
+   challenge, an `authentication` proof is verified under a
+   `ControllerProofPurpose` with the `authentication` term (signature and key
+   authorization only, no challenge or domain comparison). Any other proof uses
+   `AssertionProofPurpose`. `verifyPresentation` rejects a `domain` without a
+   `challenge`, and an empty-string `challenge`, before any suite runs, with a
+   synthetic `proof.signature` failure (`Challenge Required`).
 2. Each embedded credential is extracted (`extractCredentialsFrom`) and verified
    individually by recursing into the **same `Verifier` instance**
    (`this.verifyCredential(...)`), so the cache, document loader, crypto
@@ -268,17 +279,18 @@ aggregate (its `errors[]` keeps each sub-error object, so `name` and other
 properties survive) and maps each sub-error onto a `ProblemDetail` type, in this
 order:
 
-| Signal                                                                                        | Problem type                     |
-| --------------------------------------------------------------------------------------------- | -------------------------------- |
-| A `jsonld` validation error                                                                   | `PARSING_ERROR`                  |
-| An HTTP error whose URL is the issuer's did:web document                                      | `DID_WEB_UNRESOLVED`             |
-| Any other HTTP error                                                                          | `HTTP_ERROR`                     |
-| `DIDResolutionError` with code `notFound` or `internalError` (a DID driver could not resolve) | `DID_WEB_UNRESOLVED`             |
-| The issuer / controller mismatch message                                                      | `ISSUER_PROOF_MISMATCH`          |
-| The "no driver for this DID method" message                                                   | `VERIFICATION_METHOD_UNRESOLVED` |
-| `VerificationMethodError` (any code), or a matching message                                   | `VERIFICATION_METHOD_ERROR`      |
-| A challenge or domain mismatch message                                                        | `PROOF_PURPOSE_MISMATCH`         |
-| Anything else                                                                                 | `INVALID_SIGNATURE`              |
+| Signal                                                                                        | Problem type                                      |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| A plain `Error` (no `errors[]`) carrying `@interop/vc`'s full validity-date message           | `CREDENTIAL_EXPIRED` / `CREDENTIAL_NOT_YET_VALID` |
+| A `jsonld` validation error                                                                   | `PARSING_ERROR`                                   |
+| An HTTP error whose URL is the issuer's did:web document                                      | `DID_WEB_UNRESOLVED`                              |
+| Any other HTTP error                                                                          | `HTTP_ERROR`                                      |
+| `DIDResolutionError` with code `notFound` or `internalError` (a DID driver could not resolve) | `DID_WEB_UNRESOLVED`                              |
+| The issuer / controller mismatch message                                                      | `ISSUER_PROOF_MISMATCH`                           |
+| The "no driver for this DID method" message                                                   | `VERIFICATION_METHOD_UNRESOLVED`                  |
+| `VerificationMethodError` (any code), or a matching message                                   | `VERIFICATION_METHOD_ERROR`                       |
+| A challenge or domain mismatch message                                                        | `PROOF_PURPOSE_MISMATCH`                          |
+| Anything else                                                                                 | `INVALID_SIGNATURE`                               |
 
 The two typed matches use `name` (and, for `DIDResolutionError`, `code`) rather
 than `instanceof`, since a duplicated package copy in `node_modules` would
@@ -291,8 +303,26 @@ the DID resolved but the method cannot back the proof:
 from `ControllerProofPurpose.validate`, and the did:key, did:web and did:webvh
 drivers throw `notFound` for a fragment the DID document does not have.
 `src/util/verification-method-messages.ts` keeps the libraries' English messages
-as a fallback for builds that still throw plain `Error`s. In a proof set, the
-faults are reported beside the other proofs' failures rather than hiding them.
+as a fallback for builds that still throw plain `Error`s.
+
+The library checks validity dates only after the proof verified, and reports a
+date failure as a plain `Error`. So the date match requires a plain `Error`, not
+a `VerificationError` and with no `errors[]`, whose message matches the
+library's wording in full. A date phrase inside a wrapped proof error never
+counts. `proof.signature` reads a rejection made only of date problems as a
+verified signature, and `proof.validity-period` reports the dates.
+
+Before classifying, the service checks for jsonld-signatures' "no proof matched"
+failure: a `VerificationError` wrapping exactly one `NotFoundError` with the
+library's full message (`src/util/jsigs-no-match.ts`). That proof was not
+checked at all, so it is reported as `PROOF_UNSUPPORTED`. The `detail` says
+whether no registered suite supports the cryptosuite or the proof was made for
+another purpose.
+
+Each proof of a proof set is dispatched and classified on its own (see
+`dispatchProofSetVerification` in `src/crypto-dispatch.ts`). A failing proof's
+problems are prefixed with its position and label, such as "Proof 2 of 2
+(DataIntegrityProof, eddsa-rdfc-2022): ...".
 
 ## The Verifier factory
 
@@ -384,8 +414,8 @@ verifier through `RegistryHandlerContext`, together with the verifier's
 `TimeService` (the clock for OIDF `exp` checks), and `vc-recognition` passes
 `registries: []` to its recursive `verifier.verifyCredential(...)` as a
 recursion guard. Status-list credential proofs do **not** take this path: they
-go through `dispatchProofVerification` against `cryptoServices` (see the status
-suite) rather than a recursive `Verifier.verifyCredential` call.
+go through `dispatchProofSetVerification` against `cryptoServices` (see the
+status suite) rather than a recursive `Verifier.verifyCredential` call.
 
 ## Suites and checks
 
@@ -400,10 +430,10 @@ VerificationCheck.execute(subject, context)
 CheckOutcome
   ├── { status: 'success', message, payload? }
   ├── { status: 'failure', problems: ProblemDetail[], payload? }
-  └── { status: 'skipped', reason, code? }
+  └── { status: 'skipped', reason, code?, haltedBy? }
        │
        ▼
-CheckResult: { suite, check, outcome, fatal?, timing? }
+CheckResult: { id, suite, outcome, fatal?, halts?, timing? }
 ```
 
 `timing` is opt-in: present on every `CheckResult`, `SuiteSummary`, and
@@ -415,15 +445,20 @@ top-level result only when the producing call ran with `timing: true`. Additive
 
 - **`appliesTo`** limits a check to credential-only or presentation-only
   subjects. If unset, the check runs for both.
-- **`fatal`** on a check means a failure halts every remaining check for the
-  subject, in that suite and in all later suites. Once the subject is known to
-  be invalid, later checks would only report misleading follow-on failures or do
-  needless network I/O. Each check that would have run still appears in the
-  report, as `skipped` with code `NOT_RUN_AFTER_FATAL` (exported as
-  `RUN_SUITES_SKIP_CODES.notRunAfterFatal`), `haltedBy` naming the failed check,
-  and reason `Not run: <check-id> failed`, visible with `verbose: true`, so the
-  report stays complete. Suites that would not have run anyway (phase filter,
-  `applies` false) stay silent.
+- **`fatal`** on a check means a failure makes `verified` false and halts every
+  remaining check for the subject, in that suite and in all later suites. Once
+  the subject is known to be invalid, later checks would only report misleading
+  follow-on failures or do needless network I/O. Each check that would have run
+  still appears in the report, as `skipped` with code `NOT_RUN_AFTER_FATAL`
+  (exported as `RUN_SUITES_SKIP_CODES.notRunAfterFatal`), `haltedBy` naming the
+  failed check, and reason `Not run: <check-id> failed`, so the report stays
+  complete. Suites that would not have run anyway (phase filter, `applies`
+  false) stay silent.
+- **`halts`** defaults to `fatal`. A fatal check with `halts: false` still makes
+  `verified` false when it fails, but later checks run. Use it when the failure
+  leaves later checks meaningful. A throwing `applies` predicate on a suite with
+  a fatal check halts whatever `halts` says, since every check in that suite is
+  then unknown.
 - **Throws are contained.** A check whose `execute` throws yields a `failure`
   carrying `CHECK_ERROR` (detail `Check "<id>" threw: <message>`), keeping the
   check's own `fatal` flag. A suite whose `applies` predicate throws yields a
@@ -453,16 +488,16 @@ top-level result only when the producing call ran with `timing: true`. Additive
 
 ### Default suites
 
-| Suite              | ID            | Phase           | Checks                                                                                                                                                      | Fatal | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ------------------ | ------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Core Structure     | `core`        | `cryptographic` | `core.context-exists`, `core.vc-context`, `core.vc-structure`, `core.credential-id`, `core.proof-exists` (credentials); `core.vp-structure` (presentations) | Yes   | Validates basic VC / VP structure before crypto. Runs for presentations too, ahead of `proof`. `core.vc-structure` and `core.vp-structure` check the VC Data Model's structural requirements and report every violation as a `MALFORMED_VALUE_ERROR` with a JSON Pointer `instance`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| Recognition        | `recognition` | `recognition`   | `recognition.profile`                                                                                                                                       | No    | Pluggable recognizer dispatch; produces normalized credential form. Skipped with `no recognizers configured` when none are set, and `no recognizer matched` when none applies.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Proof Verification | `proof`       | `cryptographic` | `proof.signature`                                                                                                                                           | Yes   | Cryptographic signature verification dispatched via `CryptoService`. An authentic but expired / not-yet-valid credential is reported as `CREDENTIAL_EXPIRED` / `CREDENTIAL_NOT_YET_VALID` (the library judges dates only after the proof verifies), not as `INVALID_SIGNATURE`. Does **not** check credential status — see the status suite.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Credential Status  | `status`      | `cryptographic` | `status.bitstring`, `status.list-issuer`                                                                                                                    | Yes   | Revocation/suspension via BitstringStatusList. **Sole owner** of status verification: a missing/invalid/expired/not-yet-valid status list, a wrong-typed list, or a set revocation/suspension bit all fail the credential. Only `BitstringStatusListEntry` entries with purpose `revocation` or `suspension` are checked; other entries (legacy types, other purposes such as `refresh`) are ignored, their lists are not fetched, and the outcome names them. A malformed entry (not an object, no string `type`, or a Bitstring entry without a string `statusPurpose`) fails with a `MALFORMED_VALUE_ERROR` pointing at the entry. Each set bit is its own `CREDENTIAL_REVOKED` / `CREDENTIAL_SUSPENDED` problem naming the list URL and index. The status list credential's own proof is verified through the injected `CryptoService`s, same dispatch as any other credential. A Bitstring entry listing more than one `type` is malformed too, since the status list library ignores it. `status.list-issuer` (non-fatal) then compares each verified list's `issuer` id with the credential's and reports `STATUS_LIST_ISSUER_MISMATCH` per differing list; `verified` is unchanged, since some status services sign every tenant's list with one DID of their own. It reads the lists `status.bitstring` verified in the same run, so it only reports in a pass that includes the `cryptographic` phase. |
-| Issuer Registry    | `registry`    | `trust`         | `registry.issuer`                                                                                                                                           | No    | Lookup issuer DID in known registries via `context.lookupIssuers`. Outcomes carry a `RegistryCheckPayload` (`matches`, `uncheckedRegistries`) on `outcome.payload`, on success and on failure. Fails with only `REGISTRY_UNCHECKED` when no registry could be checked.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Suite              | ID            | Phase           | Checks                                                                                                                                                      | Fatal    | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------ | ------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core Structure     | `core`        | `cryptographic` | `core.context-exists`, `core.vc-context`, `core.vc-structure`, `core.credential-id`, `core.proof-exists` (credentials); `core.vp-structure` (presentations) | Yes      | Validates basic VC / VP structure before crypto. Runs for presentations too, ahead of `proof`. `core.vc-structure` and `core.vp-structure` check the VC Data Model's structural requirements and report every violation as a `MALFORMED_VALUE_ERROR` with a JSON Pointer `instance`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Recognition        | `recognition` | `recognition`   | `recognition.profile`                                                                                                                                       | No       | Pluggable recognizer dispatch; produces normalized credential form. Skipped with `no recognizers configured` when none are set, and `no recognizer matched` when none applies.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Proof Verification | `proof`       | `cryptographic` | `proof.signature`, `proof.unsupported-proofs`, `proof.validity-period` (credentials only)                                                                   | Yes / No | Cryptographic signature verification dispatched via `CryptoService`. A proof set is verified one proof at a time (`dispatchProofSetVerification` hands each `CryptoService` call a shallow copy carrying a single proof), and `proof.signature` passes only when every proof a registered suite can check verified (VC Data Integrity section 4.5). The signature libraries alone accept a set when any one proof verifies. A proof no registered suite supports, or made for another proof purpose, is `PROOF_UNSUPPORTED`; a proof no `CryptoService` takes at all (`canVerify` false) counts the same. Beside a verified proof either is a warning on the non-fatal `proof.unsupported-proofs`, which reads the verification `proof.signature` recorded for the run (`beginProofRun` / `verifyProofSet`, the same per-run shape as `beginStatusListRun`). When no proof could be checked it fails `proof.signature`. A definite rejection of one proof is reported ahead of another proof's thrown error. The crypto service reports a date-only rejection as `CREDENTIAL_EXPIRED` / `CREDENTIAL_NOT_YET_VALID` with `CryptoResult.proofVerified: true`; `proof.signature` reads that flag, not the problem types, as a verified signature. `proof.validity-period` (fatal, `halts: false`) then judges the dates at `VerificationContext.now`, so an authentic but out-of-date credential fails there rather than as `INVALID_SIGNATURE`, and later checks still run. Does **not** check credential status -- see the status suite.                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Credential Status  | `status`      | `cryptographic` | `status.bitstring`, `status.list-issuer`                                                                                                                    | Yes / No | Revocation/suspension via BitstringStatusList. **Sole owner** of status verification. `status.bitstring` is fatal with `halts: false`: the credential is authentic by then, so the list issuer, the registry and caller-added suites are still reported after a status failure. A list's proof set is verified proof by proof, so one bad proof makes a bad list. A missing/invalid/expired/not-yet-valid status list, a wrong-typed list, or a set revocation/suspension bit all fail the credential. Only `BitstringStatusListEntry` entries with purpose `revocation` or `suspension` are checked; other entries (legacy types, other purposes such as `refresh`) are ignored, their lists are not fetched, and the outcome names them. A malformed entry (not an object, no string `type`, or a Bitstring entry without a string `statusPurpose`) fails with a `MALFORMED_VALUE_ERROR` pointing at the entry. Each set bit is its own `CREDENTIAL_REVOKED` / `CREDENTIAL_SUSPENDED` problem naming the list URL and index. The status list credential's own proof is verified through the injected `CryptoService`s, same dispatch as any other credential. A Bitstring entry listing more than one `type` is malformed too, since the status list library ignores it. `status.list-issuer` (non-fatal) then compares each list whose proof verified (or was rejected only for its validity dates) with the credential's `issuer` id, including a list that marks the credential revoked, and reports `STATUS_LIST_ISSUER_MISMATCH` per differing list; `verified` is unchanged, since some status services sign every tenant's list with one DID of their own. A list that could not be loaded or whose proof did not verify is not compared; with no mismatch elsewhere the check is skipped. It reads the lists `status.bitstring` verified in the same run, so it only reports in a pass that includes the `cryptographic` phase. |
+| Issuer Registry    | `registry`    | `trust`         | `registry.issuer`                                                                                                                                           | No       | Lookup issuer DID in known registries via `context.lookupIssuers`. Outcomes carry a `RegistryCheckPayload` (`matches`, `uncheckedRegistries`) on `outcome.payload`, on success and on failure. Fails with only `REGISTRY_UNCHECKED` when no registry could be checked.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 Open Badges 3.0 verification (semantic checks and JSON Schema conformance) is no
-longer in the default list; it ships as an opt-in submodule (see
+longer in the default list. It ships as two opt-in submodules (see
 [Vertical submodules](#vertical-submodules-openbadges-and-beyond)). The OB suite
 bundles are tagged `phase: 'semantic'`.
 
@@ -475,20 +510,10 @@ the built-in suites, and a consumer passes them via a verify call's
 dependencies, so exporting them from the main entry costs nothing for consumers
 who don't use them.
 
-| Suite           | ID         | Phase           | Checks                 | Fatal | Purpose                                             |
-| --------------- | ---------- | --------------- | ---------------------- | ----- | --------------------------------------------------- |
-| Validity Period | `validity` | `cryptographic` | `validity.expiration`  | No    | Credential is within its validity period            |
-| Issuer Trust    | `trust`    | `trust`         | `trust.issuer-details` | No    | Surfaces rich issuer registry metadata on `payload` |
+| Suite        | ID      | Phase   | Checks                 | Fatal | Purpose                                             |
+| ------------ | ------- | ------- | ---------------------- | ----- | --------------------------------------------------- |
+| Issuer Trust | `trust` | `trust` | `trust.issuer-details` | No    | Surfaces rich issuer registry metadata on `payload` |
 
-- **`expirationSuite`** (`src/suites/validity/`) -- a non-fatal check that the
-  credential has not expired, reading the expiry from VC 2.0 `validUntil` and
-  falling back to VC 1.x `expirationDate`. "Now" is `context.now`, the instant
-  resolved once per verify call from the injected `timeService` (deterministic
-  under a fake time service in tests). On failure it emits
-  `ProblemTypes.CREDENTIAL_EXPIRED`, so a consumer branches on one URI whichever
-  check found the expiry. The fatal `proof.signature` check already reports
-  expiry for the default crypto service; this suite stays useful with a custom
-  `CryptoService` that does not judge dates, or when the proof suite is not run.
 - **`createIssuerDetailsSuite({ lookupDid })`** (`src/suites/trust/`) -- a
   factory for a non-fatal check that surfaces the full issuer registry metadata
   (logo, legal name, homepage, registry org, etc.) on the check outcome's
@@ -639,8 +664,9 @@ const result = await verifier.verifyCredential({
 Some verification logic only matters to a subset of credential consumers. Rather
 than ship that logic in the default suite list — and pay its cost on every
 verification — the library exposes it as an **opt-in submodule** under a
-dedicated `package.json#exports` subpath. The first such submodule is
-`@interop/verifier-core/openbadges`.
+dedicated `package.json#exports` subpath. The first such vertical is Open
+Badges, published as `@interop/verifier-core/openbadges` and
+`@interop/verifier-core/openbadges/schema`.
 
 A vertical submodule has three properties:
 
@@ -652,28 +678,51 @@ A vertical submodule has three properties:
    both `OpenBadgesProblemTypes` and `Obv3ProblemTypes`). The core
    `src/problem-types.ts` no longer mirrors these entries; consumers branching
    on OB problems import the submodule's catalog directly.
-3. **It may share recognition helpers with the core suites.** The AJV-backed
-   `obv3SchemaCheck` in `src/suites/schema/obv3/` consumes
-   `isOpenBadgeCredential` / `isEndorsementCredential` from
-   `src/openbadges/recognize.ts`. The directional dependency is
-   `suites/schema/obv3/` → `openbadges/`, never the reverse — the submodule
-   stays free to depend on whatever it needs from the rest of `src/` without
-   creating a cycle.
+3. **Heavy dependencies sit behind their own subpath.** AJV and the bundled OB
+   3.0 JSON Schemas (about 270 KB) load only from
+   `@interop/verifier-core/openbadges/schema` (`src/openbadges/schema/`).
+   `src/openbadges/index.ts` imports nothing from `schema/`, so importing
+   `/openbadges` loads neither. This matters where a bundler does not tree-shake
+   (Metro), and under a Content Security Policy that forbids `unsafe-eval`,
+   since AJV compiles with `new Function`. The dependency runs from `schema/` to
+   `openbadges/` (recognition helpers, the semantic suite), and the reverse
+   import is not allowed.
 
-The `/openbadges` submodule exports three suite bundles (`openBadgesSuite`,
-`openBadgesSemanticSuite`, `openBadgesSchemaSuite` — all tagged
+The `/openbadges` submodule exports `openBadgesSemanticSuite` (tagged
 `phase: 'semantic'` and gated by an `applies` predicate that returns true only
-for OB credentials), individual checks, a factory for caller-augmented
-vocabulary (`createObv3UnknownAchievementTypeCheck`), recognition helpers, two
-`RecognizerSpec`s (`obv3p0Recognizer`, `obv3p0EndorsementRecognizer`) plus their
-strict envelope Zod schemas (`Obv3p0OpenBadgeCredentialSchema`,
-`Obv3p0EndorsementCredentialSchema`, along with their `parseObv3p0…` entry
-points), the OB-specific problem-type catalog, and version-scoped
-`AchievementType` vocabulary (`OB_3_0_ACHIEVEMENT_TYPES`, the moving
-`KNOWN_ACHIEVEMENT_TYPES` alias, and the spec-sanctioned
+for OpenBadgeCredential), individual semantic checks, a factory for
+caller-augmented vocabulary (`createObv3UnknownAchievementTypeCheck`),
+recognition helpers, two `RecognizerSpec`s (`obv3p0Recognizer`,
+`obv3p0EndorsementRecognizer`) plus their strict envelope Zod schemas
+(`Obv3p0OpenBadgeCredentialSchema`, `Obv3p0EndorsementCredentialSchema`, along
+with their `parseObv3p0…` entry points), the OB-specific problem-type catalog,
+and version-scoped `AchievementType` vocabulary (`OB_3_0_ACHIEVEMENT_TYPES`, the
+moving `KNOWN_ACHIEVEMENT_TYPES` alias, and the spec-sanctioned
 `ACHIEVEMENT_TYPE_EXT_PREFIX = 'ext:'`). The schemas are version-pinned to OB
 3.0 so a future OB 3.1 schema can be introduced side-by-side with its own
-recognizer rather than mutating the 3.0 shape. See the README's
+recognizer rather than mutating the 3.0 shape.
+
+The `/openbadges/schema` submodule exports `openBadgesSchemaSuite` and
+`openBadgesSuite` (the semantic checks plus the schema checks). Both are tagged
+`phase: 'semantic'` and apply to OpenBadgeCredential and EndorsementCredential.
+Inside `openBadgesSuite` the semantic checks skip an endorsement. It also
+exports the two checks:
+
+- `obv3SchemaCheck` (`schema.obv3.json`) validates against the OB 3.0 JSON
+  Schema for the credential's type and VC version: E.2.1.2
+  AchievementCredential, E.2.1.34 AchievementCredentialv1p1, E.2.1.7
+  EndorsementCredential or E.2.1.36 EndorsementCredentialv1p1. The schemas are
+  copied from the spec appendix into `src/openbadges/schema/json-schema/` by the
+  hand-run `scripts/refresh-ob-schemas.mjs`. Nothing is fetched. A module-scope
+  `Ajv2020` compiles each schema once per process. The credential's
+  `credentialSchema` does not choose the schema.
+- `obv3DeclaredSchemaCheck` (`schema.obv3.declared`, non-fatal) compares each
+  declared `credentialSchema` entry with that schema. It reports
+  `OB_DECLARED_SCHEMA_MISMATCH` for a known OB 3.0 schema URL that does not fit
+  and `OB_DECLARED_SCHEMA_NOT_CHECKED` for any other URL, with `instance`
+  pointing at the entry.
+
+See the README's
 [Open Badges 3.0 verification](../README.md#open-badges-30-verification-opt-in-submodule)
 and
 [Credential recognition + two-pass verification](../README.md#credential-recognition--two-pass-verification)
@@ -700,7 +749,7 @@ VerifierConfig                       (long-lived deps: http, cache, crypto, regi
           → VerificationSuite[]
             → VerificationCheck.execute(subject, context)
               → CheckOutcome (success | failure | skip)
-                → CheckResult (suite, check, outcome, fatal?, timing?)
+                → CheckResult (id, suite, outcome, fatal?, halts?, timing?)
         → CredentialVerificationResult                  ({ verified, verifiableCredential, results })
 ```
 
@@ -763,23 +812,27 @@ outcome, on success and on failure; a handler supplies the `entity` on its
 }
 ```
 
-### Result folding
+### Per-suite summaries
 
-Since v2.0.0, `results[]` (on both result types, and on each embedded
-`credentialResults[i]`) carries only failures and explicit `<suite>.applies`
-skips by default; the per-suite rollup lives in `summary[]`. Pass
-`verbose: true` (on the verifier or per call) to restore the legacy "every
-check" shape on `results[]`. The folding itself is implemented as a pure helper
-— `foldCheckResults` / `computeId` in `src/fold-results.ts` — and is also
+`results[]` (on both result types, and on each embedded `credentialResults[i]`)
+carries every check that ran, was skipped, or was not run after a fatal failure.
+The per-suite rollup lives in `summary[]`. It is computed by a pure helper,
+`foldCheckResults` / `computeId` in `src/fold-results.ts`, which is also
 exported from the package barrel for consumers that append late results and want
-to re-fold. Checks halted by a fatal failure are explicit `skipped` rows with
-code `NOT_RUN_AFTER_FATAL`, which the summary message reports as "not run after
-fatal" (see [`message` format](api/verification-results.md#message-format)).
+to recompute summaries. Checks halted by a fatal failure are explicit `skipped`
+rows with code `NOT_RUN_AFTER_FATAL`, which the summary message reports as "not
+run after fatal" (see
+[`message` format](api/verification-results.md#message-format)).
+
+Each row carries its namespaced `id` and its `suite` id. `suite` cannot be
+recovered from `id`, because a suite id may itself contain dots.
 
 `SuiteSummary.verified` follows the same rule as the top-level `verified`. It is
 true unless a check marked `fatal` failed in that suite. A suite can therefore
 have `status: 'failure'` with `verified: true` when the failing check is
-non-fatal.
+non-fatal. `fatalFailureAt` names the first fatal failure in a suite. Because a
+fatal check with `halts: false` does not stop later suites, more than one
+summary can carry it. The top-level `verified` is false exactly when any does.
 
 See [`docs/api/verification-results.md`](api/verification-results.md) for the
 full reference, including the `id` namespace, rendering recipes, and the LLM
@@ -819,11 +872,12 @@ into the core `ProblemTypes` map. The first such catalog is
 `src/openbadges/problem-types.ts`, surfaced via
 `@interop/verifier-core/openbadges`. Current OB entries:
 `OB_INVALID_RESULT_REFERENCE`, `OB_INVALID_ACHIEVED_LEVEL`,
-`OB_MISSING_RESULT_STATUS`, `OB_UNKNOWN_ACHIEVEMENT_TYPE`. The wire URIs use the
-`…#OB_*` shape so they remain stable across OB version updates. Failure-outcome
-problems from these checks (and from the strict OB envelope schemas) populate
-`ProblemDetail.instance` with an RFC 6901 JSON Pointer locating the offending
-field.
+`OB_MISSING_RESULT_STATUS`, `OB_UNKNOWN_ACHIEVEMENT_TYPE`,
+`OB_DECLARED_SCHEMA_MISMATCH`, `OB_DECLARED_SCHEMA_NOT_CHECKED`. The wire URIs
+use the `…#OB_*` shape so they remain stable across OB version updates.
+Failure-outcome problems from these checks (and from the strict OB envelope
+schemas) populate `ProblemDetail.instance` with an RFC 6901 JSON Pointer
+locating the offending field.
 
 `ProblemDetail.type` itself stays typed as `string` so callers writing custom
 suites can emit their own URIs without requiring an entry in any catalog.
@@ -848,7 +902,7 @@ suites can emit their own URIs without requiring an entry in any catalog.
 | `@interop/did-method-webvh`         | did:webvh resolution driver, fed through the injected `HttpGetService`       |
 | `@interop/vc-bitstring-status-list` | Status list loading, purpose matching, bitstring decoding, and index reading |
 | `zod`                               | Minimal input envelope gate; strict OB 3.0 envelopes (`/openbadges`)         |
-| `ajv` / `ajv-formats`               | JSON Schema validation for OBv3 schema checks (`/openbadges` only)           |
+| `ajv` / `ajv-formats`               | JSON Schema validation for OBv3 schema checks (`/openbadges/schema` only)    |
 | `klona`                             | Deep clone of cached registry lookup results                                 |
 
 ### Test
@@ -897,14 +951,18 @@ wire in exactly the behavior they need.
   `VerificationContext.now`; `proof.signature` and `status.bitstring` pass that
   instant to the crypto service as `CryptoVerifyOptions.now`, so credential and
   status list validity are judged at the same instant however long the list
-  fetches take, and a `FakeTimeService` moves both. `validity.expiration` reads
-  the same instant. The default crypto service compares dates exactly against it
-  (zero clock skew), so the two checks agree, and it reports an authentic but
-  out-of-date document as `CREDENTIAL_EXPIRED` / `CREDENTIAL_NOT_YET_VALID`
-  rather than `INVALID_SIGNATURE`; `status.bitstring` maps those onto
-  `STATUS_LIST_EXPIRED` / `STATUS_LIST_NOT_YET_VALID`. A custom `CryptoService`
-  that judges dates reports the same two URIs. Checks may use the clock for any
-  other time-sensitive decision (key rotation). Tests pass `FakeTimeService` for
+  fetches take, and a `FakeTimeService` moves both. `proof.validity-period`
+  judges the credential's dates at the same instant. The default crypto service
+  compares dates exactly against it (zero clock skew), so the two agree, and it
+  reports an authentic but out-of-date document as `CREDENTIAL_EXPIRED` /
+  `CREDENTIAL_NOT_YET_VALID` rather than `INVALID_SIGNATURE`, with
+  `CryptoResult.proofVerified: true`. `proof.signature` reads that flag as a
+  verified signature; `status.bitstring` maps the problems onto
+  `STATUS_LIST_EXPIRED` / `STATUS_LIST_NOT_YET_VALID` and records a flagged list
+  for `status.list-issuer`. A custom `CryptoService` that judges dates reports
+  the same two URIs and sets the flag only once the proof verified; without it
+  the rejection is a signature failure. Checks may use the clock for any other
+  time-sensitive decision (key rotation). Tests pass `FakeTimeService` for
   deterministic exact-value assertions on every `TaskTiming` field.
 - **Suites are plugins** with a uniform `VerificationCheck` interface. Adding a
   new check or suite requires no changes to the core orchestration; callers
@@ -937,8 +995,9 @@ wire in exactly the behavior they need.
   loading, purpose matching, bitstring decoding, and index reading. The status
   list credential's proof is injected through that library's
   `verifyStatusListCredential` hook and verified through the injected
-  `CryptoService`s via `src/crypto-dispatch.ts` — the same dispatch
-  presentations and credentials use. The hook records each verified list in a
+  `CryptoService`s via `src/crypto-dispatch.ts` -- the same dispatch, one proof
+  at a time, that presentations and credentials use. The hook records each list
+  whose proof verified (or was rejected only for its validity dates) in a
   `WeakMap` keyed by the `VerificationContext` of the current `status.bitstring`
   run (the run starts by dropping any earlier record on that context), and the
   non-fatal `status.list-issuer` check takes those lists back out, so a list is
@@ -958,11 +1017,11 @@ wire in exactly the behavior they need.
   `@interop/ecdsa-multikey` and `@interop/ed25519-verification-key` packages;
   the ES256 path verifies through WebCrypto, so React Native needs a WebCrypto
   polyfill for it.
-- **OBv3 schema check** uses AJV directly. A `JsonSchemaValidator` port would
-  let consumers swap in a different validator or share a single validator across
-  calls. (The check itself was already lifted into the opt-in `/openbadges`
-  submodule's `openBadgesSchemaSuite` bundle, so consumers who don't care about
-  Open Badges already pay zero cost for it.)
+- **OBv3 schema check** uses AJV directly, through a module-scope `Ajv2020` that
+  compiles each vendored schema once per process. A `JsonSchemaValidator` port
+  would let consumers swap in a different validator. (The check already lives in
+  the opt-in `/openbadges/schema` submodule, so consumers who don't care about
+  Open Badges JSON Schema validation pay zero cost for it.)
 - **Cache TTL math bypasses the clock seam.** `TimeService` is the clock seam
   for verification decisions (see above) and reaches the registry handlers
   through `RegistryHandlerContext`, where the OIDF handler reads it for `exp`
@@ -979,10 +1038,15 @@ With `HttpGetService`, `CacheService`, `CryptoService`, and `RegistryHandler`
 ports in place, the remaining hexagonal work is:
 
 1. Wrap AJV behind a `JsonSchemaValidator` port. (The "lift the OBv3 schema
-   check into a separate vertical" half of this item is done — see the
-   `/openbadges` submodule.)
+   check into a separate vertical" half of this item is done. See the
+   `/openbadges/schema` submodule.)
 2. Thread the existing `TimeService` seam through the caching layer so TTL and
    cache-expiry behavior is testable on the same clock as verification.
+3. Support proof chains (`previousProof`). The `CryptoService` port already sees
+   one proof at a time: `dispatchProofSetVerification` splits a proof set before
+   dispatch, so a new service needs no proof-set logic of its own. A proof chain
+   needs each proof checked against the ones before it, which neither the
+   per-proof dispatch nor the underlying libraries do yet.
 
 This is a direction, not a mandate. Progress is incremental — each change that
 moves a concrete dependency behind an interface moves the library closer to the

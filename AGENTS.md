@@ -38,12 +38,18 @@ with code changes. Quick map:
   violation. The inferred `VerifiableCredential` type is a passthrough object,
   so consumers reading other fields get `unknown`.
 - **Suite/check engine** (`src/run-suites.ts`): an ordered pipeline of suites ->
-  checks. Default order: `core -> recognition -> proof -> registry -> status`
-  (registry before the fatal status check so revocation keeps the issuer row).
-  `verifyPresentation` runs `core` (only `core.vp-structure` applies) and then
-  `proof` against the VP itself. Each check returns a discriminated
-  `CheckOutcome` (`success | failure | skipped`) -- **no exceptions for
-  verification failures**. Append custom suites via `additionalSuites`.
+  checks. Default order: `core -> recognition -> proof -> registry -> status`.
+  The proof suite is `proof.signature` (every checkable proof of a proof set
+  must verify), the non-fatal `proof.unsupported-proofs`, then
+  `proof.validity-period`. `proof.validity-period` and `status.bitstring` are
+  fatal with `halts: false`, so an expired or revoked credential still runs
+  every later check. `verifyPresentation` runs `core` (only `core.vp-structure`
+  applies) and then `proof` against the VP itself. Each check returns a
+  discriminated `CheckOutcome` (`success | failure | skipped`) -- **no
+  exceptions for verification failures**. A `fatal` check failure makes
+  `verified` false and, unless the check sets `halts: false`, stops every later
+  check (reported as not-run skips). Append custom suites via
+  `additionalSuites`.
 - **Suites carry a `phase` tag**
   (`cryptographic | trust | recognition | semantic`) and an optional
   `applies(subject)` predicate. The `phases?:` filter enables two-pass
@@ -54,10 +60,11 @@ with code changes. Quick map:
   `title`, `detail`) with an optional `instance` field carrying an RFC 6901 JSON
   Pointer to the offending field (`src/util/json-pointer.ts`). Type-URI catalog
   in `src/problem-types.ts`.
-- **Result folding (v2.0.0)**: `results[]` carries only failures + explicit
-  `<suite>.applies` skips; per-suite rollup lives in `summary: SuiteSummary[]`.
-  `verbose: true` restores the full check list. Pure helpers `foldCheckResults`
-  / `computeId` in `src/fold-results.ts`.
+- **Per-suite summaries**: `results[]` lists every check that ran (passes,
+  skips, not-run rows); per-suite rollup lives in `summary: SuiteSummary[]`.
+  Rows are selected by the phase-qualified `id` (e.g.
+  `cryptographic.proof.signature`). Pure helpers `foldCheckResults` /
+  `computeId` in `src/fold-results.ts`.
 - **Trust registries** (`EntityIdentityRegistry` discriminated union):
   `dcc-legacy` (old URL-based DID list), `oidf` (OpenID Federation),
   `vc-recognition` (a recognition VC recursively verified through the _same_
@@ -73,12 +80,6 @@ Generic (non-vertical) suites can ship from the **main** entry point but stay
 out of `defaultSuites` -- consumers pass them via a verify call's
 `additionalSuites`. Current ones:
 
-- `expirationSuite` (`src/suites/validity/`, check id `validity.expiration`) --
-  non-fatal validity-period check (VC 2.0 `validUntil`, falling back to VC 1.x
-  `expirationDate`); reads "now" from `context.now`, the same instant
-  `proof.signature` uses. Emits `ProblemTypes.CREDENTIAL_EXPIRED` (the fatal
-  `proof.signature` check reports the same URI for the default crypto service;
-  this suite covers custom services that do not judge dates).
 - `createIssuerDetailsSuite({ lookupDid })` (`src/suites/trust/`, check id
   `trust.issuer-details`) -- a factory for a non-fatal check that surfaces rich
   issuer registry metadata on the outcome `payload` for a UI. The lookup is
@@ -86,24 +87,37 @@ out of `defaultSuites` -- consumers pass them via a verify call's
   dependency; `createIssuerDetailsCheck` is also exported for a la carte
   composition.
 
-### Vertical submodules (`/openbadges`)
+### Vertical submodules (`/openbadges`, `/openbadges/schema`)
 
 Vertical-specific logic ships **opt-in** under a `package.json#exports` subpath,
-NOT in `defaultSuites`. First one: `@interop/verifier-core/openbadges`
-(`src/openbadges/`) -- OB 3.0 recognizers, strict version-pinned Zod envelope
-schemas, AJV JSON-Schema checks, semantic checks, and its own
-`OpenBadgesProblemTypes` catalog. Future verticals (EU DCC, jurisdiction trust
-frameworks) follow the same pattern.
+NOT in `defaultSuites`. First one is Open Badges, split in two:
 
-**Bundle note**: `ajv`/`ajv-formats` are only reachable via
-`src/suites/schema/obv3/`, which is consumed exclusively by the `/openbadges`
-submodule. The default suite chain does not import them -- a consumer importing
-only the main entry tree-shakes ajv out. The main entry imports nothing from
-`src/openbadges/` (the issuer gate no longer reaches for the OB image schema).
-The heavy weight is the unchanged crypto/JSON-LD stack
-(`@digitalcredentials/vc`, `jsonld-signatures`, `data-integrity`,
-`security-document-loader`, `did-method-*`, `vc-bitstring-status-list`); the
-rewrite adds `zod` (main path) + `klona` (tiny).
+- `@interop/verifier-core/openbadges` (`src/openbadges/index.ts`) -- OB 3.0
+  recognizers, strict version-pinned Zod envelope schemas, the semantic suite
+  and checks, and its own `OpenBadgesProblemTypes` catalog.
+- `@interop/verifier-core/openbadges/schema` (`src/openbadges/schema/`) --
+  `openBadgesSuite`, `openBadgesSchemaSuite`, `obv3SchemaCheck`
+  (`schema.obv3.json`) and `obv3DeclaredSchemaCheck` (`schema.obv3.declared`).
+  The schema suites apply to OpenBadgeCredential and EndorsementCredential. The
+  check validates against the four OB 3.0 JSON Schemas vendored from the spec
+  appendix (`src/openbadges/schema/json-schema/`, regenerated by hand with
+  `scripts/refresh-ob-schemas.mjs`), chosen by OB type and VC version. Nothing
+  is fetched, and `credentialSchema` does not choose the schema.
+
+Future verticals (EU DCC, jurisdiction trust frameworks) follow the same
+pattern.
+
+**Bundle note**: `ajv`/`ajv-formats` and the vendored schemas are only reachable
+via `src/openbadges/schema/`, the `/openbadges/schema` entry.
+`src/openbadges/index.ts` imports nothing from `schema/`, so importing
+`/openbadges` loads no AJV (pinned by
+`test/openbadges/openbadges-no-ajv.spec.ts`). The default suite chain does not
+import them either. The main entry imports nothing from `src/openbadges/` (the
+issuer gate no longer reaches for the OB image schema). The heavy weight is the
+unchanged crypto/JSON-LD stack (`@digitalcredentials/vc`, `jsonld-signatures`,
+`data-integrity`, `security-document-loader`, `did-method-*`,
+`vc-bitstring-status-list`); the rewrite adds `zod` (main path) + `klona`
+(tiny).
 
 ## Direction Nate is taking it
 

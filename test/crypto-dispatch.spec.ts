@@ -1,12 +1,20 @@
 /**
- * Unit coverage for `dispatchProofVerification` — the shared
- * crypto-service dispatch. Cases stay small and inline; spies are
+ * Unit coverage for `dispatchProofVerification` -- the shared
+ * crypto-service dispatch -- and for `dispatchProofSetVerification`,
+ * which splits a proof set into one dispatch per proof. Cases stay small
+ * and inline; spies are
  * hand-rolled CryptoService doubles so we can assert which method
  * ran and that later services are never invoked.
  */
 
 import { describe, it, expect } from 'vitest';
-import { dispatchProofVerification } from '../src/crypto-dispatch.js';
+import {
+  dispatchProofSetVerification,
+  dispatchProofVerification,
+  isUnsupportedProof,
+  problemsOfProof
+} from '../src/crypto-dispatch.js';
+import { ProblemTypes } from '../src/problem-types.js';
 import type {
   CryptoResult,
   CryptoService,
@@ -151,11 +159,31 @@ describe('dispatchProofVerification', () => {
     });
     expect(dispatched).toEqual({
       kind: 'rejected',
-      problems: rejectedProblems
+      problems: rejectedProblems,
+      proofVerified: false
     });
     if (dispatched.kind === 'rejected') {
       expect(dispatched.problems).toBe(rejectedProblems);
     }
+  });
+
+  it("carries the service's proofVerified flag on a rejection", async () => {
+    const dispatched = await dispatchProofVerification({
+      services: [
+        FakeCryptoService({
+          verified: false,
+          problems: rejectedProblems,
+          proofVerified: true
+        })
+      ],
+      subject: credentialSubject,
+      options: dummyOptions
+    });
+    expect(dispatched).toEqual({
+      kind: 'rejected',
+      problems: rejectedProblems,
+      proofVerified: true
+    });
   });
 
   it('returns threw carrying the original error', async () => {
@@ -256,5 +284,456 @@ describe('dispatchProofVerification', () => {
       error,
       message: 'canVerify boom'
     });
+  });
+});
+
+const proofA = { id: 'urn:proof:a', type: 'Ed25519Signature2020' };
+const proofB = {
+  id: 'urn:proof:b',
+  type: 'DataIntegrityProof',
+  cryptosuite: 'eddsa-rdfc-2022'
+};
+
+const invalid: CryptoResult = {
+  verified: false,
+  problems: [
+    {
+      type: ProblemTypes.INVALID_SIGNATURE,
+      title: 'Invalid Signature',
+      detail: 'bad bytes'
+    }
+  ]
+};
+
+const unsupported: CryptoResult = {
+  verified: false,
+  problems: [
+    {
+      type: ProblemTypes.PROOF_UNSUPPORTED,
+      title: 'Unsupported Proof',
+      detail: 'not supported'
+    }
+  ]
+};
+
+const expiredProblems: ProblemDetail[] = [
+  {
+    type: ProblemTypes.CREDENTIAL_EXPIRED,
+    title: 'Credential Expired',
+    detail: 'Credential has expired.'
+  }
+];
+
+const expired: CryptoResult = {
+  verified: false,
+  problems: expiredProblems,
+  proofVerified: true
+};
+
+/**
+ * A service that answers by the `id` of the one proof it is handed, and
+ * records which document and proof each call saw. A document still
+ * carrying an array of proofs is recorded as `set`.
+ */
+function perProofService(
+  verdicts: Record<string, CryptoResult | Error>,
+  calls: string[]
+): CryptoService {
+  const answer = (kind: string, document: unknown): CryptoResult => {
+    const proof = (document as { proof?: unknown }).proof;
+    const id = Array.isArray(proof)
+      ? 'set'
+      : ((proof as { id?: string } | undefined)?.id ?? 'none');
+    calls.push(`${kind}:${id}`);
+    const verdict = verdicts[id];
+    if (verdict instanceof Error) {
+      throw verdict;
+    }
+    return verdict ?? invalid;
+  };
+  return {
+    canVerify: () => true,
+    verifyCredential: async credential => answer('credential', credential),
+    verifyPresentation: async presentation =>
+      answer('presentation', presentation)
+  };
+}
+
+function proofSetSubject(...proofs: unknown[]): VerificationSubject {
+  return {
+    verifiableCredential: { id: 'urn:test:credential', proof: proofs }
+  };
+}
+
+describe('dispatchProofSetVerification', () => {
+  it('dispatches a document with no proof unchanged', async () => {
+    const calls: string[] = [];
+    const result = await dispatchProofSetVerification({
+      services: [
+        perProofService({ none: { verified: true, message: 'whole' } }, calls)
+      ],
+      subject: credentialSubject,
+      options: dummyOptions
+    });
+
+    expect(result).toEqual({
+      combined: { kind: 'verified', message: 'whole' },
+      proofs: []
+    });
+    expect(calls).toEqual(['credential:none']);
+  });
+
+  it('dispatches a one-proof array unchanged, without splitting it', async () => {
+    const calls: string[] = [];
+    const result = await dispatchProofSetVerification({
+      services: [
+        perProofService({ set: { verified: true, message: 'whole' } }, calls)
+      ],
+      subject: proofSetSubject(proofA),
+      options: dummyOptions
+    });
+
+    expect(result).toEqual({
+      combined: { kind: 'verified', message: 'whole' },
+      proofs: []
+    });
+    expect(calls).toEqual(['credential:set']);
+  });
+
+  it('verifies each proof of a set on its own and passes when all verify', async () => {
+    const calls: string[] = [];
+    const result = await dispatchProofSetVerification({
+      services: [
+        perProofService(
+          {
+            'urn:proof:a': { verified: true, message: 'a ok' },
+            'urn:proof:b': { verified: true, message: 'b ok' }
+          },
+          calls
+        )
+      ],
+      subject: proofSetSubject(proofA, proofB),
+      options: dummyOptions
+    });
+
+    expect(result.combined).toEqual({ kind: 'verified', message: 'a ok' });
+    expect(calls.sort()).toEqual([
+      'credential:urn:proof:a',
+      'credential:urn:proof:b'
+    ]);
+    expect(
+      result.proofs.map(p => [p.position, p.total, p.label, p.result.kind])
+    ).toEqual([
+      [1, 2, 'Ed25519Signature2020', 'verified'],
+      [2, 2, 'DataIntegrityProof, eddsa-rdfc-2022', 'verified']
+    ]);
+  });
+
+  it('rejects the set when one proof fails among verified ones, naming that proof', async () => {
+    const result = await dispatchProofSetVerification({
+      services: [
+        perProofService(
+          { 'urn:proof:a': { verified: true }, 'urn:proof:b': invalid },
+          []
+        )
+      ],
+      subject: proofSetSubject(proofA, proofB),
+      options: dummyOptions
+    });
+
+    expect(result.combined).toEqual({
+      kind: 'rejected',
+      problems: [
+        {
+          type: ProblemTypes.INVALID_SIGNATURE,
+          title: 'Invalid Signature',
+          detail:
+            'Proof 2 of 2 (DataIntegrityProof, eddsa-rdfc-2022): bad bytes'
+        }
+      ],
+      proofVerified: false
+    });
+  });
+
+  it('reports every failing proof when several fail', async () => {
+    const result = await dispatchProofSetVerification({
+      services: [
+        perProofService({ 'urn:proof:a': invalid, 'urn:proof:b': invalid }, [])
+      ],
+      subject: proofSetSubject(proofA, proofB),
+      options: dummyOptions
+    });
+
+    expect(
+      result.combined.kind === 'rejected' &&
+        result.combined.problems.map(p => p.detail)
+    ).toEqual([
+      'Proof 1 of 2 (Ed25519Signature2020): bad bytes',
+      'Proof 2 of 2 (DataIntegrityProof, eddsa-rdfc-2022): bad bytes'
+    ]);
+  });
+
+  it('rejects the set with the unsupported problems when no proof could be checked', async () => {
+    const result = await dispatchProofSetVerification({
+      services: [
+        perProofService(
+          { 'urn:proof:a': unsupported, 'urn:proof:b': unsupported },
+          []
+        )
+      ],
+      subject: proofSetSubject(proofA, proofB),
+      options: dummyOptions
+    });
+
+    expect(result.combined.kind).toBe('rejected');
+    expect(
+      result.combined.kind === 'rejected' &&
+        result.combined.problems.map(p => [p.type, p.detail])
+    ).toEqual([
+      [
+        ProblemTypes.PROOF_UNSUPPORTED,
+        'Proof 1 of 2 (Ed25519Signature2020): not supported'
+      ],
+      [
+        ProblemTypes.PROOF_UNSUPPORTED,
+        'Proof 2 of 2 (DataIntegrityProof, eddsa-rdfc-2022): not supported'
+      ]
+    ]);
+  });
+
+  it('passes the set when an unsupported proof sits beside a verified one, and keeps it in proofs', async () => {
+    const result = await dispatchProofSetVerification({
+      services: [
+        perProofService(
+          {
+            'urn:proof:a': { verified: true, message: 'a ok' },
+            'urn:proof:b': unsupported
+          },
+          []
+        )
+      ],
+      subject: proofSetSubject(proofA, proofB),
+      options: dummyOptions
+    });
+
+    expect(result.combined).toEqual({ kind: 'verified', message: 'a ok' });
+    expect(result.proofs.map(p => isUnsupportedProof(p.result))).toEqual([
+      false,
+      true
+    ]);
+  });
+
+  it('reports a date-only rejection beside a verified proof unprefixed', async () => {
+    const result = await dispatchProofSetVerification({
+      services: [
+        perProofService(
+          { 'urn:proof:a': { verified: true }, 'urn:proof:b': expired },
+          []
+        )
+      ],
+      subject: proofSetSubject(proofA, proofB),
+      options: dummyOptions
+    });
+
+    expect(result.combined).toEqual({
+      kind: 'rejected',
+      problems: expiredProblems,
+      proofVerified: true
+    });
+  });
+
+  it('treats a date-typed rejection without proofVerified as a failing proof', async () => {
+    const result = await dispatchProofSetVerification({
+      services: [
+        perProofService(
+          {
+            'urn:proof:a': { verified: true },
+            'urn:proof:b': { verified: false, problems: expiredProblems }
+          },
+          []
+        )
+      ],
+      subject: proofSetSubject(proofA, proofB),
+      options: dummyOptions
+    });
+
+    expect(result.combined).toEqual({
+      kind: 'rejected',
+      problems: [
+        {
+          ...expiredProblems[0],
+          detail:
+            'Proof 2 of 2 (DataIntegrityProof, eddsa-rdfc-2022): Credential has expired.'
+        }
+      ],
+      proofVerified: false
+    });
+  });
+
+  it('lets a failing proof win over a date-only one', async () => {
+    const result = await dispatchProofSetVerification({
+      services: [
+        perProofService({ 'urn:proof:a': expired, 'urn:proof:b': invalid }, [])
+      ],
+      subject: proofSetSubject(proofA, proofB),
+      options: dummyOptions
+    });
+
+    expect(
+      result.combined.kind === 'rejected' &&
+        result.combined.problems.map(p => p.type)
+    ).toEqual([ProblemTypes.INVALID_SIGNATURE]);
+  });
+
+  it('returns the first proof that threw', async () => {
+    const error = new Error('boom on b');
+    const result = await dispatchProofSetVerification({
+      services: [
+        perProofService(
+          { 'urn:proof:a': { verified: true }, 'urn:proof:b': error },
+          []
+        )
+      ],
+      subject: proofSetSubject(proofA, proofB),
+      options: dummyOptions
+    });
+
+    expect(result.combined).toEqual({
+      kind: 'threw',
+      error,
+      message: 'boom on b'
+    });
+  });
+
+  it('reports a failing proof ahead of one that threw', async () => {
+    const result = await dispatchProofSetVerification({
+      services: [
+        perProofService(
+          { 'urn:proof:a': invalid, 'urn:proof:b': new Error('boom on b') },
+          []
+        )
+      ],
+      subject: proofSetSubject(proofA, proofB),
+      options: dummyOptions
+    });
+
+    expect(
+      result.combined.kind === 'rejected' &&
+        result.combined.problems.map(p => p.detail)
+    ).toEqual(['Proof 1 of 2 (Ed25519Signature2020): bad bytes']);
+  });
+
+  it('sets aside a proof no service takes beside a verified one', async () => {
+    const onlyA: CryptoService = {
+      ...perProofService({ 'urn:proof:a': { verified: true } }, []),
+      canVerify: subject => {
+        const { proof } = subject.verifiableCredential as { proof?: unknown };
+        return (proof as { id?: string } | undefined)?.id === 'urn:proof:a';
+      }
+    };
+    const result = await dispatchProofSetVerification({
+      services: [onlyA],
+      subject: proofSetSubject(proofA, proofB),
+      options: dummyOptions
+    });
+
+    expect(result.combined).toEqual({ kind: 'verified' });
+    expect(result.proofs.map(p => p.result.kind)).toEqual([
+      'verified',
+      'no-service'
+    ]);
+    expect(isUnsupportedProof(result.proofs[1].result)).toBe(true);
+    expect(problemsOfProof(result.proofs[1])).toEqual([
+      {
+        type: ProblemTypes.PROOF_UNSUPPORTED,
+        title: 'Unsupported Proof',
+        detail:
+          'Proof 2 of 2 (DataIntegrityProof, eddsa-rdfc-2022): No registered crypto service can verify this proof.'
+      }
+    ]);
+  });
+
+  it('returns no-service when there is no service, as for a single proof', async () => {
+    const result = await dispatchProofSetVerification({
+      services: [],
+      subject: proofSetSubject(proofA, proofB),
+      options: dummyOptions
+    });
+
+    expect(result.combined).toEqual({ kind: 'no-service' });
+  });
+
+  it('does not change the document it was given', async () => {
+    const subject = proofSetSubject(proofA, proofB);
+    const credential = subject.verifiableCredential as Record<string, unknown>;
+    const proofSet = credential.proof;
+    const before = structuredClone(credential);
+
+    await dispatchProofSetVerification({
+      services: [perProofService({}, [])],
+      subject,
+      options: dummyOptions
+    });
+
+    expect(credential).toEqual(before);
+    expect(credential.proof).toBe(proofSet);
+  });
+
+  it('dispatches a set with one proof object and a stray null entry unchanged', async () => {
+    const calls: string[] = [];
+    const result = await dispatchProofSetVerification({
+      services: [perProofService({ set: { verified: true } }, calls)],
+      subject: proofSetSubject(proofA, null),
+      options: dummyOptions
+    });
+
+    expect(result.proofs).toEqual([]);
+    expect(calls).toEqual(['credential:set']);
+  });
+
+  it('skips a stray null entry in a set, keeping array positions', async () => {
+    const calls: string[] = [];
+    const result = await dispatchProofSetVerification({
+      services: [
+        perProofService(
+          { 'urn:proof:a': { verified: true }, 'urn:proof:b': invalid },
+          calls
+        )
+      ],
+      subject: proofSetSubject(proofA, null, proofB),
+      options: dummyOptions
+    });
+
+    expect(calls.sort()).toEqual([
+      'credential:urn:proof:a',
+      'credential:urn:proof:b'
+    ]);
+    expect(result.proofs.map(p => [p.position, p.total])).toEqual([
+      [1, 3],
+      [3, 3]
+    ]);
+    expect(
+      result.combined.kind === 'rejected' &&
+        result.combined.problems.map(p => p.detail)
+    ).toEqual([
+      'Proof 3 of 3 (DataIntegrityProof, eddsa-rdfc-2022): bad bytes'
+    ]);
+  });
+
+  it('splits the presentation, not the credential, when the subject carries both', async () => {
+    const calls: string[] = [];
+    await dispatchProofSetVerification({
+      services: [perProofService({}, calls)],
+      subject: {
+        verifiableCredential: { proof: [{ id: 'c1' }, { id: 'c2' }] },
+        verifiablePresentation: { proof: [proofA, proofB] }
+      },
+      options: dummyOptions
+    });
+
+    expect(calls.sort()).toEqual([
+      'presentation:urn:proof:a',
+      'presentation:urn:proof:b'
+    ]);
   });
 });

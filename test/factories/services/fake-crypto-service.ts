@@ -46,6 +46,8 @@ export type FakeCryptoServiceOptions = {
   verified?: boolean;
   message?: string;
   problems?: ProblemDetail[];
+  /** `CryptoResult.proofVerified` on a `verified: false` result. */
+  proofVerified?: boolean;
   /** When set, verifyCredential / verifyPresentation reject with this error. */
   throwInVerify?: Error;
 };
@@ -61,6 +63,7 @@ export function FakeCryptoService(
     verified = true,
     message = 'Fake verification passed.',
     problems = DEFAULT_FAIL_PROBLEMS,
+    proofVerified,
     throwInVerify
   } = options;
 
@@ -71,7 +74,9 @@ export function FakeCryptoService(
     if (verified) {
       return { verified: true, message };
     }
-    return { verified: false, problems };
+    return proofVerified === undefined
+      ? { verified: false, problems }
+      : { verified: false, problems, proofVerified };
   };
 
   return {

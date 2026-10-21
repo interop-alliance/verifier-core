@@ -79,8 +79,8 @@ export interface RegistryReference {
  * credential's description of itself, so it is the display name to
  * prefer. The credential cannot alter it.
  *
- * Only `dcc-legacy` populates this today; `oidf` and `vc-recognition`
- * matches carry no entity yet.
+ * `dcc-legacy` and `vc-recognition` populate this; `oidf` matches carry
+ * no entity yet.
  */
 export interface RegistryEntity {
   /** Organisation name as the registry records it. */

@@ -91,7 +91,6 @@ import {
 import { createRegistryLookup } from './services/registry-lookup.js';
 import { RealTimeService } from './services/time-service/real-time-service.js';
 import type { TimeService } from './services/time-service/time-service.js';
-import { fetchJsonFromHttpGet } from './util/fetch-json-from-http-get.js';
 import type { ProblemDetail } from './types/problem-detail.js';
 import type { EntityIdentityRegistry } from './types/registry.js';
 import type { TaskTiming } from './types/timing.js';
@@ -103,11 +102,9 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
   const cryptoServices = config.cryptoServices ?? defaultCryptoServices();
   const documentLoader =
     config.documentLoader ?? defaultDocumentLoaderFor(httpGetService);
-  const fetchJson = fetchJsonFromHttpGet(httpGetService);
   const constructorRegistries = config.registries;
   const recognizers = config.recognizers ?? [];
   const constructorPhases = config.phases;
-  const constructorVerbose = config.verbose;
   const constructorTiming = config.timing;
   const timeService: TimeService = config.timeService ?? RealTimeService();
 
@@ -152,7 +149,6 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
         cacheService,
         cryptoServices,
         documentLoader,
-        fetchJson,
         lookupIssuers,
         registries: call.registries ?? constructorRegistries,
         recognizers,
@@ -177,8 +173,7 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
 
       const recognized = extractRecognition(rawChecks);
 
-      const verbose = call.verbose ?? constructorVerbose ?? false;
-      const folded = foldCheckResults(rawChecks, suites, { verbose });
+      const folded = foldCheckResults(rawChecks, suites);
 
       const result: CredentialVerificationResult = {
         verified: !hasFatalFailures(rawChecks),
@@ -241,7 +236,6 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
         cacheService,
         cryptoServices,
         documentLoader,
-        fetchJson,
         lookupIssuers,
         registries: call.registries ?? constructorRegistries,
         recognizers,
@@ -268,11 +262,9 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
         { explicitSuiteIds, phases: effectivePhases }
       );
 
-      const verbose = call.verbose ?? constructorVerbose ?? false;
       const foldedPresentation = foldCheckResults(
         rawPresentationChecks,
-        presentationSuites,
-        { verbose }
+        presentationSuites
       );
 
       const credentials = extractCredentialsFrom(presentation);
@@ -285,7 +277,6 @@ export function createVerifier(config: VerifierConfig = {}): Verifier {
               additionalSuites: call.additionalSuites,
               registries: call.registries,
               phases: call.phases,
-              verbose,
               // Propagate explicitly so embedded credentials inherit
               // the presentation-level decision; otherwise the
               // recursive call would re-evaluate from
@@ -323,7 +314,6 @@ interface BuildContextInput {
   cacheService: VerificationContext['cacheService'];
   cryptoServices: VerificationContext['cryptoServices'];
   documentLoader: VerificationContext['documentLoader'];
-  fetchJson: VerificationContext['fetchJson'];
   lookupIssuers: VerificationContext['lookupIssuers'];
   registries?: EntityIdentityRegistry[];
   recognizers?: RecognizerSpec[];
@@ -342,7 +332,6 @@ interface BuildContextInput {
 function buildContext(input: BuildContextInput): VerificationContext {
   return {
     documentLoader: input.documentLoader,
-    fetchJson: input.fetchJson,
     httpGetService: input.httpGetService,
     cacheService: input.cacheService,
     cryptoServices: input.cryptoServices,
@@ -397,7 +386,9 @@ function expandPhases(
 function extractRecognition(
   results: CheckResult[]
 ): { profile: string; normalized: unknown } | undefined {
-  const result = results.find(r => r.check === 'recognition.profile');
+  // The recognition suite's phase equals its id, so `computeId`
+  // collapses the row id to `recognition.profile`.
+  const result = results.find(r => r.id === 'recognition.profile');
   if (!result || result.outcome.status !== 'success') {
     return undefined;
   }
@@ -410,7 +401,7 @@ function extractRecognition(
 
 /**
  * Synthetic suite definition used solely so the parse-error
- * `CheckResult` folds into a meaningful `SuiteSummary`. Tagged
+ * `CheckResult` rolls up into a meaningful `SuiteSummary`. Tagged
  * `'cryptographic'` so UI sections that group by phase show
  * structural failures alongside other foundational checks.
  */
@@ -463,7 +454,7 @@ function invalidChallengeOptions(call: {
 
 /**
  * A fatal failure `CheckResult` for a check that never ran, attributed to
- * `suite` / `checkId` so it folds and renders like a real check result.
+ * `suite` / `checkId` so it rolls up and renders like a real check result.
  */
 function syntheticFailureResult(
   suite: VerificationSuite,
@@ -474,7 +465,6 @@ function syntheticFailureResult(
   const result: CheckResult = {
     id: computeId(suite.phase, suite.id, checkId),
     suite: suite.id,
-    check: checkId,
     outcome: { status: 'failure', problems: [problem] },
     fatal: true
   };
@@ -502,10 +492,8 @@ function syntheticFailureResult(
  * Build the one-entry `summary[]` that accompanies every
  * parse-error result. The single check is always a fatal failure,
  * so the summary always has `status: 'failure'`,
- * `verified: false`. We surface the parse error in `results[]`
- * regardless of `verbose` (a parse error is unusable without it).
+ * `verified: false`.
  *
- * Folds in `verbose: true` so the parse-error check survives;
  * `foldCheckResults` rolls per-check timing into the summary, so
  * the suite-level `timing` propagates here too when the call ran
  * with `timing: true`.
@@ -514,7 +502,7 @@ function syntheticFailureSummary(
   check: CheckResult,
   suite: VerificationSuite
 ): SuiteSummary[] {
-  const folded = foldCheckResults([check], [suite], { verbose: true });
+  const folded = foldCheckResults([check], [suite]);
   return folded.summaries;
 }
 

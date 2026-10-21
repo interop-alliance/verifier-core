@@ -53,8 +53,10 @@ export const ProblemTypes = {
   /**
    * Synthesized -- the credential's validity period has ended
    * (`validUntil` / `expirationDate` is in the past). Reported by
-   * `proof.signature`, where the dates are judged: the signature
+   * `proof.validity-period`, which runs only once the signature
    * verified, so the credential is authentic and merely out of date.
+   * A crypto service may also report it for a document whose proof
+   * verified; `proof.signature` then reads the signature as verified.
    */
   CREDENTIAL_EXPIRED: 'https://www.w3.org/TR/vc-data-model#CREDENTIAL_EXPIRED',
   /**
@@ -67,7 +69,15 @@ export const ProblemTypes = {
   /** Synthesized -- proof verification raised an error before reaching a verdict. */
   PROOF_VERIFICATION_ERROR:
     'https://www.w3.org/TR/vc-data-model#PROOF_VERIFICATION_ERROR',
-  /** Synthesized -- a presentation proof does not bind to this request: its `challenge`, `domain`, or `proofPurpose` differs from what the caller expects. The signature itself may be valid. */
+  /**
+   * Synthesized -- a proof was not checked: no registered suite supports
+   * its type or cryptosuite, or it was made for a different proof
+   * purpose. Beside a proof that verified, it is a warning
+   * (`proof.unsupported-proofs`); alone, the document has no proof this
+   * verifier can check.
+   */
+  PROOF_UNSUPPORTED: 'https://www.w3.org/TR/vc-data-model#PROOF_UNSUPPORTED',
+  /** Synthesized -- a presentation proof does not bind to this request: its `challenge` or `domain` differs from what the caller expects. The signature itself may be valid. */
   PROOF_PURPOSE_MISMATCH:
     'https://www.w3.org/TR/vc-data-model#PROOF_PURPOSE_MISMATCH',
   /** Synthesized -- credential `issuer` does not match the controller of the proof's verification method. */

@@ -6,12 +6,53 @@ import { CachedResolver } from '@interop/did-io';
 import * as didKey from '@interop/did-method-key';
 import { Ed25519VerificationKey } from '@interop/ed25519-verification-key';
 import { DidWebResolver } from '@interop/did-web-resolver';
+import { DIDResolutionError } from '@interop/data-integrity-core/did';
 import type { DocumentLoader } from '../types/context.js';
 import type { HttpGetService } from '../services/http-get-service/http-get-service.js';
 import { didWebvhDriverWithHttpGet } from './did-webvh-driver-with-http-get.js';
-import { fetchJsonFromHttpGet } from './fetch-json-from-http-get.js';
 import { parseJsonBody } from './json-body.js';
 import { errorMessage } from './error-message.js';
+
+/**
+ * Fetch a did:web DID document through `httpGetService`. Every failure is a
+ * `DIDResolutionError`: `notFound` for a 404, `internalError` for any other
+ * non-2xx status, for a body that is not JSON (a landing page or captive
+ * portal in place of the document), or for anything the service throws
+ * (kept as `cause`). The messages are fixed text, so a network error's own
+ * text never reaches them.
+ *
+ * @param httpGetService {HttpGetService}
+ * @param url {string}
+ * @returns {Promise<unknown>}
+ */
+async function fetchDidWebDocument(
+  httpGetService: HttpGetService,
+  url: string
+): Promise<unknown> {
+  let result;
+  try {
+    result = await httpGetService.get(url);
+  } catch (cause) {
+    throw new DIDResolutionError(`Could not fetch DID document at "${url}".`, {
+      code: 'internalError',
+      cause
+    });
+  }
+  if (result.status < 200 || result.status >= 300) {
+    throw new DIDResolutionError(
+      `Fetching DID document at "${url}" returned HTTP ${result.status}.`,
+      { code: result.status === 404 ? 'notFound' : 'internalError' }
+    );
+  }
+  try {
+    return parseJsonBody(result.body);
+  } catch (cause) {
+    throw new DIDResolutionError(`The DID document at "${url}" is not JSON.`, {
+      code: 'internalError',
+      cause
+    });
+  }
+}
 
 /**
  * Build a JSON-LD document loader that uses {@link securityLoader} for static
@@ -28,9 +69,8 @@ export function documentLoaderFromHttpGet(
 
   const resolver = new CachedResolver();
   const didKeyDriver = didKey.driver();
-  const fetchJson = fetchJsonFromHttpGet(httpGetService);
   const didWebDriver = new DidWebResolver({
-    fetchDocument: async ({ url }) => parseJsonBody(await fetchJson(url))
+    fetchDocument: async ({ url }) => fetchDidWebDocument(httpGetService, url)
   });
   resolver.use(didKeyDriver);
   resolver.use(didWebDriver);

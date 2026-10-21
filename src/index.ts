@@ -48,11 +48,7 @@ export type {
 export type { SuiteSummary, SuiteSummaryPhase } from './types/suite-summary.js';
 export type { TaskTiming } from './types/timing.js';
 export type { ProblemDetail } from './types/problem-detail.js';
-export type {
-  VerificationContext,
-  DocumentLoader,
-  FetchJson
-} from './types/context.js';
+export type { VerificationContext, DocumentLoader } from './types/context.js';
 export type { HttpGetResult } from './types/http.js';
 export type {
   CryptoService,
@@ -85,6 +81,7 @@ export { parseCredential, parsePresentation } from './schemas/index.js';
 export { coreSuite } from './suites/core/index.js';
 export { proofSuite } from './suites/proof/index.js';
 export { SIGNATURE_SKIP_CODES } from './suites/proof/signature-check.js';
+export { VALIDITY_PERIOD_SKIP_CODES } from './suites/proof/validity-period-check.js';
 export { RUN_SUITES_SKIP_CODES } from './types/check.js';
 export { statusSuite } from './suites/status/index.js';
 export { STATUS_LIST_ISSUER_SKIP_CODES } from './suites/status/list-issuer-check.js';
@@ -92,10 +89,6 @@ export { registrySuite } from './suites/registry/index.js';
 export { recognitionSuite } from './suites/recognition/index.js';
 
 // Opt-in suites (not part of `defaultSuites`; pass via `additionalSuites`).
-export {
-  expirationSuite,
-  EXPIRATION_SKIP_CODES
-} from './suites/validity/index.js';
 export {
   createIssuerDetailsSuite,
   createIssuerDetailsCheck
@@ -120,4 +113,3 @@ export type { DataIntegrityCryptoConfig } from './services/data-integrity-crypto
 export { flattenPresentationResults } from './flatten-presentation-results.js';
 export type { FlattenedCheckResult } from './flatten-presentation-results.js';
 export { foldCheckResults, computeId } from './fold-results.js';
-export type { FoldOptions } from './fold-results.js';

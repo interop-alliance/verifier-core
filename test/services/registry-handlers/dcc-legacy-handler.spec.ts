@@ -48,6 +48,29 @@ describe('lookupDccLegacy', () => {
     });
   });
 
+  it('hands out a copy of the entry, so the cached registry stays intact', async () => {
+    const ctx = buildHandlerContext({
+      httpGetService: FakeHttpGetService({
+        [registryUrl]: okJsonBody(sampleBody)
+      })
+    });
+    const first = await lookupDccLegacy('did:key:found', dccRegistry, ctx);
+    if (first.status !== 'found' || first.entity === undefined) {
+      throw new Error('expected a found result with an entity');
+    }
+    (first.entity.raw as Record<string, unknown>).name = 'Tampered';
+
+    const second = await lookupDccLegacy('did:key:found', dccRegistry, ctx);
+    expect(second).toEqual({
+      status: 'found',
+      entity: {
+        name: 'Found Issuer',
+        url: 'https://issuer.example',
+        raw: { name: 'Found Issuer', url: 'https://issuer.example' }
+      }
+    });
+  });
+
   it('returns a found result with no entity fields for a bare entry', async () => {
     const httpGetService = FakeHttpGetService({
       [registryUrl]: okJsonBody({ registry: { 'did:key:bare': {} } })

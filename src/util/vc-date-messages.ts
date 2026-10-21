@@ -1,20 +1,26 @@
 /**
  * Validity-period rejections from `@interop/vc`.
  *
- * The library checks a credential's dates only after its signature has
- * verified, so one of these messages proves the document is authentic
- * and merely out of date. It reports VC 2.0 dates (`validUntil` /
- * `validFrom`) and VC 1.x dates (`expirationDate` / `issuanceDate`) with
- * different text; both forms are matched here. The match is on message
- * text because that is the only signal `@interop/vc` 11.x gives for three
- * of the four rejections. The contract test in
- * `test/util/vc-date-messages.spec.ts` drives the library's own
- * `_checkCredential` through all four so a reworded message fails there
- * instead of silently demoting expired credentials to a signature failure.
+ * `verifyCredential` verifies the proof first and checks the credential's
+ * validity dates only once it has verified. A date failure comes back as
+ * a plain `Error` whose message is the only machine-readable signal; a
+ * proof failure comes back as a `VerificationError` carrying the reasons
+ * in `errors[]`. {@link classifyDateRejection} tells the two apart, and
+ * the default crypto adapter reports a date failure as a typed
+ * `CREDENTIAL_EXPIRED` / `CREDENTIAL_NOT_YET_VALID` problem. That typed
+ * problem is how the rest of the verifier learns the proof itself
+ * verified.
  *
- * Only the default crypto adapter reads messages; it reports the rejection
- * as `CREDENTIAL_EXPIRED` / `CREDENTIAL_NOT_YET_VALID`, and the proof and
- * status checks key on that problem `type`.
+ * VC 2.0 dates (`validUntil` / `validFrom`) and VC 1.x dates
+ * (`expirationDate` / `issuanceDate`) are reported with different text,
+ * and all four messages are matched in full. The contract test in
+ * `test/util/vc-date-messages.spec.ts` drives the library's own
+ * `_checkCredential` through all four, so a reworded message fails there
+ * instead of silently turning an expired credential into a signature
+ * failure.
+ *
+ * `proof.validity-period` describes its own faults with
+ * {@link dateRejectionProblem} too, so both read the same way.
  */
 
 import type { ProblemDetail } from '../types/problem-detail.js';
@@ -22,7 +28,10 @@ import { ProblemTypes } from '../problem-types.js';
 
 const DATE_REJECTIONS = {
   expired: {
-    patterns: ['is after "validUntil"', 'Credential has expired.'],
+    messages: [
+      /^Credential has expired\.$/,
+      /^The current date time \(.+\) is after "validUntil" \(.+\)\.$/
+    ],
     type: ProblemTypes.CREDENTIAL_EXPIRED,
     title: 'Credential Expired',
     verdict: 'Validity ended',
@@ -30,7 +39,10 @@ const DATE_REJECTIONS = {
     properties: ['validUntil', 'expirationDate']
   },
   'not-yet-valid': {
-    patterns: ['is before "validFrom"', 'is before the "issuanceDate"'],
+    messages: [
+      /^The current date time \(.+\) is before "validFrom" \(.+\)\.$/,
+      /^The current date time \(.+\) is before the "issuanceDate" \(.+\)\.$/
+    ],
     type: ProblemTypes.CREDENTIAL_NOT_YET_VALID,
     title: 'Credential Not Yet Valid',
     verdict: 'Validity starts',
@@ -41,14 +53,26 @@ const DATE_REJECTIONS = {
 export type DateRejection = keyof typeof DATE_REJECTIONS;
 
 /**
- * Which validity-period rejection `message` is (v1 or v2), or `undefined`
+ * Which validity-period rejection `error` is (v1 or v2), or `undefined`
  * when it is not one.
+ *
+ * `@interop/vc` throws these from `_checkCredential` only after the proof
+ * verified, as a plain `Error`. A proof failure is a `VerificationError`
+ * carrying `errors[]`. Both conditions are required, and the message must
+ * match the library's wording in full, so a date phrase quoted inside a
+ * wrapped proof error never counts.
  */
 export function classifyDateRejection(
-  message: string
+  error: unknown
 ): DateRejection | undefined {
-  for (const [kind, { patterns }] of Object.entries(DATE_REJECTIONS)) {
-    if (patterns.some(pattern => message.includes(pattern))) {
+  if (!(error instanceof Error) || error.name === 'VerificationError') {
+    return undefined;
+  }
+  if (Array.isArray((error as { errors?: unknown }).errors)) {
+    return undefined;
+  }
+  for (const [kind, { messages }] of Object.entries(DATE_REJECTIONS)) {
+    if (messages.some(pattern => pattern.test(error.message))) {
       return kind as DateRejection;
     }
   }
@@ -60,22 +84,24 @@ export function classifyDateRejection(
  * credential's own date (with the property it came from) and the
  * verification instant, built from the credential rather than from the
  * library message so a VC 1.x rejection ("Credential has expired.") gets
- * its dates too. A credential without the property is described without
- * it.
+ * its dates too. `property` names the date to quote; without it, the
+ * first of the rejection's properties the credential carries is used
+ * (VC 2.0 first). A credential without the property is described
+ * without it.
  */
 export function dateRejectionProblem(
   rejection: DateRejection,
   credential: Record<string, unknown> | undefined,
-  now: Date
+  now: Date,
+  property?: string
 ): ProblemDetail {
   const { type, title, verdict, properties } = DATE_REJECTIONS[rejection];
-  const property = properties.find(
-    name => typeof credential?.[name] === 'string'
-  );
+  const quoted =
+    property ?? properties.find(name => typeof credential?.[name] === 'string');
   const when =
-    property === undefined
+    quoted === undefined || credential?.[quoted] === undefined
       ? ''
-      : ` at ${String(credential?.[property])} (${property})`;
+      : ` at ${String(credential[quoted])} (${quoted})`;
   return {
     type,
     title,

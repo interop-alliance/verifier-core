@@ -14,7 +14,7 @@
   - [createVerifier (batch / repeated verification)](#createverifier-batch--repeated-verification)
   - [Network policy of the built-in HTTP service](#network-policy-of-the-built-in-http-service)
 - [Custom Suites](#custom-suites)
-- [Verbose mode and folded summaries](#verbose-mode-and-folded-summaries)
+- [Per-suite summaries](#per-suite-summaries)
 - [Capturing timing data](#capturing-timing-data)
 - [Pluggable clock (TimeService)](#pluggable-clock-timeservice)
 - [Open Badges 3.0 verification (opt-in submodule)](#open-badges-30-verification-opt-in-submodule)
@@ -43,20 +43,20 @@ cryptosuites.
 Verification runs an ordered pipeline of **suites**, each containing one or more
 **checks**:
 
-| Suite           | Phase           | What it checks                                                                                                                                                                                                                                                                                                                   | Fatal? |
-| --------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| **Core**        | `cryptographic` | `@context` exists, VC context URI present, credential ID valid, proof exists                                                                                                                                                                                                                                                     | Yes    |
-| **Recognition** | `recognition`   | Pluggable credential-profile recognition; produces a normalized credential form (no-op when no recognizers configured)                                                                                                                                                                                                           | No     |
-| **Proof**       | `cryptographic` | Cryptographic signature verification                                                                                                                                                                                                                                                                                             | Yes    |
-| **Status**      | `cryptographic` | Revocation/suspension via BitstringStatusList — sole owner of status verification. The list credential's proof is checked with the configured `cryptoServices`. A non-fatal `status.list-issuer` check then reports a list not issued by the credential's issuer; its skips carry a `code` from `STATUS_LIST_ISSUER_SKIP_CODES`. | Yes    |
-| **Registry**    | `trust`         | Issuer DID lookup in known trust registries                                                                                                                                                                                                                                                                                      | No     |
+| Suite           | Phase           | What it checks                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Fatal? |
+| --------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| **Core**        | `cryptographic` | `@context` exists, VC context URI present, credential ID valid, proof exists                                                                                                                                                                                                                                                                                                                                                                                        | Yes    |
+| **Recognition** | `recognition`   | Pluggable credential-profile recognition; produces a normalized credential form (no-op when no recognizers configured)                                                                                                                                                                                                                                                                                                                                              | No     |
+| **Proof**       | `cryptographic` | Cryptographic signature verification. Every proof of a proof set that a registered suite can check must verify. A non-fatal `proof.unsupported-proofs` check warns about proofs no suite could check. `proof.validity-period` judges the credential's validity dates; it is fatal but does not halt later checks.                                                                                                                                                   | Yes    |
+| **Status**      | `cryptographic` | Revocation/suspension via BitstringStatusList -- sole owner of status verification. The list credential's proof is checked with the configured `cryptoServices`. A non-fatal `status.list-issuer` check then reports a list not issued by the credential's issuer; its skips carry a `code` from `STATUS_LIST_ISSUER_SKIP_CODES`. `status.bitstring` is fatal but does not halt, so the list issuer and any later suites are still reported after a status failure. | Yes    |
+| **Registry**    | `trust`         | Issuer DID lookup in known trust registries                                                                                                                                                                                                                                                                                                                                                                                                                         | No     |
 
 The **Phase** column drives the optional `phases:` filter on `VerifierConfig`
 and per-call args, used for
 [two-pass verification](#credential-recognition--two-pass-verification).
 
-Open Badges 3.0 verification lives in the opt-in submodule
-[`@interop/verifier-core/openbadges`](#open-badges-30-verification-opt-in-submodule)
+Open Badges 3.0 verification lives in the opt-in submodules
+[`@interop/verifier-core/openbadges` and `@interop/verifier-core/openbadges/schema`](#open-badges-30-verification-opt-in-submodule)
 and is not part of the default suite list.
 
 The result doesn't make a single "valid/invalid" judgment. It returns the
@@ -132,12 +132,14 @@ for `oidf`.
 
 `entity` is the registry's description of the issuer, not the credential's
 description of itself, so it is the display name to prefer. The credential
-cannot alter it. Only `dcc-legacy` registries populate it today; `oidf` and
-`vc-recognition` matches carry no `entity` yet.
+cannot alter it. `dcc-legacy` and `vc-recognition` registries populate it;
+`oidf` matches carry no `entity` yet. For `vc-recognition`, `name` and `url`
+appear only when the matching `credentialSubject` entry holds them as strings,
+and `raw` is that whole entry.
 
 ```typescript
 const outcome = result.results.find(
-  r => r.check === 'registry.issuer'
+  r => r.id === 'trust.registry.issuer'
 )?.outcome;
 const payload = outcome?.payload as RegistryCheckPayload | undefined;
 const displayName = payload?.matches[0]?.entity?.name;
@@ -175,7 +177,6 @@ interface VerifyCredentialOptions {
   // Pipeline controls:
   recognizers?: RecognizerSpec[]; // See "Credential recognition + two-pass verification"
   phases?: SuitePhase[]; // See "Two-pass verification"
-  verbose?: boolean; // Full check list in results[] (default: failures + skips only)
   timing?: boolean; // Per-check / per-suite timing instrumentation
 
   // Service overrides (otherwise sensible defaults are used):
@@ -212,11 +213,11 @@ interface CredentialVerificationResult {
 `verified` is `true` when no check marked `fatal` returned a failure. Non-fatal
 failures (for example `recognition.profile` or `registry.issuer`) leave it
 `true`. They still appear in `results[]` and in `summary[].status` and `counts`.
-By default (since v2.0.0) `results` carries only failures and explicit
-`<suite>.applies` skips, while `summary` provides the per-suite rollup (see
-[Verbose mode and folded summaries](#verbose-mode-and-folded-summaries)). Pass
-`verbose: true` to receive every check that ran in `results`. `CheckResult.id`
-is required and is populated by `runSuites`.
+`results` carries every check: the ones that ran, the ones that were skipped
+(with a reason), and the ones not run after a fatal failure. `summary` provides
+the per-suite rollup (see [Per-suite summaries](#per-suite-summaries)). Each
+`CheckResult` is identified by its namespaced `id`, populated by `runSuites`,
+and carries its `suite` id.
 
 Each `CheckResult` contains a discriminated `CheckOutcome`:
 
@@ -245,15 +246,18 @@ interface ProblemDetail {
   "verified": true,
   "verifiableCredential": { "...parsed credential..." },
   "results": [
-    { "id": "cryptographic.core.context-exists", "suite": "core",   "check": "core.context-exists", "outcome": { "status": "success", "message": "Credential has a valid @context property." } },
-    { "id": "cryptographic.core.vc-context", "suite": "core",   "check": "core.vc-context",     "outcome": { "status": "success", "message": "..." } },
-    { "id": "cryptographic.core.vc-structure", "suite": "core",   "check": "core.vc-structure",   "outcome": { "status": "success", "message": "..." } },
-    { "id": "cryptographic.core.credential-id", "suite": "core",   "check": "core.credential-id",  "outcome": { "status": "success", "message": "..." } },
-    { "id": "cryptographic.core.proof-exists", "suite": "core",   "check": "core.proof-exists",   "outcome": { "status": "success", "message": "..." } },
-    { "id": "cryptographic.proof.signature", "suite": "proof",  "check": "proof.signature",     "outcome": { "status": "success", "message": "Signature verified successfully." } },
-    { "id": "trust.registry.issuer", "suite": "registry", "check": "registry.issuer",   "outcome": { "status": "success", "message": "Issuer found in registry: DCC Sandbox Registry", "payload": { "matches": [ { "registry": { "name": "DCC Sandbox Registry", "type": "dcc-legacy", "url": "https://digitalcredentials.github.io/sandbox-registry/registry.json" }, "entity": { "name": "Example University", "url": "https://example.edu", "raw": { "name": "Example University", "url": "https://example.edu" } } } ], "uncheckedRegistries": [] } } },
-    { "id": "cryptographic.status.bitstring", "suite": "status", "check": "status.bitstring",    "outcome": { "status": "success", "message": "Credential status is valid (not revoked or suspended)." } },
-    { "id": "cryptographic.status.list-issuer", "suite": "status", "check": "status.list-issuer", "fatal": false, "outcome": { "status": "success", "message": "Every status list is issued by the credential's issuer." } }
+    { "id": "cryptographic.core.context-exists", "suite": "core", "outcome": { "status": "success", "message": "Credential has a valid @context property." } },
+    { "id": "cryptographic.core.vc-context", "suite": "core", "outcome": { "status": "success", "message": "..." } },
+    { "id": "cryptographic.core.vc-structure", "suite": "core", "outcome": { "status": "success", "message": "..." } },
+    { "id": "cryptographic.core.credential-id", "suite": "core", "outcome": { "status": "success", "message": "..." } },
+    { "id": "cryptographic.core.proof-exists", "suite": "core", "outcome": { "status": "success", "message": "..." } },
+    { "id": "recognition.profile", "suite": "recognition", "outcome": { "status": "skipped", "reason": "no recognizers configured" } },
+    { "id": "cryptographic.proof.signature", "suite": "proof", "outcome": { "status": "success", "message": "Signature verified successfully." } },
+    { "id": "cryptographic.proof.unsupported-proofs", "suite": "proof", "fatal": false, "outcome": { "status": "success", "message": "Every proof was checked." } },
+    { "id": "cryptographic.proof.validity-period", "suite": "proof", "outcome": { "status": "success", "message": "The credential is within its validity period." } },
+    { "id": "trust.registry.issuer", "suite": "registry", "outcome": { "status": "success", "message": "Issuer found in registry: DCC Sandbox Registry", "payload": { "matches": [ { "registry": { "name": "DCC Sandbox Registry", "type": "dcc-legacy", "url": "https://digitalcredentials.github.io/sandbox-registry/registry.json" }, "entity": { "name": "Example University", "url": "https://example.edu", "raw": { "name": "Example University", "url": "https://example.edu" } } } ], "uncheckedRegistries": [] } } },
+    { "id": "cryptographic.status.bitstring", "suite": "status", "outcome": { "status": "success", "message": "Credential status is valid (not revoked or suspended)." } },
+    { "id": "cryptographic.status.list-issuer", "suite": "status", "fatal": false, "outcome": { "status": "success", "message": "Every status list is issued by the credential's issuer." } }
   ]
 }
 ```
@@ -262,27 +266,27 @@ interface ProblemDetail {
 
 An invalid signature is fatal — it means any part of the credential could have
 been tampered with, so every later check for the credential, in any suite, is
-halted. With `verbose: true`, each check that would have run appears as
-`skipped` with code `NOT_RUN_AFTER_FATAL`, `haltedBy` naming the failed check,
-and reason `Not run: <check-id> failed`.
+halted. Each check that would have run appears as `skipped` with code
+`NOT_RUN_AFTER_FATAL`, `haltedBy` naming the failed check, and reason
+`Not run: <check-id> failed`.
 
 ```json
 {
   "verified": false,
   "results": [
     {
+      "id": "cryptographic.core.context-exists",
       "suite": "core",
-      "check": "core.context-exists",
       "outcome": { "status": "success", "message": "..." }
     },
     {
+      "id": "cryptographic.core.proof-exists",
       "suite": "core",
-      "check": "core.proof-exists",
       "outcome": { "status": "success", "message": "..." }
     },
     {
+      "id": "cryptographic.proof.signature",
       "suite": "proof",
-      "check": "proof.signature",
       "outcome": {
         "status": "failure",
         "problems": [
@@ -295,8 +299,9 @@ and reason `Not run: <check-id> failed`.
       }
     },
     {
-      "suite": "registry",
-      "check": "registry.issuer",
+      "id": "cryptographic.proof.unsupported-proofs",
+      "suite": "proof",
+      "fatal": false,
       "outcome": {
         "status": "skipped",
         "code": "NOT_RUN_AFTER_FATAL",
@@ -305,8 +310,28 @@ and reason `Not run: <check-id> failed`.
       }
     },
     {
+      "id": "cryptographic.proof.validity-period",
+      "suite": "proof",
+      "outcome": {
+        "status": "skipped",
+        "code": "NOT_RUN_AFTER_FATAL",
+        "haltedBy": "proof.signature",
+        "reason": "Not run: proof.signature failed"
+      }
+    },
+    {
+      "id": "trust.registry.issuer",
+      "suite": "registry",
+      "outcome": {
+        "status": "skipped",
+        "code": "NOT_RUN_AFTER_FATAL",
+        "haltedBy": "proof.signature",
+        "reason": "Not run: proof.signature failed"
+      }
+    },
+    {
+      "id": "cryptographic.status.bitstring",
       "suite": "status",
-      "check": "status.bitstring",
       "outcome": {
         "status": "skipped",
         "code": "NOT_RUN_AFTER_FATAL",
@@ -320,36 +345,38 @@ and reason `Not run: <check-id> failed`.
 
 #### Example: Revoked credential (fatal, sourced from status)
 
-When a credential's status list marks it revoked or suspended — or the verifier
+When a credential's status list marks it revoked or suspended (or the verifier
 can't confidently evaluate the list (missing, expired, wrong type, signature
-invalid) — the status suite fails the credential. The proof and registry checks
-still pass on their own merits.
+invalid), the status suite fails the credential. The proof and registry checks
+still pass on their own merits. `status.bitstring` is fatal but does not halt
+(`halts: false`). The credential is authentic by then, so `status.list-issuer`
+still reports who signed the list, and caller-added suites still run.
 
 ```json
 {
   "verified": false,
   "results": [
     {
+      "id": "cryptographic.core.context-exists",
       "suite": "core",
-      "check": "core.context-exists",
       "outcome": { "status": "success", "message": "..." }
     },
     {
+      "id": "cryptographic.proof.signature",
       "suite": "proof",
-      "check": "proof.signature",
       "outcome": {
         "status": "success",
         "message": "Signature verified successfully."
       }
     },
     {
+      "id": "trust.registry.issuer",
       "suite": "registry",
-      "check": "registry.issuer",
       "outcome": { "status": "success", "message": "..." }
     },
     {
+      "id": "cryptographic.status.bitstring",
       "suite": "status",
-      "check": "status.bitstring",
       "outcome": {
         "status": "failure",
         "problems": [
@@ -360,10 +387,69 @@ still pass on their own merits.
           }
         ]
       }
+    },
+    {
+      "id": "cryptographic.status.list-issuer",
+      "suite": "status",
+      "fatal": false,
+      "outcome": {
+        "status": "success",
+        "message": "Every status list is issued by the credential's issuer."
+      }
     }
   ]
 }
 ```
+
+#### Example: Expired credential (fatal, does not halt)
+
+An authentic credential outside its validity period passes `proof.signature` and
+fails `proof.validity-period` with `CREDENTIAL_EXPIRED` or
+`CREDENTIAL_NOT_YET_VALID`. The check is fatal, so `verified` is false. It does
+not halt, so the registry, status and caller-added checks still run. A tampered
+credential is reported as `INVALID_SIGNATURE` whatever its dates.
+
+```json
+{
+  "id": "cryptographic.proof.validity-period",
+  "suite": "proof",
+  "fatal": true,
+  "halts": false,
+  "outcome": {
+    "status": "failure",
+    "problems": [
+      {
+        "type": "https://www.w3.org/TR/vc-data-model#CREDENTIAL_EXPIRED",
+        "title": "Credential Expired",
+        "detail": "Validity ended at 2011-01-01T00:00:00Z (validUntil). Verified at 2026-10-21T12:00:00.000Z."
+      }
+    ]
+  }
+}
+```
+
+#### Example: Proof set
+
+A credential or presentation may carry several proofs. Each is verified on its
+own, and every proof a registered suite can check must verify. One failing proof
+fails `proof.signature`, and its problem names the proof:
+
+```json
+{
+  "type": "https://www.w3.org/TR/vc-data-model#INVALID_SIGNATURE",
+  "title": "Invalid Signature",
+  "detail": "Proof 2 of 2 (DataIntegrityProof, eddsa-rdfc-2022): Invalid signature."
+}
+```
+
+A proof that no registered suite supports, or that was made for a different
+proof purpose, does not fail the signature when another proof verified. The
+non-fatal `proof.unsupported-proofs` check reports it with a `PROOF_UNSUPPORTED`
+problem per proof, for example "Proof 2 of 2 (DataIntegrityProof, bbs-2023):
+This verifier does not support this proof's cryptosuite." When no proof could be
+checked at all, `proof.signature` fails with `PROOF_UNSUPPORTED`. Status list
+credentials follow the same rule: a list with one bad proof is a
+`STATUS_LIST_SIGNATURE_ERROR`.
 
 #### Example: Check skipped
 
@@ -372,8 +458,8 @@ with no `credentialStatus` skips the status check:
 
 ```json
 {
+  "id": "cryptographic.status.bitstring",
   "suite": "status",
-  "check": "status.bitstring",
   "outcome": {
     "status": "skipped",
     "reason": "Credential has no credentialStatus."
@@ -390,9 +476,10 @@ All failures use `ProblemDetail` with a `type` URI. Common error types:
 | `...#PARSING_ERROR`               | Credential Parsing Failed / Presentation Parsing Failed / Invalid JSON-LD / No VC Context | Envelope gate or context problems                                                                                       |
 | `...#MALFORMED_VALUE_ERROR`       | Invalid Credential Structure / Invalid Presentation Structure                             | A VC Data Model structure rule is broken; `instance` points at the field                                                |
 | `...#INVALID_SIGNATURE`           | Invalid Signature                                                                         | Signature doesn't match content                                                                                         |
-| `...#CREDENTIAL_EXPIRED`          | Credential Expired                                                                        | `validUntil` / `expirationDate` has passed; the signature verified                                                      |
-| `...#CREDENTIAL_NOT_YET_VALID`    | Credential Not Yet Valid                                                                  | `validFrom` / `issuanceDate` is in the future; the signature verified                                                   |
-| `...#PROOF_PURPOSE_MISMATCH`      | Challenge Mismatch / Domain Mismatch / Proof Purpose Mismatch                             | VP proof does not bind to the caller's challenge, domain, or purpose                                                    |
+| `...#CREDENTIAL_EXPIRED`          | Credential Expired                                                                        | `validUntil` / `expirationDate` has passed; reported by `proof.validity-period` once the signature verified             |
+| `...#CREDENTIAL_NOT_YET_VALID`    | Credential Not Yet Valid                                                                  | `validFrom` / `issuanceDate` is in the future; reported by `proof.validity-period` once the signature verified          |
+| `...#PROOF_UNSUPPORTED`           | Unsupported Proof                                                                         | No registered suite supports the proof, or it was made for another purpose; a warning beside a proof that verified      |
+| `...#PROOF_PURPOSE_MISMATCH`      | Challenge Mismatch / Domain Mismatch                                                      | VP proof does not bind to the caller's challenge or domain                                                              |
 | `...#VERIFICATION_METHOD_ERROR`   | Verification Method Error                                                                 | Proof's key is not listed by its controller, not authorized for the purpose, or names a fragment the DID document lacks |
 | `...#DID_WEB_UNRESOLVED`          | DID Web Unresolved                                                                        | DID document (e.g. `did:web`) or `did:webvh` log couldn't be fetched                                                    |
 | `...#HTTP_ERROR`                  | HTTP Error                                                                                | Network error during signature check                                                                                    |
@@ -464,7 +551,6 @@ interface VerifyPresentationOptions {
   // Pipeline controls:
   recognizers?: RecognizerSpec[]; // See "Credential recognition + two-pass verification"
   phases?: SuitePhase[]; // See "Two-pass verification"
-  verbose?: boolean; // Full check list in results[] (default: failures + skips only)
   timing?: boolean; // Per-check / per-suite timing instrumentation
 
   // Service overrides (otherwise sensible defaults are used):
@@ -496,7 +582,7 @@ interface PresentationVerificationResult {
 ```
 
 `presentationResults` and each embedded `credentialResults[i].results` follow
-the same folded-by-default shape as `verifyCredential`'s `results`. The
+the same shape as `verifyCredential`'s `results`, listing every check. The
 top-level `summary` rolls up the VP envelope's own suites; per-credential
 rollups live on `credentialResults[i].summary`.
 
@@ -508,9 +594,12 @@ Presentation verification does two things:
    proof that is present is always verified. When `challenge` is passed, the
    presentation's proof must use the `authentication` purpose and carry that
    challenge (and `domain`, if passed); a mismatch is reported as
-   `PROOF_PURPOSE_MISMATCH`. Without a challenge only the signature is checked.
-   A `domain` without a `challenge`, or an empty-string `challenge`, is rejected
-   before any check runs. Results go in `presentationResults`.
+   `PROOF_PURPOSE_MISMATCH`. A proof made for another purpose is not checked and
+   is reported as `PROOF_UNSUPPORTED`. In a proof set that is a warning beside
+   an `authentication` proof that verified, and fatal when it is the only proof.
+   Without a challenge only the signatures are checked. A `domain` without a
+   `challenge`, or an empty-string `challenge`, is rejected before any check
+   runs. Results go in `presentationResults`.
 2. **Verifies each embedded credential** — extracts credentials from the VP and
    runs `verifyCredential` on each. Results go in `credentialResults`.
 
@@ -590,8 +679,8 @@ const result = await verifier.verifyPresentation({ presentation });
 ### Network policy of the built-in HTTP service
 
 Verification fetches URLs the credential chooses. These include JSON-LD
-contexts, `did:web` documents, status lists, schemas and registries. The
-built-in `BuiltinHttpGetService` applies a network policy to every fetch.
+contexts, `did:web` documents, status lists and registries. The built-in
+`BuiltinHttpGetService` applies a network policy to every fetch.
 
 - It allows `https:` only. It refuses `http:` and other schemes, `localhost` and
   `*.localhost`, and loopback, private (10/8, 172.16/12, 192.168/16,
@@ -689,30 +778,29 @@ const result = await verifyCredential({
 Custom suites run after the default suites. Each check receives the same
 `VerificationSubject` and `VerificationContext` as built-in checks.
 
-## Verbose mode and folded summaries
+A failure of a `fatal: true` check makes `verified` false and halts every later
+check for the subject. Set `halts: false` on a fatal check whose failure leaves
+later checks meaningful. Its failure still makes `verified` false, but later
+checks run. `halts` defaults to `fatal`. The built-in `proof.validity-period`
+and `status.bitstring` checks set `halts: false`, so custom suites still run for
+an expired or revoked credential.
+
+## Per-suite summaries
 
 Each `CredentialVerificationResult` and `PresentationVerificationResult` carries
-a `summary: SuiteSummary[]` rollup of per-suite outcomes. By default (since
-v2.0.0), `results[]` carries only failures and explicit `<suite>.applies` skips;
-pass `verbose: true` to keep every check in `results[]`.
+a `summary: SuiteSummary[]` rollup of per-suite outcomes next to `results[]`,
+which lists every check.
 
 ```ts
 const result = await verifier.verifyCredential({ credential });
 // result.summary[i] = { id, phase, suite, status, verified, message, counts, ... }
-// result.results[]  = failures + explicit skips only
-
-const verbose = await verifier.verifyCredential({ credential, verbose: true });
-// verbose.results[] carries every check that ran, with .id populated.
+// result.results[]  = every check that ran, was skipped, or was not run
 ```
 
-With `verbose: false` (the default), a check that passed cannot be told apart
-from a check that never ran. Only failures and applies-skips are in `results[]`,
-and `summary[].counts` is per suite. A UI that must state per check "checked and
-passed" versus "not checked" should use `verbose: true`. The folded default
-suits size-sensitive responses where the per-suite rollup is enough.
-
-`verbose` is also accepted on `createVerifier(...)` as an instance default;
-per-call values win when both are set.
+Render from `summary[]` and expand into `results[]` for per-check detail. A
+summary's checks are the `results[]` rows whose `id` starts with the summary's
+`id` plus a dot. Passes and skips share that prefix, so filter by
+`outcome.status` as well to reach just the failures.
 
 See [`docs/api/verification-results.md`](./docs/api/verification-results.md) for
 the full reference (phase model, `SuiteSummary` fields, `id` namespace, UI
@@ -722,10 +810,10 @@ rendering recipe, and a prompt-ready appendix for downstream UIs).
 
 Every result can carry per-check, per-suite, and per-call `TaskTiming` data
 (wall-clock `startedAt` / `endedAt` plus a monotonic `durationMs`). Off by
-default; opt in via `timing: true` on `createVerifier(...)` or per-call. Mirrors
-`verbose`'s plumbing — per-call wins, and `verifyPresentation` propagates the
-flag into embedded `verifyCredential` calls so the top-level `result.timing` is
-an inclusive wrapper.
+default; opt in via `timing: true` on `createVerifier(...)` or per-call.
+Per-call wins, and `verifyPresentation` propagates the flag into embedded
+`verifyCredential` calls so the top-level `result.timing` is an inclusive
+wrapper.
 
 ```ts
 const verifier = createVerifier({ timing: true });
@@ -734,9 +822,8 @@ console.log(result.timing!.durationMs);
 console.log(result.summary[0].timing!.durationMs);
 ```
 
-In `verbose: false` mode (the default), individual `CheckResult.timing` entries
-fold away in `results[]`, but the per-suite `SuiteSummary.timing` survives in
-`summary[]` so suite-grain timing is never lost. See
+Every row in `results[]` carries its own `CheckResult.timing`, and each
+`SuiteSummary.timing` rolls those up per suite. See
 [`docs/api/timing.md`](./docs/api/timing.md) for the full reference, granularity
 table, recipes, and a prompt-ready appendix.
 
@@ -748,18 +835,28 @@ table, recipes, and a prompt-ready appendix.
 `createVerifier(...)` in tests to make every `TaskTiming` field
 exact-value-assertable. Both factories are exported from the package barrel. The
 same clock decides credential validity: the instant is read once per verify
-call, and `proof.signature` and `status.bitstring` pass it to the crypto service
-as `now`, so a `FakeTimeService` set inside an expired credential's validity
-window verifies it. Dates are compared exactly against that instant, with no
-clock-skew allowance. See [`docs/api/timing.md`](./docs/api/timing.md) for the
-reference.
+call, `proof.signature` and `status.bitstring` pass it to the crypto service as
+`now`, and `proof.validity-period` judges the credential's dates at it. So a
+`FakeTimeService` set inside an expired credential's validity window verifies
+it. Dates are compared exactly against that instant, with no clock-skew
+allowance. See [`docs/api/timing.md`](./docs/api/timing.md) for the reference.
 
 ## Open Badges 3.0 verification (opt-in submodule)
 
-Open Badges 3.0 verification ships in `@interop/verifier-core/openbadges` as an
-opt-in submodule. It is not part of the default suite list; consumers that want
-OB checks pass `openBadgesSuite` (or one of the bundled variants) via
+Open Badges 3.0 verification ships in two opt-in submodules. Neither is part of
+the default suite list. Consumers that want OB checks pass a bundled suite via
 `additionalSuites` on a verify call.
+
+- `@interop/verifier-core/openbadges` holds the semantic suite, the recognizers,
+  the Zod schemas and the problem types. It loads no JSON Schema validator.
+- `@interop/verifier-core/openbadges/schema` holds JSON Schema validation:
+  `openBadgesSuite`, `openBadgesSchemaSuite`, `obv3SchemaCheck` and
+  `obv3DeclaredSchemaCheck`. It loads AJV and the bundled Open Badges 3.0
+  schemas.
+
+The split matters where a bundler does not tree-shake (Metro), and under a
+Content Security Policy that forbids `unsafe-eval`. AJV compiles a schema with
+`new Function`, so such pages should use `openBadgesSemanticSuite` alone.
 
 > [!IMPORTANT] If you were on `1.0.0-beta.x` and relied on `obv3SchemaSuite`
 > running by default, you now need to opt in explicitly. The simplest migration
@@ -769,7 +866,7 @@ OB checks pass `openBadgesSuite` (or one of the bundled variants) via
 
 ```ts
 import { createVerifier } from '@interop/verifier-core';
-import { openBadgesSuite } from '@interop/verifier-core/openbadges';
+import { openBadgesSuite } from '@interop/verifier-core/openbadges/schema';
 
 const verifier = createVerifier();
 const result = await verifier.verifyCredential({
@@ -785,34 +882,60 @@ is `no recognizer matched`.
 ### Strict parser versus JSON Schema
 
 The strict Zod parser behind `recognition.profile` enforces spec MUST rules that
-the published OB 3.0 JSON Schema cannot express. One example is
-AchievementSubject: "Either id or at least one identifier MUST be supplied." So
+the OB 3.0 JSON Schema cannot express. One example is AchievementSubject:
+"Either id or at least one identifier MUST be supplied." So
 `recognition.profile` can fail while `schema.obv3.json` passes for the same
 credential.
 
 This is deliberate. The parser is the authority on conformance. The AJV schema
-check is the published-schema baseline. Treat a parser failure as the stronger
+check is the spec-schema baseline. Treat a parser failure as the stronger
 signal.
 
 ### Bundle variants
 
-| Bundle                    | Contents                                                           | Network?                      |
-| ------------------------- | ------------------------------------------------------------------ | ----------------------------- |
-| `openBadgesSuite`         | Semantic checks **and** AJV JSON Schema check (the default bundle) | Yes (schema fetch; see below) |
-| `openBadgesSemanticSuite` | Cross-field semantic checks only                                   | No                            |
-| `openBadgesSchemaSuite`   | AJV JSON Schema check only                                         | Yes (schema fetch; see below) |
+| Bundle                    | Entry point          | Contents                                                             | Applies to                                 |
+| ------------------------- | -------------------- | -------------------------------------------------------------------- | ------------------------------------------ |
+| `openBadgesSuite`         | `/openbadges/schema` | Semantic checks **and** the JSON Schema checks                       | OpenBadgeCredential, EndorsementCredential |
+| `openBadgesSemanticSuite` | `/openbadges`        | Cross-field semantic checks only                                     | OpenBadgeCredential                        |
+| `openBadgesSchemaSuite`   | `/openbadges/schema` | JSON Schema checks only (`schema.obv3.json`, `schema.obv3.declared`) | OpenBadgeCredential, EndorsementCredential |
 
-The schema check fetches the four published OB 3.0 schemas once per
-`cacheService` and compiles them once per verifier, so reuse a verifier for
-repeated work. Verifiers that share a `cacheService` share the fetched schemas.
-Both the cached document and the compiled validator are refreshed after 24
-hours. A `credentialSchema` URL outside the published four is fetched and
-compiled on every verification without being cached.
+Inside `openBadgesSuite`, the semantic checks skip an endorsement, since its
+subject is not an `AchievementSubject`.
+
+### JSON Schema validation
+
+`schema.obv3.json` validates a credential against the Open Badges 3.0 JSON
+Schema for its type and VC version. The four schemas are copied from the spec
+appendix and bundled with the package:
+
+| Credential                      | Schema                             |
+| ------------------------------- | ---------------------------------- |
+| `OpenBadgeCredential`, VC 2.0   | E.2.1.2 AchievementCredential      |
+| `OpenBadgeCredential`, VC 1.1   | E.2.1.34 AchievementCredentialv1p1 |
+| `EndorsementCredential`, VC 2.0 | E.2.1.7 EndorsementCredential      |
+| `EndorsementCredential`, VC 1.1 | E.2.1.36 EndorsementCredentialv1p1 |
+
+Nothing is fetched. Each schema is compiled once per process, on first use. A VC
+1.1 credential is checked against the strict VC 1.1-only schema. The
+credential's own `credentialSchema` does not choose the schema, so an issuer
+cannot swap in a permissive one.
+
+`schema.obv3.declared` is a non-fatal report on that `credentialSchema`. Each
+entry that does not fit the credential produces one problem, with `instance`
+pointing at the entry:
+
+- `OB_DECLARED_SCHEMA_MISMATCH`: a known Open Badges 3.0 schema URL for the
+  other OB credential type, or one that does not accept the credential's VC
+  version.
+- `OB_DECLARED_SCHEMA_NOT_CHECKED`: a URL that is not a known Open Badges 3.0
+  schema. It is not fetched.
+
+The check is skipped when no `credentialSchema` is declared.
 
 Pick `openBadgesSemanticSuite` when you want the OB-specific semantic checks
 (`OB_INVALID_RESULT_REFERENCE`, `OB_INVALID_ACHIEVED_LEVEL`,
-`OB_MISSING_RESULT_STATUS`, `OB_UNKNOWN_ACHIEVEMENT_TYPE`) but cannot afford a
-network fetch on the first OB credential of a process.
+`OB_MISSING_RESULT_STATUS`, `OB_UNKNOWN_ACHIEVEMENT_TYPE`) without loading AJV
+and the bundled schemas.
 
 ### Problem types
 
@@ -821,7 +944,6 @@ OB-specific problem URIs live on `OpenBadgesProblemTypes` (also exported as
 
 ```ts
 import {
-  openBadgesSuite,
   OpenBadgesProblemTypes,
   type OpenBadgesProblemType
 } from '@interop/verifier-core/openbadges';
@@ -838,6 +960,10 @@ switch (problem.type as OpenBadgesProblemType) {
     // ...
     break;
   case OpenBadgesProblemTypes.OB_UNKNOWN_ACHIEVEMENT_TYPE:
+    // ...
+    break;
+  case OpenBadgesProblemTypes.OB_DECLARED_SCHEMA_MISMATCH:
+  case OpenBadgesProblemTypes.OB_DECLARED_SCHEMA_NOT_CHECKED:
     // ...
     break;
 }
@@ -901,10 +1027,10 @@ re-parsing.
 import { createVerifier } from '@interop/verifier-core';
 import {
   obv3p0Recognizer,
-  obv3p0EndorsementRecognizer,
-  openBadgesSuite
+  obv3p0EndorsementRecognizer
 } from '@interop/verifier-core/openbadges';
 import type { Obv3p0OpenBadgeCredential } from '@interop/verifier-core/openbadges';
+import { openBadgesSuite } from '@interop/verifier-core/openbadges/schema';
 
 const verifier = createVerifier({
   recognizers: [obv3p0Recognizer, obv3p0EndorsementRecognizer]
@@ -1015,9 +1141,9 @@ small migrations:
   paths (`@interop/verifier-core/dist/...`) but are no longer part of the
   published 1.0 surface: `runSuites`, `createRegistryLookup`, `DEFAULT_TTL_MS`,
   `parseCacheControlMaxAge`, `resolveTtl`, `ttlFromValidUntil`,
-  `documentLoaderFromHttpGet`, `fetchJsonFromHttpGet`, `extractCredentialsFrom`,
-  `registryKeyHash`. Most callers should build verifiers via
-  `createVerifier(...)` rather than reach for these directly.
+  `documentLoaderFromHttpGet`, `extractCredentialsFrom`, `registryKeyHash`. Most
+  callers should build verifiers via `createVerifier(...)` rather than reach for
+  these directly.
 
 - **Result-shape changes:**
   - `CredentialVerificationResult.credential` → `verifiableCredential`

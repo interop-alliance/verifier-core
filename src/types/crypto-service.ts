@@ -14,10 +14,25 @@ import type { VerificationSubject } from './subject.js';
  * Outcome of a credential or presentation cryptographic verification.
  *
  * Failures carry pre-classified `ProblemDetail` entries (adapter-specific error mapping).
+ *
+ * A rejection with `proofVerified: true` says the proof itself verified
+ * and the service rejected the document for another reason, such as its
+ * validity dates (`CREDENTIAL_EXPIRED`, `CREDENTIAL_NOT_YET_VALID`).
+ * `proof.signature` treats such a rejection as a verified signature and
+ * leaves the dates to `proof.validity-period`. A service that did not
+ * verify the proof leaves the flag unset, whatever its problems say.
+ *
+ * A document carrying a proof set is handed to the service one proof at
+ * a time (`dispatchProofSetVerification`), so "the proof itself" is that
+ * one proof. A service that cannot check the proof it was handed (no
+ * suite supports it, or it was made for another purpose) should reject
+ * with only `PROOF_UNSUPPORTED` problems. Beside a proof that verified,
+ * `proof.unsupported-proofs` then reports it as a warning rather than a
+ * failure.
  */
 export type CryptoResult =
   | { verified: true; message?: string }
-  | { verified: false; problems: ProblemDetail[] };
+  | { verified: false; problems: ProblemDetail[]; proofVerified?: boolean };
 
 /**
  * Options passed to crypto verification — mirrors the seams the DCC vc stack needs.

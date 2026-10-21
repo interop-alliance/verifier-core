@@ -39,6 +39,25 @@ function expectInvalidSignature(results: CheckResult[]): void {
   expectProblem(results, ProblemTypes.INVALID_SIGNATURE, 'Invalid Signature');
 }
 
+/**
+ * The presentation's own proof was not checked, because it was made for
+ * a purpose other than the authentication a challenge requires.
+ */
+function expectWrongPurpose(results: CheckResult[]): void {
+  const outcome = signatureResult(results)?.outcome;
+  expect(outcome?.status).toBe('failure');
+  if (outcome?.status === 'failure') {
+    expect(outcome.problems).toEqual([
+      {
+        type: ProblemTypes.PROOF_UNSUPPORTED,
+        title: 'Unsupported Proof',
+        detail:
+          "This proof's purpose (assertionMethod) is not the one being checked (authentication)."
+      }
+    ]);
+  }
+}
+
 function expectChallengeRequired(results: CheckResult[]): void {
   expectProblem(
     results,
@@ -66,8 +85,7 @@ describe('challenge enforcement with the default crypto service', () => {
   ) =>
     createVerifier({
       httpGetService: offlineHttpGetService,
-      documentLoader,
-      verbose: true
+      documentLoader
     }).verifyPresentation({
       presentation,
       ...options,
@@ -107,7 +125,7 @@ describe('challenge enforcement with the default crypto service', () => {
     const result = await verify(presentation, { challenge: 'x' });
 
     expect(result.verified).toBe(false);
-    expectPurposeMismatch(result.presentationResults, 'Proof Purpose Mismatch');
+    expectWrongPurpose(result.presentationResults);
   });
 
   it('fails an authentication presentation signed for a different challenge', async () => {
@@ -140,7 +158,7 @@ describe('challenge enforcement with the default crypto service', () => {
     expect(result.verified).toBe(false);
     // `core.vp-structure` is fatal, so the signature check is not reached.
     const outcome = result.presentationResults.find(
-      r => r.check === 'core.vp-structure'
+      r => r.id === 'cryptographic.core.vp-structure'
     )?.outcome;
     expect(outcome?.status).toBe('failure');
     if (outcome?.status === 'failure') {
@@ -263,9 +281,8 @@ describe('challenge enforcement with the default crypto service', () => {
     expect(result.verified).toBe(false);
   });
 
-  // The fork scans every proof in a proof set when no challenge is supplied.
-  // An assertion proof first must not let the authentication proof go
-  // unchecked.
+  // Each proof of a set is verified on its own. An assertion proof first
+  // must not let the authentication proof go unchecked.
   describe('[assertion, authentication] proof set', () => {
     const signedWithBothProofs = async () => {
       const asserted = await signedForAssertion();
@@ -288,13 +305,28 @@ describe('challenge enforcement with the default crypto service', () => {
       return presentation;
     };
 
-    it('verifies with the matching caller challenge', async () => {
+    it('verifies with the matching caller challenge, warning about the assertion proof', async () => {
       const result = await verify(await signedWithBothProofs(), {
         challenge: 'a'
       });
 
       expect(result.verified).toBe(true);
       expectSignatureSuccess(result.presentationResults);
+      expect(
+        result.presentationResults.find(
+          r => r.id === 'cryptographic.proof.unsupported-proofs'
+        )?.outcome
+      ).toEqual({
+        status: 'failure',
+        problems: [
+          {
+            type: ProblemTypes.PROOF_UNSUPPORTED,
+            title: 'Unsupported Proof',
+            detail:
+              "Proof 1 of 2 (Ed25519Signature2020): This proof's purpose (assertionMethod) is not the one being checked (authentication)."
+          }
+        ]
+      });
     });
 
     it('fails with a different caller challenge', async () => {
@@ -306,11 +338,16 @@ describe('challenge enforcement with the default crypto service', () => {
       expectPurposeMismatch(result.presentationResults, 'Challenge Mismatch');
     });
 
-    it('verifies on the signatures when no challenge is supplied', async () => {
+    it('verifies on the signatures when no challenge is supplied, checking both proofs', async () => {
       const result = await verify(await signedWithBothProofs());
 
       expect(result.verified).toBe(true);
       expectSignatureSuccess(result.presentationResults);
+      expect(
+        result.presentationResults.find(
+          r => r.id === 'cryptographic.proof.unsupported-proofs'
+        )?.outcome
+      ).toEqual({ status: 'success', message: 'Every proof was checked.' });
     });
 
     it('verifies two authentication proofs with different challenges when none is supplied', async () => {

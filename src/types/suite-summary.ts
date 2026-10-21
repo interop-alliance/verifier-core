@@ -2,10 +2,9 @@
  * Suite-level rollup of one or more `CheckResult`s.
  *
  * One `SuiteSummary` per (phase, suite) that ran is emitted on
- * every result, regardless of whether the verifier was called in
- * `verbose: true` or `verbose: false` (default) mode. The summary
- * is the primary surface for UI rendering: one row per suite, with
- * a human-readable `message` and `counts` already rolled up.
+ * every result. The summary is the primary surface for UI
+ * rendering: one row per suite, with a human-readable `message`
+ * and `counts` already rolled up.
  *
  * Computed by `foldCheckResults` (see `src/fold-results.ts`) from
  * the raw `CheckResult[]` returned by `runSuites`.
@@ -32,15 +31,15 @@ export type SuiteSummaryPhase = SuitePhase | 'unknown';
 
 /**
  * Suite-level rollup of one or more `CheckResult`s. One entry per
- * (phase, suite) that ran; always emitted regardless of `verbose`.
+ * (phase, suite) that ran.
  *
  * UIs should render primarily from `summary[]` and lazy-expand
- * into `results[]` for failure detail.
+ * into `results[]` for per-check detail.
  */
 export interface SuiteSummary {
   /**
    * Dot-separated namespace identifying this suite within the
-   * folded result set; e.g. `"cryptographic.core"`,
+   * result set; e.g. `"cryptographic.core"`,
    * `"semantic.openbadges"`. When `phase === suite` (the
    * `recognition` suite is the canonical example), the duplicate
    * segment collapses to a single `"recognition"`.
@@ -57,8 +56,9 @@ export interface SuiteSummary {
    * Aggregate status across the suite's child checks:
    *  - `'success'` — every check that ran returned `success`.
    *  - `'failure'` — every check that ran returned `failure`.
-   *  - `'mixed'`   — at least one `failure` and at least one
-   *    non-`failure` (`success` or `skipped`).
+   *  - `'mixed'`   -- at least one `failure` and at least one
+   *    `success`. A suite whose only non-failures are skips is
+   *    `'failure'`.
    *  - `'skipped'` -- no check ran (suite predicate returned false,
    *    every check was filtered out by `appliesTo`, or every check
    *    was halted by an earlier fatal failure).
@@ -97,10 +97,14 @@ export interface SuiteSummary {
   counts: { passed: number; failed: number; skipped: number };
 
   /**
-   * Set when a fatal check failure halted the suite mid-run;
-   * carries the failing check's `id`. `counts.passed` and
-   * `counts.failed` reflect what actually executed before the
-   * halt; the halted checks count as `skipped`.
+   * The `id` of the first check in this suite that failed fatally,
+   * if one did. The subject's `verified` is `false` exactly when any
+   * of its summaries carries this field. A fatal check halts every
+   * later check for the subject unless it sets `halts: false`, so
+   * more than one suite can carry it: one per suite with a
+   * non-halting fatal failure, plus the suite of the halting one.
+   * `counts.passed` and `counts.failed` reflect what actually
+   * executed; halted checks count as `skipped`.
    */
   fatalFailureAt?: string;
 
@@ -115,9 +119,7 @@ export interface SuiteSummary {
    *    `endedAt - startedAt`, which would also include any
    *    inter-check gap).
    *
-   * Survives result folding: even when `verbose: false` hides
-   * individual check details, this rollup is computed before
-   * checks are folded away. See {@link TaskTiming}.
+   * See {@link TaskTiming}.
    */
   timing?: TaskTiming;
 }

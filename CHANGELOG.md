@@ -1,5 +1,92 @@
 # @interop/verifier-core CHANGELOG
 
+## 4.0.0 - TBD
+
+### Breaking
+
+- `results[]` always lists every check that ran (passes, skips and not-run
+  rows). The `verbose` option is removed from `VerifierConfig` and the per-call
+  options, and `FoldOptions` is no longer exported.
+- `CheckResult.check` is removed. Select rows by the phase-qualified `id` (e.g.
+  `cryptographic.proof.signature`). `CheckResult.suite` is no longer deprecated.
+- `VerificationContext.fetchJson`, the `FetchJson` type and
+  `fetchJsonFromHttpGet` are removed; nothing built in fetched plain JSON once
+  the Open Badges schemas were bundled. Custom checks use
+  `context.httpGetService`.
+- The opt-in `expirationSuite` (check `validity.expiration`) and
+  `EXPIRATION_SKIP_CODES` are removed; `proof.validity-period` replaces it.
+- `openBadgesSuite`, `openBadgesSchemaSuite` and `obv3SchemaCheck` moved from
+  `@interop/verifier-core/openbadges` to the new
+  `@interop/verifier-core/openbadges/schema` entry. Importing `/openbadges` no
+  longer loads AJV or any JSON Schema.
+- `PROOF_PURPOSE_MISMATCH` now covers only challenge and domain mismatches. A
+  presentation checked with a challenge whose only proof is not an
+  authentication proof reports `PROOF_UNSUPPORTED`.
+- `CryptoResult` rejections carry `proofVerified?: boolean`, set by a service
+  only when the proof verified and the rejection is about something else (the
+  validity dates). `proof.signature` and `status.bitstring` read that flag; a
+  rejection made only of `CREDENTIAL_EXPIRED` / `CREDENTIAL_NOT_YET_VALID`
+  without it is now a signature failure. `CryptoDispatchResult` rejections carry
+  the flag as `proofVerified: boolean`.
+
+### Added
+
+- `VerificationCheck.halts` (defaults to `fatal`). A fatal check with
+  `halts: false` makes `verified` false without stopping later checks, so more
+  than one `SuiteSummary` may carry `fatalFailureAt`.
+- Proof sets are verified one proof at a time. A set fails when any proof a
+  registered suite can check fails, with the proof named in the problem detail
+  ("Proof N of M (type, cryptosuite): ..."). Proofs no suite supports, or made
+  for a different purpose, are set aside as `ProblemTypes.PROOF_UNSUPPORTED`.
+  Applies to credentials, presentations and status list credentials.
+- `proof.unsupported-proofs`: a non-fatal check reporting each proof in a set
+  that could not be checked, including one no crypto service's `canVerify` took.
+  Beside a verified proof such a proof no longer fails `proof.signature`.
+- `VALIDITY_PERIOD_SKIP_CODES`: `proof.validity-period` is skipped, not passed,
+  when the first `@context` entry is not a VC context or a stated date does not
+  parse.
+- `proof.validity-period`: a fatal, non-halting check judging
+  `validFrom`/`validUntil` (or `issuanceDate`/`expirationDate`) against the
+  verifier's clock. An expired credential now has a passing signature row and
+  its status, registry and additional suites still run.
+- `status.bitstring` no longer halts, so `status.list-issuer` is reported for a
+  revoked credential, including one whose list was signed by a stranger.
+- vc-recognition registry matches carry the recognised `credentialSubject` entry
+  as `entity` (`name`, `url`, `raw`).
+- `/openbadges/schema`: the four Open Badges 3.0 JSON Schemas from the spec
+  appendix are bundled and chosen by OB type and VC version; nothing is fetched
+  and `credentialSchema` no longer chooses the schema. VC 1.1 credentials are
+  checked against the strict v1p1 schema. The schema suites also apply to
+  `EndorsementCredential`.
+- `schema.obv3.declared`: a non-fatal check reporting a `credentialSchema` entry
+  that does not fit the credential (`OB_DECLARED_SCHEMA_MISMATCH`) or is not a
+  known Open Badges schema (`OB_DECLARED_SCHEMA_NOT_CHECKED`).
+
+### Fixed
+
+- A did:web DID document that cannot be fetched (non-2xx, a transport failure,
+  or a 2xx body that is not JSON) is reported as `DID_WEB_UNRESOLVED`, not
+  `INVALID_SIGNATURE`.
+- In a proof set, a proof that failed is reported ahead of a proof whose service
+  threw.
+- The crypto service no longer reports "does not support this proof's
+  cryptosuite" when a suite threw while looking at the proof; the general
+  wording is used.
+- `/openbadges/schema` reads the VC version from the first `@context` entry by
+  equality, as `core.vc-structure` and `proof.validity-period` do, so the three
+  agree and a URL that only starts with a VC context is not a VC context.
+- Registry handlers copy the `raw` entity entry out of the cached registry
+  document, so a consumer mutating it cannot change later lookups.
+- `proof.unsupported-proofs` reads the verification `proof.signature` recorded
+  for the current run; a reused context no longer returns a stale verdict.
+- The crypto service recognises a validity-date rejection only from a plain
+  `Error` carrying the library's full wording, so a date phrase inside a wrapped
+  proof error is not mistaken for one.
+
+### Removed
+
+- Runtime JSON Schema fetching and the schema document cache.
+
 ## 3.9.0 - 2026-10-12
 
 ### Changed

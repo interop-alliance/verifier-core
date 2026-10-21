@@ -30,33 +30,21 @@ import type { RecognizerSpec } from './recognition.js';
 export type DocumentLoader = IDocumentLoader;
 
 /**
- * Fetches a plain JSON document by URL — no JSON-LD envelope.
- *
- * Used for resources that are not JSON-LD (e.g. JSON Schema for OBv3 AJV, and in the
- * future OIDF entity configs, OIDC discovery, JWKS). Kept separate from
- * {@link DocumentLoader} because JSON-LD loaders wrap results in
- * `{ contextUrl, document, documentUrl }` and use different fetch semantics.
- *
- * It does not cache; each caller owns its cache policy.
- */
-export type FetchJson = (url: string) => Promise<unknown>;
-
-/**
  * Shared resources and configuration available to all verification checks.
  *
  * Built by `createVerifier(...)` from a caller-provided `VerifierConfig`.
  */
 export interface VerificationContext {
   documentLoader: DocumentLoader;
-  fetchJson: FetchJson;
   /**
-   * Optional unified HTTP GET service (e.g. cached). When set without explicit
-   * {@link documentLoader} / {@link fetchJson}, those are derived from this.
+   * Optional unified HTTP GET service (e.g. cached). When set without an
+   * explicit {@link documentLoader}, the loader is derived from this. Custom
+   * checks that need plain JSON call it directly.
    */
   httpGetService?: HttpGetService;
   /**
    * Optional cache service for domain-level storage (registry handlers,
-   * schema documents, etc.).
+   * recognition credentials, etc.).
    */
   cacheService?: CacheService;
   /**

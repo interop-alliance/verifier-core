@@ -29,7 +29,7 @@ import type { TaskTiming } from './timing.js';
  *   that need to branch on *why* a check was skipped must use it rather
  *   than parsing `reason` (which is prose and may be reworded). Each
  *   check documents and exports its own code catalog (e.g.
- *   `EXPIRATION_SKIP_CODES`); codes are only comparable within the check
+ *   `SIGNATURE_SKIP_CODES`); codes are only comparable within the check
  *   that emitted them. `haltedBy` is set only on the orchestrator's
  *   `NOT_RUN_AFTER_FATAL` rows and names the qualified id of the fatal
  *   failure that halted the subject.
@@ -51,8 +51,8 @@ export type CheckOutcome =
 export const RUN_SUITES_SKIP_CODES = {
   /**
    * The check would have run but an earlier fatal failure halted the
-   * subject. The row's `haltedBy` carries the qualified id of the first
-   * fatal failure; the `reason` reads `Not run: <check-id> failed`.
+   * subject. The row's `haltedBy` carries the qualified id of the
+   * halting failure; the `reason` reads `Not run: <check-id> failed`.
    */
   notRunAfterFatal: 'NOT_RUN_AFTER_FATAL'
 } as const;
@@ -72,24 +72,18 @@ export interface CheckResult {
    * (e.g. `"cryptographic.proof.signature"`). When `phase === suite`
    * the duplicate segment collapses (e.g. `"recognition.profile"`).
    *
-   * Populated by `runSuites`. Prefer this over the legacy `check` /
-   * `suite` pair when consuming results.
+   * A suite with no `phase` produces ids beginning `"unknown."`.
+   *
+   * Populated by `runSuites` on every row it emits. This is the
+   * identity to match on.
    */
   id: string;
 
   /**
-   * @deprecated Use {@link CheckResult.id}. Will be removed in the
-   * major release after the one that introduced `id`.
-   *
-   * Qualified check id, e.g. `"core.proof-exists"`.
-   */
-  check: string;
-
-  /**
-   * @deprecated Use {@link CheckResult.id}. Will be removed in the
-   * major release after the one that introduced `id`.
-   *
-   * Suite id this check belongs to, e.g. `"core"`.
+   * Suite id this check belongs to, e.g. `"core"`. Mirrors
+   * `SuiteSummary.suite` and is how rows are grouped into summaries.
+   * It cannot be recovered from {@link CheckResult.id}, because a
+   * suite id may itself contain dots.
    */
   suite: string;
 
@@ -97,13 +91,19 @@ export interface CheckResult {
   /**
    * Whether this check was marked fatal in its suite definition.
    * Only a fatal failure makes the overall `verified` (and the owning
-   * `SuiteSummary.verified`) false and halts every later check for the
-   * subject; a non-fatal failure is reported in `results[]` and
-   * `SuiteSummary.status` / `counts` but leaves `verified` untouched.
-   * A `'skipped'` "not run" row carries its check's flag too, but only
-   * a `'failure'` counts as fatal.
+   * `SuiteSummary.verified`) false; a non-fatal failure is reported in
+   * `results[]` and `SuiteSummary.status` / `counts` but leaves
+   * `verified` untouched. Whether a fatal failure also halted later
+   * checks is {@link CheckResult.halts}. A `'skipped'` "not run" row
+   * carries its check's flag too, but only a `'failure'` counts as
+   * fatal.
    */
   fatal?: boolean;
+  /**
+   * Copied from {@link VerificationCheck.halts} when the check sets it.
+   * Absent, a fatal check halts.
+   */
+  halts?: boolean;
   /**
    * Per-check timing data. Only populated when the producing
    * call ran with `timing: true` on `VerifierConfig` or
@@ -172,12 +172,20 @@ export interface VerificationCheck {
   /** Restricts this check to specific subject types. Unset = runs for all. */
   appliesTo?: readonly VerificationSubjectType[];
   /**
-   * If true, a failure halts every remaining check for the subject, in
-   * this suite and all later suites. Checks that would have run are
-   * reported as `'skipped'` with code
+   * If true, a failure makes the subject's `verified` false and, unless
+   * {@link VerificationCheck.halts} is `false`, halts every remaining
+   * check for the subject, in this suite and all later suites. Checks
+   * that would have run are reported as `'skipped'` with code
    * {@link RUN_SUITES_SKIP_CODES.notRunAfterFatal}.
    */
   fatal?: boolean;
+  /**
+   * Whether a fatal failure halts every later check for the subject.
+   * Defaults to `fatal`. Set `halts: false` on a fatal check whose
+   * failure leaves later checks still meaningful. The failure still
+   * makes `verified` false, but later checks run.
+   */
+  halts?: boolean;
   execute: (
     subject: VerificationSubject,
     context: VerificationContext

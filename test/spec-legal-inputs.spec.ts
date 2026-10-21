@@ -89,21 +89,23 @@ function presentationOf(
   };
 }
 
-function find(results: CheckResult[], check: string): CheckResult | undefined {
-  return results.find(r => r.check === check);
+function find(results: CheckResult[], id: string): CheckResult | undefined {
+  return results.find(r => r.id === id);
 }
 
 function expectReachedProofAndVerified(result: {
   verified: boolean;
   results: CheckResult[];
 }): void {
-  expect(find(result.results, 'parsing.envelope')).toBeUndefined();
-  expect(find(result.results, 'core.vc-structure')?.outcome.status).toBe(
-    'success'
-  );
-  expect(find(result.results, 'proof.signature')?.outcome.status).toBe(
-    'success'
-  );
+  expect(
+    find(result.results, 'cryptographic.parsing.envelope')
+  ).toBeUndefined();
+  expect(
+    find(result.results, 'cryptographic.core.vc-structure')?.outcome.status
+  ).toBe('success');
+  expect(
+    find(result.results, 'cryptographic.proof.signature')?.outcome.status
+  ).toBe('success');
   expect(result.verified).toBe(true);
 }
 
@@ -137,8 +139,7 @@ describe('spec-legal inputs verify end to end', () => {
   const verifier = () =>
     createVerifier({
       httpGetService: offlineHttpGetService,
-      documentLoader,
-      verbose: true
+      documentLoader
     });
 
   beforeAll(async () => {
@@ -193,9 +194,9 @@ describe('spec-legal inputs verify end to end', () => {
       const result = await verifier().verifyCredential({ credential });
 
       expectReachedProofAndVerified(result);
-      expect(find(result.results, 'status.bitstring')?.outcome.status).toBe(
-        'skipped'
-      );
+      expect(
+        find(result.results, 'cryptographic.status.bitstring')?.outcome.status
+      ).toBe('skipped');
     });
 
     it('verifies a status entry with no id', async () => {
@@ -226,9 +227,9 @@ describe('spec-legal inputs verify end to end', () => {
       const result = await verifier().verifyCredential({ credential });
 
       expectReachedProofAndVerified(result);
-      expect(find(result.results, 'status.bitstring')?.outcome.status).toBe(
-        'success'
-      );
+      expect(
+        find(result.results, 'cryptographic.status.bitstring')?.outcome.status
+      ).toBe('success');
     });
 
     it('verifies a language-map name', async () => {
@@ -293,10 +294,12 @@ describe('spec-legal inputs verify end to end', () => {
       });
 
       expect(
-        find(result.presentationResults, 'core.vp-structure')?.outcome.status
+        find(result.presentationResults, 'cryptographic.core.vp-structure')
+          ?.outcome.status
       ).toBe('success');
       expect(
-        find(result.presentationResults, 'proof.signature')?.outcome.status
+        find(result.presentationResults, 'cryptographic.proof.signature')
+          ?.outcome.status
       ).toBe('success');
       expect(result.credentialResults).toHaveLength(1);
       expectReachedProofAndVerified(result.credentialResults[0]);
@@ -325,7 +328,8 @@ describe('spec-legal inputs verify end to end', () => {
       });
 
       expect(
-        find(result.presentationResults, 'core.vp-structure')?.outcome.status
+        find(result.presentationResults, 'cryptographic.core.vp-structure')
+          ?.outcome.status
       ).toBe('success');
       expect(result.credentialResults).toHaveLength(2);
       expect(result.credentialResults[0].verified).toBe(true);
@@ -334,14 +338,15 @@ describe('spec-legal inputs verify end to end', () => {
       expect(enveloped.verified).toBe(false);
       expect(enveloped.results).toHaveLength(1);
       const [envelope] = enveloped.results;
-      expect(envelope.check).toBe('parsing.envelope');
+      expect(envelope.id).toBe('cryptographic.parsing.envelope');
       expect(envelope.outcome.status).toBe('failure');
       if (envelope.outcome.status === 'failure') {
         expect(envelope.outcome.problems[0].detail).toBe(ENVELOPED_MESSAGE);
       }
       expect(result.verified).toBe(false);
       expect(
-        find(result.presentationResults, 'proof.signature')?.outcome.status
+        find(result.presentationResults, 'cryptographic.proof.signature')
+          ?.outcome.status
       ).toBe('success');
     });
 
@@ -360,11 +365,14 @@ describe('spec-legal inputs verify end to end', () => {
       });
 
       expect(
-        find(result.presentationResults, 'proof.signature')?.outcome.status
+        find(result.presentationResults, 'cryptographic.proof.signature')
+          ?.outcome.status
       ).toBe('success');
       expect(
-        find(result.credentialResults[0].results, 'proof.signature')?.outcome
-          .status
+        find(
+          result.credentialResults[0].results,
+          'cryptographic.proof.signature'
+        )?.outcome.status
       ).toBe('failure');
       expect(result.verified).toBe(false);
     });
@@ -382,7 +390,8 @@ describe('spec-legal inputs verify end to end', () => {
       });
 
       expect(
-        find(result.presentationResults, 'proof.signature')?.outcome.status
+        find(result.presentationResults, 'cryptographic.proof.signature')
+          ?.outcome.status
       ).toBe('failure');
       expect(result.credentialResults[0].verified).toBe(true);
       expect(result.verified).toBe(false);
@@ -395,15 +404,15 @@ describe('spec-legal inputs verify end to end', () => {
       const result = await createVerifier({
         httpGetService: offlineHttpGetService,
         documentLoader,
-        cryptoServices: [FakeCryptoService({ verified: true })],
-        verbose: true
+        cryptoServices: [FakeCryptoService({ verified: true })]
       }).verifyPresentation({ presentation, unsignedPresentation: true });
 
       expect(
-        find(result.presentationResults, 'parsing.envelope')
+        find(result.presentationResults, 'cryptographic.parsing.envelope')
       ).toBeUndefined();
       expect(
-        find(result.presentationResults, 'core.vp-structure')?.outcome.status
+        find(result.presentationResults, 'cryptographic.core.vp-structure')
+          ?.outcome.status
       ).toBe('success');
       expect(result.credentialResults).toHaveLength(2);
       expect(result.credentialResults[0].verified).toBe(true);
@@ -411,7 +420,7 @@ describe('spec-legal inputs verify end to end', () => {
       const malformed = result.credentialResults[1];
       expect(malformed.verified).toBe(false);
       expect(malformed.results).toHaveLength(1);
-      expect(malformed.results[0].check).toBe('parsing.envelope');
+      expect(malformed.results[0].id).toBe('cryptographic.parsing.envelope');
       expect(malformed.results[0].outcome.status).toBe('failure');
       expect(result.verified).toBe(false);
     });
@@ -449,14 +458,15 @@ describe('structure failures fail verification at core', () => {
 
     const result = await createVerifier({
       httpGetService: offlineHttpGetService,
-      documentLoader: bundledLoader,
-      verbose: true
+      documentLoader: bundledLoader
     }).verifyCredential({ credential });
 
     expect(result.verified).toBe(false);
-    expect(find(result.results, 'parsing.envelope')).toBeUndefined();
+    expect(
+      find(result.results, 'cryptographic.parsing.envelope')
+    ).toBeUndefined();
 
-    const structure = find(result.results, 'core.vc-structure');
+    const structure = find(result.results, 'cryptographic.core.vc-structure');
     expect(structure?.outcome.status).toBe('failure');
     if (structure?.outcome.status === 'failure') {
       expect(structure.outcome.problems.map(p => p.instance)).toEqual([
@@ -465,8 +475,11 @@ describe('structure failures fail verification at core', () => {
         '/credentialStatus/type'
       ]);
     }
-    for (const check of ['core.credential-id', 'core.proof-exists']) {
-      expect(find(result.results, check)?.outcome).toEqual(
+    for (const id of [
+      'cryptographic.core.credential-id',
+      'cryptographic.core.proof-exists'
+    ]) {
+      expect(find(result.results, id)?.outcome).toEqual(
         notRunOutcome('core.vc-structure')
       );
     }
@@ -491,12 +504,14 @@ describe('structure failures fail verification at core', () => {
 
     const result = await createVerifier({
       httpGetService: offlineHttpGetService,
-      documentLoader: bundledLoader,
-      verbose: true
+      documentLoader: bundledLoader
     }).verifyPresentation({ presentation, challenge: CHALLENGE });
 
     expect(result.verified).toBe(false);
-    const structure = find(result.presentationResults, 'core.vp-structure');
+    const structure = find(
+      result.presentationResults,
+      'cryptographic.core.vp-structure'
+    );
     expect(structure?.outcome.status).toBe('failure');
     if (structure?.outcome.status === 'failure') {
       expect(structure.outcome.problems.map(p => p.instance)).toEqual([

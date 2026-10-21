@@ -112,7 +112,7 @@ export function tamper(
 export function signatureResult(
   results: CheckResult[]
 ): CheckResult | undefined {
-  return results.find(r => r.check === 'proof.signature');
+  return results.find(r => r.id === 'cryptographic.proof.signature');
 }
 
 /** The presentation's own proof failed with the given problem. */

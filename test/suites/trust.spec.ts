@@ -33,7 +33,7 @@ describe('Trust (Issuer Details) Suite', () => {
     const results = await runSuites([suite], subject, baseContext);
 
     expect(results).toHaveLength(1);
-    expect(results[0].check).toBe('trust.issuer-details');
+    expect(results[0].id).toBe('trust.issuer-details');
     expect(results[0].outcome.status).toBe('success');
     if (results[0].outcome.status === 'success') {
       expect(results[0].outcome.message).toContain('found in 1 registry');
@@ -86,7 +86,7 @@ describe('Trust (Issuer Details) Suite', () => {
     });
     const results = await runSuites([suite], createSubject(cred), baseContext);
 
-    expect(results[0].check).toBe('trust.issuer-details');
+    expect(results[0].id).toBe('trust.issuer-details');
     expect(results[0].outcome.status).toBe('success');
   });
 

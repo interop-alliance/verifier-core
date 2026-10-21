@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import type { DIDResolutionError } from '@interop/data-integrity-core/did';
+import type { HttpGetService } from '../../src/services/http-get-service/http-get-service.js';
 import { documentLoaderFromHttpGet } from '../../src/util/document-loader-from-http-get.js';
 import {
   FakeHttpGetService,
@@ -123,5 +125,69 @@ describe('documentLoaderFromHttpGet', () => {
     await expect(loader(STATUS_LIST_URL)).rejects.toThrow(
       `NotFoundError loading "${STATUS_LIST_URL}": HTTP 404`
     );
+  });
+});
+
+describe('documentLoaderFromHttpGet did:web resolution failures', () => {
+  const DID = 'did:web:example.com';
+  const DID_URL = 'https://example.com/.well-known/did.json';
+
+  async function failure(service: HttpGetService): Promise<unknown> {
+    try {
+      await documentLoaderFromHttpGet(service)(DID);
+    } catch (e) {
+      return e;
+    }
+    return undefined;
+  }
+
+  it('throws a notFound DIDResolutionError for a 404', async () => {
+    const error = (await failure(
+      FakeHttpGetService({ [DID_URL]: httpGetResult(404, 'Not Found') })
+    )) as DIDResolutionError;
+
+    expect(error.name).toBe('DIDResolutionError');
+    expect(error.code).toBe('notFound');
+    expect(error.message).toBe(
+      `Fetching DID document at "${DID_URL}" returned HTTP 404.`
+    );
+  });
+
+  it('throws an internalError DIDResolutionError for another non-2xx status', async () => {
+    const error = (await failure(
+      FakeHttpGetService({ [DID_URL]: httpGetResult(503, '') })
+    )) as DIDResolutionError;
+
+    expect(error.name).toBe('DIDResolutionError');
+    expect(error.code).toBe('internalError');
+    expect(error.message).toContain('HTTP 503');
+  });
+
+  it('throws an internalError DIDResolutionError for a 2xx body that is not JSON', async () => {
+    const error = (await failure(
+      FakeHttpGetService({
+        [DID_URL]: httpGetResult(200, '<!DOCTYPE html><title>Welcome</title>')
+      })
+    )) as DIDResolutionError;
+
+    expect(error.name).toBe('DIDResolutionError');
+    expect(error.code).toBe('internalError');
+    expect(error.message).toBe(`The DID document at "${DID_URL}" is not JSON.`);
+    expect(error.message).not.toContain('DOCTYPE');
+  });
+
+  it('wraps a thrown transport error, keeping it as the cause', async () => {
+    const transport = new Error('getaddrinfo ENOTFOUND secret-host');
+    const error = (await failure({
+      async get() {
+        throw transport;
+      }
+    })) as DIDResolutionError;
+
+    expect(error.name).toBe('DIDResolutionError');
+    expect(error.code).toBe('internalError');
+    expect(error.cause).toBe(transport);
+    expect(error.message).toBe(`Could not fetch DID document at "${DID_URL}".`);
+    expect(error.message).not.toContain('ENOTFOUND');
   });
 });

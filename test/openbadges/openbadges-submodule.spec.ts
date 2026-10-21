@@ -3,11 +3,13 @@
  *
  * Pins three contracts that no per-check unit spec covers:
  *
- * 1. **The `package.json#exports` entry resolves at runtime.** A
- *    dynamic `import('@interop/verifier-core/openbadges')`
- *    catches typos in `exports` and missing re-exports in
- *    `src/openbadges/index.ts`.
- * 2. **Default-path invariant (Q2).** A vanilla
+ * 1. **The `package.json#exports` entries resolve at runtime.**
+ *    Dynamic imports of `@interop/verifier-core/openbadges`
+ *    and `.../openbadges/schema` catch typos in `exports`, missing
+ *    re-exports in `src/openbadges/index.ts` and
+ *    `src/openbadges/schema/index.ts`, and an AJV-carrying export
+ *    leaking back into `/openbadges`.
+ * 2. **Default-path invariant.** A vanilla
  *    `createVerifier()` against a real OB credential emits zero
  *    OB-related `CheckResult` entries.
  * 3. **Opt-in path emits OB findings.** Adding `openBadgesSuite`
@@ -15,8 +17,7 @@
  *    results, and a mutated fixture surfaces
  *    `OB_INVALID_ACHIEVED_LEVEL`.
  *
- * The static imports use the relative `../../src/openbadges/index.js`
- * path so this spec compiles under the repo's `moduleResolution:
+ * The static imports use relative `../../src/openbadges/...` paths so this spec compiles under the repo's `moduleResolution:
  * node` setting (which predates `package.json#exports` support in
  * the TS resolver). The runtime `exports` contract is exercised by
  * the dynamic-import test below.
@@ -25,15 +26,12 @@
 import { describe, it, expect } from 'vitest';
 import { createVerifier } from '../../src/verifier.js';
 import {
-  openBadgesSuite,
   openBadgesSemanticSuite,
-  openBadgesSchemaSuite,
   obv3ResultRefCheck,
   obv3AchievedLevelCheck,
   obv3MissingResultStatusCheck,
   obv3UnknownAchievementTypeCheck,
   createObv3UnknownAchievementTypeCheck,
-  obv3SchemaCheck,
   isOpenBadgeCredential,
   isEndorsementCredential,
   OpenBadgesProblemTypes,
@@ -42,36 +40,22 @@ import {
   OB_3_0_ACHIEVEMENT_TYPES,
   ACHIEVEMENT_TYPE_EXT_PREFIX
 } from '../../src/openbadges/index.js';
-import { FakeCryptoService } from '../factories/services/fake-crypto-service.js';
 import {
-  FakeHttpGetService,
-  okJsonBody
-} from '../factories/services/fake-http-get-service.js';
+  openBadgesSuite,
+  openBadgesSchemaSuite,
+  obv3SchemaCheck,
+  obv3DeclaredSchemaCheck
+} from '../../src/openbadges/schema/index.js';
+import { FakeCryptoService } from '../factories/services/fake-crypto-service.js';
+import { FakeHttpGetService } from '../factories/services/fake-http-get-service.js';
 import { sampleAchievementCredential } from './fixtures/sample-achievement-credential.js';
-
-const OBV3_V2_ACHIEVEMENT_SCHEMA_URL =
-  'https://purl.imsglobal.org/spec/ob/v3p0/schema/json/ob_v3p0_achievementcredential_schema.json';
-
-/** Permissive JSON Schema — accepts any object. Keeps the AJV check
- * exercised end-to-end without coupling this spec to schema details. */
-function acceptAllSchema($id: string): Record<string, unknown> {
-  return {
-    $id,
-    $schema: 'https://json-schema.org/draft/2019-09/schema',
-    type: 'object',
-    additionalProperties: true
-  };
-}
 
 function cloneCredential(): Record<string, unknown> {
   return structuredClone(sampleAchievementCredential);
 }
 
-// Verbose verifier so OB check ids surface in `results[]`
-// regardless of outcome; folded mode hides successes.
 const fakeVerified = {
-  cryptoServices: [FakeCryptoService({ verified: true })],
-  verbose: true
+  cryptoServices: [FakeCryptoService({ verified: true })]
 };
 
 describe('@interop/verifier-core/openbadges (integration)', () => {
@@ -82,16 +66,33 @@ describe('@interop/verifier-core/openbadges (integration)', () => {
     // ESM resolver handles it at runtime via package self-reference.
     const submodulePath = '@interop/verifier-core/openbadges';
     const mod = (await import(submodulePath)) as Record<string, unknown>;
-    expect(mod.openBadgesSuite, 'openBadgesSuite').toBeDefined();
     expect(
       mod.openBadgesSemanticSuite,
       'openBadgesSemanticSuite'
     ).toBeDefined();
-    expect(mod.openBadgesSchemaSuite, 'openBadgesSchemaSuite').toBeDefined();
-    expect(mod.obv3SchemaCheck, 'obv3SchemaCheck').toBeDefined();
+    // The AJV-carrying exports live in ./openbadges/schema only.
+    expect(mod.openBadgesSuite, 'openBadgesSuite').toBeUndefined();
+    expect(mod.openBadgesSchemaSuite, 'openBadgesSchemaSuite').toBeUndefined();
+    expect(mod.obv3SchemaCheck, 'obv3SchemaCheck').toBeUndefined();
+    expect(
+      mod.obv3DeclaredSchemaCheck,
+      'obv3DeclaredSchemaCheck'
+    ).toBeUndefined();
     expect(mod.createObv3UnknownAchievementTypeCheck).toBeTypeOf('function');
     expect(mod.isOpenBadgeCredential).toBeTypeOf('function');
     expect(mod.OpenBadgesProblemTypes).toBe(mod.Obv3ProblemTypes);
+  });
+
+  it('resolves the ./openbadges/schema entry via package.json#exports', async () => {
+    const submodulePath = '@interop/verifier-core/openbadges/schema';
+    const mod = (await import(submodulePath)) as Record<string, unknown>;
+    expect(mod.openBadgesSuite, 'openBadgesSuite').toBeDefined();
+    expect(mod.openBadgesSchemaSuite, 'openBadgesSchemaSuite').toBeDefined();
+    expect(mod.obv3SchemaCheck, 'obv3SchemaCheck').toBeDefined();
+    expect(
+      mod.obv3DeclaredSchemaCheck,
+      'obv3DeclaredSchemaCheck'
+    ).toBeDefined();
   });
 
   it('exposes the documented surface from the static import', () => {
@@ -107,7 +108,10 @@ describe('@interop/verifier-core/openbadges (integration)', () => {
         obv3UnknownAchievementTypeCheck
       ])
     );
-    expect(openBadgesSchemaSuite.checks).toContain(obv3SchemaCheck);
+    expect(openBadgesSchemaSuite.checks).toEqual([
+      obv3SchemaCheck,
+      obv3DeclaredSchemaCheck
+    ]);
 
     expect(isOpenBadgeCredential(sampleAchievementCredential)).toBe(true);
     expect(isEndorsementCredential(sampleAchievementCredential)).toBe(false);
@@ -121,7 +125,7 @@ describe('@interop/verifier-core/openbadges (integration)', () => {
     expect(ACHIEVEMENT_TYPE_EXT_PREFIX).toBe('ext:');
   });
 
-  it('runs no OB checks by default (Q2 invariant)', async () => {
+  it('runs no OB checks by default', async () => {
     const verifier = createVerifier(fakeVerified);
     const result = await verifier.verifyCredential({
       credential: cloneCredential()
@@ -134,11 +138,9 @@ describe('@interop/verifier-core/openbadges (integration)', () => {
   });
 
   it('runs OB semantic + schema checks when openBadgesSuite is opted in', async () => {
-    const httpGetService = FakeHttpGetService({
-      [OBV3_V2_ACHIEVEMENT_SCHEMA_URL]: okJsonBody(
-        acceptAllSchema(OBV3_V2_ACHIEVEMENT_SCHEMA_URL)
-      )
-    });
+    // The schema check validates against the bundled schema; an empty
+    // HTTP fake shows it fetches nothing.
+    const httpGetService = FakeHttpGetService({});
 
     const verifier = createVerifier({ ...fakeVerified, httpGetService });
     const result = await verifier.verifyCredential({
@@ -147,15 +149,22 @@ describe('@interop/verifier-core/openbadges (integration)', () => {
     });
 
     const obSuiteResults = result.results.filter(r => r.suite === 'openbadges');
-    const checkIds = new Set(obSuiteResults.map(r => r.check));
-    expect(checkIds).toContain('schema.obv3.result-ref');
-    expect(checkIds).toContain('schema.obv3.achieved-level');
-    expect(checkIds).toContain('schema.obv3.missing-result-status');
-    expect(checkIds).toContain('schema.obv3.unknown-achievement-type');
-    expect(checkIds).toContain('schema.obv3.json');
+    const checkIds = new Set(obSuiteResults.map(r => r.id));
+    expect(checkIds).toContain('semantic.openbadges.schema.obv3.result-ref');
+    expect(checkIds).toContain(
+      'semantic.openbadges.schema.obv3.achieved-level'
+    );
+    expect(checkIds).toContain(
+      'semantic.openbadges.schema.obv3.missing-result-status'
+    );
+    expect(checkIds).toContain(
+      'semantic.openbadges.schema.obv3.unknown-achievement-type'
+    );
+    expect(checkIds).toContain('semantic.openbadges.schema.obv3.json');
 
     const failures = obSuiteResults.filter(r => r.outcome.status === 'failure');
     expect(failures, JSON.stringify(failures, null, 2)).toHaveLength(0);
+    expect(httpGetService.allCalls()).toEqual([]);
   });
 
   it('emits OB_INVALID_ACHIEVED_LEVEL on a mutated credential', async () => {
@@ -172,7 +181,7 @@ describe('@interop/verifier-core/openbadges (integration)', () => {
     });
 
     const achievedLevelResult = result.results.find(
-      r => r.check === 'schema.obv3.achieved-level'
+      r => r.id === 'semantic.openbadges.semantic.schema.obv3.achieved-level'
     );
     expect(achievedLevelResult?.outcome.status).toBe('failure');
 
@@ -203,7 +212,7 @@ describe('@interop/verifier-core/openbadges (integration)', () => {
 
     const obSuiteResults = result.results.filter(r => r.suite === 'openbadges');
     expect(obSuiteResults).toHaveLength(1);
-    expect(obSuiteResults[0].check).toBe('openbadges.applies');
+    expect(obSuiteResults[0].id).toBe('semantic.openbadges.applies');
     expect(obSuiteResults[0].outcome.status).toBe('skipped');
     if (obSuiteResults[0].outcome.status === 'skipped') {
       expect(obSuiteResults[0].outcome.reason).toBe(

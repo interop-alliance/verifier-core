@@ -11,6 +11,7 @@ import {
 } from '@interop/vc';
 import jsonLdSignatures from '@interop/jsonld-signatures';
 import type {
+  IProofDescription,
   IVerifiableCredential,
   IVerifiablePresentation
 } from '@interop/data-integrity-core';
@@ -26,6 +27,7 @@ import { ProblemTypes } from '../problem-types.js';
 import { errorMessage } from '../util/error-message.js';
 import { credentialIssuerId } from '../util/issuer-id.js';
 import { documentHasProof, proofEntries } from '../util/document-has-proof.js';
+import { isJsigsNoMatch } from '../util/jsigs-no-match.js';
 import { isVerificationMethodMessage } from '../util/verification-method-messages.js';
 import {
   classifyDateRejection,
@@ -226,6 +228,23 @@ function proofVerificationMethod(
 }
 
 /**
+ * The `CryptoResult` for an `@interop/vc` rejection. The library judges
+ * validity dates only once the proof verified, so a date rejection is the
+ * one case that sets `proofVerified`: the signature was good, and only
+ * the dates failed.
+ */
+function rejection(
+  error: unknown,
+  credential: Record<string, unknown> | undefined,
+  now: Date
+): CryptoResult {
+  const problems = classifySignatureError(error, credential, now);
+  return classifyDateRejection(error) === undefined
+    ? { verified: false, problems }
+    : { verified: false, problems, proofVerified: true };
+}
+
+/**
  * Map an `@interop/vc` rejection onto problems. `now` is the instant the
  * library judged validity dates against. Exported for unit testing.
  */
@@ -234,6 +253,17 @@ export function classifySignatureError(
   credential: Record<string, unknown> | undefined,
   now: Date
 ): ProblemDetail[] {
+  // The library checks validity dates only after the proof verified, and
+  // reports a date failure as a plain Error rather than a
+  // VerificationError. Say so with a typed problem (and, in `rejection`,
+  // with `proofVerified`): it is how `status.bitstring` tells an expired
+  // list from a bad one. INVALID_SIGNATURE would accuse an honest issuer
+  // of forgery.
+  const dateRejection = classifyDateRejection(error);
+  if (dateRejection !== undefined) {
+    return [dateRejectionProblem(dateRejection, credential, now)];
+  }
+
   const errors = extractErrors(error);
   const { messages, faults, others } = partitionSubErrorMessages(errors);
 
@@ -356,16 +386,6 @@ export function classifySignatureError(
     ];
   }
 
-  // The library reads validity dates only once the signature has verified,
-  // so a date message proves the credential authentic and merely out of
-  // date. INVALID_SIGNATURE would accuse an honest issuer of forgery.
-  for (const message of messages) {
-    const rejection = classifyDateRejection(message);
-    if (rejection !== undefined) {
-      return [dateRejectionProblem(rejection, credential, now)];
-    }
-  }
-
   return [invalidSignature(messages)];
 }
 
@@ -397,12 +417,82 @@ function hasAuthenticationProof(
   );
 }
 
-const PROOF_PURPOSE_MISMATCH: ProblemDetail = {
-  type: ProblemTypes.PROOF_PURPOSE_MISMATCH,
-  title: 'Proof Purpose Mismatch',
-  detail:
-    'A challenge was supplied, but no proof on the presentation uses the authentication purpose.'
-};
+/**
+ * The proof purpose the library checks a credential's proof against: its
+ * default `CredentialIssuancePurpose` is an assertion purpose.
+ */
+const CREDENTIAL_PROOF_PURPOSE = 'assertionMethod';
+
+/**
+ * Whether any configured suite would check `proof`, asked the way
+ * jsonld-signatures asks: with the document's `@context` on the proof.
+ * `undefined` when no suite matched but one threw while looking: a
+ * `matchProof` may load the proof's context through `documentLoader`, so
+ * a network fault there says nothing about the cryptosuite.
+ */
+async function anySuiteMatches(
+  proof: Record<string, unknown>,
+  document: Record<string, unknown>,
+  suites: CryptoSuite[],
+  documentLoader: CryptoVerifyOptions['documentLoader']
+): Promise<boolean | undefined> {
+  const proofWithContext = { '@context': document['@context'], ...proof };
+  let threw = false;
+  for (const suite of suites) {
+    try {
+      if (
+        await suite.matchProof({
+          proof: proofWithContext as IProofDescription,
+          document,
+          documentLoader
+        })
+      ) {
+        return true;
+      }
+    } catch {
+      threw = true;
+    }
+  }
+  return threw ? undefined : false;
+}
+
+/**
+ * Say why jsonld-signatures checked no proof, so that a warning about an
+ * extra proof in a proof set names the real reason. jsonld-signatures
+ * skips a proof for a purpose mismatch or for having no matching suite,
+ * and reports both the same way; asking the suites tells them apart. A
+ * document with several proofs gets a general wording, since each proof
+ * may have been skipped for a different reason. So does a proof the
+ * suites could not look at (see {@link anySuiteMatches}).
+ */
+async function unsupportedProofProblem(
+  document: Record<string, unknown> | undefined,
+  suites: CryptoSuite[],
+  expectedPurpose: string,
+  documentLoader: CryptoVerifyOptions['documentLoader']
+): Promise<ProblemDetail> {
+  let detail =
+    'No proof in this document could be checked: none uses a cryptosuite this verifier supports with the expected proof purpose.';
+  const [proof, ...otherProofs] = proofEntries(document);
+  if (document && proof && otherProofs.length === 0) {
+    const matched = await anySuiteMatches(
+      proof,
+      document,
+      suites,
+      documentLoader
+    );
+    if (matched === false) {
+      detail = "This verifier does not support this proof's cryptosuite.";
+    } else if (matched && proof.proofPurpose !== expectedPurpose) {
+      detail = `This proof's purpose (${String(proof.proofPurpose ?? 'none')}) is not the one being checked (${expectedPurpose}).`;
+    }
+  }
+  return {
+    type: ProblemTypes.PROOF_UNSUPPORTED,
+    title: 'Unsupported Proof',
+    detail
+  };
+}
 
 /**
  * Selects the proof purpose used to verify a presentation's proof set.
@@ -488,8 +578,8 @@ export function DataIntegrityCryptoService(
           // Validity dates are checked after the proof verifies, exactly
           // against `now`. The library's default 300 seconds of clock skew
           // would let a credential that expired moments ago pass here and
-          // fail `validity.expiration`; a consumer wanting tolerance moves
-          // the verifier's `timeService` instead.
+          // fail `proof.validity-period`; a consumer wanting tolerance
+          // moves the verifier's `timeService` instead.
           now,
           maxClockSkew: 0
         });
@@ -502,14 +592,25 @@ export function DataIntegrityCryptoService(
           };
         }
 
-        return {
-          verified: false,
-          problems: classifySignatureError(
-            result.error,
-            credential as Record<string, unknown> | undefined,
-            now
-          )
-        };
+        if (isJsigsNoMatch(result.error)) {
+          return {
+            verified: false,
+            problems: [
+              await unsupportedProofProblem(
+                credential as Record<string, unknown> | undefined,
+                suites,
+                CREDENTIAL_PROOF_PURPOSE,
+                options.documentLoader
+              )
+            ]
+          };
+        }
+
+        return rejection(
+          result.error,
+          credential as Record<string, unknown> | undefined,
+          now
+        );
       } catch (e) {
         return {
           verified: false,
@@ -533,16 +634,9 @@ export function DataIntegrityCryptoService(
     ): Promise<CryptoResult> => {
       try {
         const doc = presentation as Record<string, unknown>;
-        // With a challenge, `AuthenticationProofPurpose` would skip every
-        // non-authentication proof and jsonld-signatures would report only
-        // "insufficient proofs matched". Name the cause instead.
-        if (
-          typeof options.challenge === 'string' &&
-          !hasAuthenticationProof(doc)
-        ) {
-          return { verified: false, problems: [PROOF_PURPOSE_MISMATCH] };
-        }
-
+        // With a challenge, `AuthenticationProofPurpose` skips every
+        // non-authentication proof, and jsonld-signatures reports that as
+        // "no proof matched": PROOF_UNSUPPORTED, naming the purpose.
         const purpose = getPresentationPurpose(
           doc,
           options.challenge,
@@ -570,14 +664,21 @@ export function DataIntegrityCryptoService(
           };
         }
 
-        return {
-          verified: false,
-          problems: classifySignatureError(
-            result.error,
-            undefined,
-            options.now ?? new Date()
-          )
-        };
+        if (isJsigsNoMatch(result.error)) {
+          return {
+            verified: false,
+            problems: [
+              await unsupportedProofProblem(
+                doc,
+                suites,
+                purpose.term,
+                options.documentLoader
+              )
+            ]
+          };
+        }
+
+        return rejection(result.error, undefined, options.now ?? new Date());
       } catch (e) {
         return {
           verified: false,

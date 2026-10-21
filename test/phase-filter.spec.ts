@@ -37,22 +37,18 @@ import type {
 import type { VerificationContext } from '../src/types/context.js';
 import type { VerificationSubject } from '../src/types/subject.js';
 import { obv3p0Recognizer } from '../src/openbadges/recognizers.js';
-import { openBadgesSuite } from '../src/openbadges/openbadges-suite.js';
+import { openBadgesSuite } from '../src/openbadges/schema/index.js';
 import { sampleAchievementCredential } from './openbadges/fixtures/sample-achievement-credential.js';
 import { FakeCryptoService } from './factories/services/fake-crypto-service.js';
 
 // Phase-filter integration tests inspect every suite that ran via
-// `result.results.map(r => r.suite)`. Use a verbose verifier so
-// successful suites still appear in `results[]`; folded mode would
-// hide them.
+// `result.results.map(r => r.suite)`; `results[]` lists every check.
 const fakeVerified = {
-  cryptoServices: [FakeCryptoService({ verified: true })],
-  verbose: true
+  cryptoServices: [FakeCryptoService({ verified: true })]
 };
 
 const fakeCtx: VerificationContext = {
   documentLoader: async () => ({ document: {} }),
-  fetchJson: async () => ({}),
   cryptoServices: [],
   challenge: null,
   unsignedPresentation: false,
@@ -250,7 +246,7 @@ describe('createVerifier — phase filter integration', () => {
     });
 
     const recognitionResults = result.results.filter(
-      r => r.check === 'recognition.profile'
+      r => r.id === 'recognition.profile'
     );
     expect(recognitionResults).toHaveLength(1);
   });

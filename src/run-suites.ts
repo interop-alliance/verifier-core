@@ -3,16 +3,18 @@
  *
  * `runSuites` is the core loop of the verification pipeline: it iterates
  * suites in order, applies any per-suite `applies` predicate, runs each
- * check, respects `appliesTo` filtering and `fatal` short-circuiting,
- * and returns a flat `CheckResult[]` report.
+ * check, respects `appliesTo` filtering and `fatal` / `halts`
+ * short-circuiting, and returns a flat `CheckResult[]` report.
  *
  * Invariants:
- * - The first fatal failure halts the subject: no later check executes,
- *   in the same suite or any later one. Each check that would have run is
- *   reported as a `'skipped'` row with code
+ * - The first failure of a halting check (fatal, and `halts` not
+ *   `false`) halts the subject: no later check executes, in the same
+ *   suite or any later one. Each check that would have run is reported
+ *   as a `'skipped'` row with code
  *   {@link RUN_SUITES_SKIP_CODES.notRunAfterFatal}, `haltedBy` naming the
  *   failed check, and reason `Not run: <check-id> failed`, so the report
- *   still lists it.
+ *   still lists it. A fatal check with `halts: false` still counts
+ *   against `verified`, but later checks run.
  * - A throw never escapes. A throwing `execute` or `applies` becomes a
  *   `failure` result carrying {@link ProblemTypes.CHECK_ERROR}, so
  *   `runSuites` always resolves.
@@ -110,14 +112,17 @@ function appliesToSubject(
  *   `failure` carrying `CHECK_ERROR`, and that suite's checks do not
  *   run. The row is fatal when the suite has a fatal check that applies
  *   to the subject (a suite that could have failed the subject must not
- *   silently pass). After a halt the throw is not reported; the suite's
+ *   silently pass). A fatal row halts whatever the suite's checks set
+ *   for `halts`, since the throw leaves every check in the suite
+ *   unknown. After a halt the throw is not reported; the suite's
  *   checks are listed as not run instead.
  * - Checks are executed in order within each suite.
  * - Checks with `appliesTo` restrictions are skipped if they don't match the subject.
  * - A throwing check becomes a `failure` carrying `CHECK_ERROR`, and
  *   keeps the check's own `fatal` flag.
- * - A fatal failure halts every remaining check for the subject, in
- *   this suite and all later suites. Each check that would have run is
+ * - A failure of a halting check (see {@link haltsOnFailure}) halts
+ *   every remaining check for the subject, in this suite and all later
+ *   suites. Each check that would have run is
  *   reported as `'skipped'` with code `NOT_RUN_AFTER_FATAL`, `haltedBy`
  *   naming the failed check, and reason `Not run: <check-id> failed`.
  *   Phase filtering and `applies` are still evaluated after a halt, so
@@ -134,7 +139,7 @@ export async function runSuites(
   const results: CheckResult[] = [];
   const timing = context.timing === true;
   const timeService = context.timeService;
-  /** Qualified id of the first fatal failure; once set, no check executes. */
+  /** Qualified id of the first halting failure; once set, no check executes. */
   let haltedBy: string | undefined;
 
   for (const suite of suites) {
@@ -150,6 +155,8 @@ export async function runSuites(
     if (applies.threw && haltedBy === undefined) {
       const checkId = `${suite.id}.applies`;
       // A suite that could have failed the subject must not silently pass.
+      // The throw leaves every check in the suite unknown, so any fatal
+      // check halts here, whatever its `halts` says.
       const fatal = suite.checks.some(
         c => c.fatal === true && appliesToSubject(c, subject)
       );
@@ -158,7 +165,7 @@ export async function runSuites(
           suite,
           checkId,
           buildCheckErrorOutcome(checkId, applies.error),
-          fatal,
+          { fatal },
           timing,
           timeService
         )
@@ -176,7 +183,7 @@ export async function runSuites(
             suite,
             `${suite.id}.applies`,
             { status: 'skipped', reason: 'suite predicate returned false' },
-            undefined,
+            {},
             timing,
             timeService
           )
@@ -201,7 +208,7 @@ export async function runSuites(
               haltedBy,
               reason: `Not run: ${haltedBy} failed`
             },
-            check.fatal,
+            check,
             timing,
             timeService
           )
@@ -220,19 +227,24 @@ export async function runSuites(
         ? finishTaskTiming(taskTiming, timeService)
         : undefined;
 
-      const result = buildResult(suite, check.id, outcome, check.fatal);
+      const result = buildResult(suite, check.id, outcome, check);
       if (finishedTiming !== undefined) {
         result.timing = finishedTiming;
       }
       results.push(result);
 
-      if (check.fatal && outcome.status === 'failure') {
+      if (haltsOnFailure(check) && outcome.status === 'failure') {
         haltedBy = check.id;
       }
     }
   }
 
   return results;
+}
+
+/** Whether a failure of `check` halts the subject: fatal, and not opted out. */
+function haltsOnFailure(check: VerificationCheck): boolean {
+  return check.fatal === true && check.halts !== false;
 }
 
 /**
@@ -275,20 +287,23 @@ function buildCheckErrorOutcome(id: string, error: unknown): CheckOutcome {
 
 /**
  * Internal: assemble a `CheckResult` row for `checkId` within `suite`.
- * `fatal` is omitted from the row when undefined.
+ * `fatal` and `halts` are copied from `flags` and omitted from the row
+ * when undefined, so rows of checks that leave them unset keep their
+ * shape.
  */
 function buildResult(
   suite: VerificationSuite,
   checkId: string,
   outcome: CheckOutcome,
-  fatal: boolean | undefined
+  flags: Pick<VerificationCheck, 'fatal' | 'halts'>
 ): CheckResult {
+  const { fatal, halts } = flags;
   return {
     id: computeId(suite.phase, suite.id, checkId),
-    check: checkId,
     suite: suite.id,
     outcome,
-    ...(fatal !== undefined ? { fatal } : {})
+    ...(fatal !== undefined ? { fatal } : {}),
+    ...(halts !== undefined ? { halts } : {})
   };
 }
 
@@ -305,11 +320,11 @@ function syntheticResult(
   suite: VerificationSuite,
   checkId: string,
   outcome: CheckOutcome,
-  fatal: boolean | undefined,
+  flags: Pick<VerificationCheck, 'fatal' | 'halts'>,
   timing: boolean,
   timeService: TimeService | undefined
 ): CheckResult {
-  const result = buildResult(suite, checkId, outcome, fatal);
+  const result = buildResult(suite, checkId, outcome, flags);
   if (timing) {
     const started = startTaskTiming(timeService);
     result.timing = finishTaskTiming(started, timeService);

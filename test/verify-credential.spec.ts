@@ -5,7 +5,7 @@ import {
   defaultHttpGetService
 } from '../src/default-services.js';
 import { createVerifier } from '../src/verifier.js';
-import { openBadgesSchemaSuite } from '../src/openbadges/index.js';
+import { openBadgesSchemaSuite } from '../src/openbadges/schema/index.js';
 import { runSuites } from '../src/run-suites.js';
 import { defaultSuites } from '../src/default-suites.js';
 import {
@@ -28,12 +28,11 @@ import { v2Expired } from './fixtures/v2-expired.js';
 import { v2WithValidStatus } from './fixtures/v2-with-valid-status.js';
 import { notRunOutcome } from './factories/index.js';
 
-// ests in this file ensure spec completion by inspecting every check in
-// `result.results`. Use a verbose verifier to enable these checks; folded-mode
-// coverage lives in `describe('folded vs verbose shape', …)` below.
+// Tests in this file ensure spec completion by inspecting every check in
+// `result.results`, which always carries every check that ran, was skipped
+// or was not run.
 const fakeVerified = {
-  cryptoServices: [FakeCryptoService({ verified: true })],
-  verbose: true
+  cryptoServices: [FakeCryptoService({ verified: true })]
 };
 
 describe('verifyCredential', () => {
@@ -100,7 +99,7 @@ describe('verifyCredential', () => {
       expect(result.verified).toBe(false);
       expect(result.results).toHaveLength(1);
       expect(result.results[0].suite).toBe('parsing');
-      expect(result.results[0].check).toBe('parsing.envelope');
+      expect(result.results[0].id).toBe('cryptographic.parsing.envelope');
       expect(result.results[0].outcome.status).toBe('failure');
     });
 
@@ -162,7 +161,9 @@ describe('verifyCredential', () => {
       const proofResults = result.results.filter(r => r.suite === 'proof');
       expect(proofResults.length).toBeGreaterThan(0);
 
-      const sigCheck = proofResults.find(r => r.check === 'proof.signature');
+      const sigCheck = proofResults.find(
+        r => r.id === 'cryptographic.proof.signature'
+      );
       if (sigCheck) {
         expect(sigCheck.outcome.status).toBe('success');
       }
@@ -176,16 +177,33 @@ describe('verifyCredential', () => {
       });
 
       expect(result.verified).toBe(false);
-      const sigCheck = result.results.find(r => r.check === 'proof.signature');
+      const sigCheck = result.results.find(
+        r => r.id === 'cryptographic.proof.signature'
+      );
       expect(sigCheck?.outcome.status).toBe('failure');
     });
   });
 
   describe('expired credentials', () => {
+    // An authentic credential whose validity has ended is not a forgery,
+    // and must not be reported as one: its signature verifies, and the
+    // expiry is reported by `proof.validity-period`, which does not halt
+    // the checks after it.
     const expiredProblem = (result: { results: CheckResult[] }) => {
-      const sig = result.results.find(r => r.check === 'proof.signature');
-      return sig?.outcome.status === 'failure'
-        ? sig.outcome.problems[0]
+      const sig = result.results.find(
+        r => r.id === 'cryptographic.proof.signature'
+      );
+      expect(sig?.outcome.status).toBe('success');
+      const validity = result.results.find(
+        r => r.id === 'cryptographic.proof.validity-period'
+      );
+      expect(
+        result.results.filter(
+          r => r.outcome.status === 'skipped' && r.outcome.haltedBy
+        )
+      ).toEqual([]);
+      return validity?.outcome.status === 'failure'
+        ? validity.outcome.problems[0]
         : undefined;
     };
 
@@ -282,6 +300,52 @@ describe('verifyCredential', () => {
       expect(customResult?.outcome.status).toBe('failure');
     });
 
+    it('a custom fatal check with halts: false fails verification without halting later suites', async () => {
+      const datedCheck: VerificationCheck = {
+        id: 'dated.check',
+        name: 'Dated Check',
+        fatal: true,
+        halts: false,
+        appliesTo: ['verifiableCredential'],
+        execute: async (): Promise<CheckOutcome> => ({
+          status: 'failure',
+          problems: [
+            {
+              type: 'https://www.w3.org/TR/vc-data-model#CUSTOM_ERROR',
+              title: 'Custom Fatal Error',
+              detail: 'Fails without halting'
+            }
+          ]
+        })
+      };
+      const laterCheck: VerificationCheck = {
+        id: 'later.check',
+        name: 'Later Check',
+        appliesTo: ['verifiableCredential'],
+        execute: async (): Promise<CheckOutcome> => ({
+          status: 'success',
+          message: 'Ran after the fatal failure'
+        })
+      };
+
+      const credential = CredentialFactory({ version: 'v1', credential: {} });
+      const result = await verifyCredential({
+        credential,
+        additionalSuites: [
+          { id: 'dated', name: 'Dated', checks: [datedCheck] },
+          { id: 'later', name: 'Later', checks: [laterCheck] }
+        ],
+        ...fakeVerified
+      });
+
+      expect(result.verified).toBe(false);
+      const later = result.results.find(r => r.suite === 'later');
+      expect(later?.outcome.status).toBe('success');
+      const datedSummary = result.summary.find(s => s.suite === 'dated');
+      expect(datedSummary?.fatalFailureAt).toBe('unknown.dated.check');
+      expect(datedSummary?.verified).toBe(false);
+    });
+
     it('a custom check that throws yields a CHECK_ERROR result, not a rejection', async () => {
       const throwingCheck: VerificationCheck = {
         id: 'custom.throws',
@@ -302,7 +366,7 @@ describe('verifyCredential', () => {
       });
 
       const customResult = result.results.find(
-        r => r.check === 'custom.throws'
+        r => r.id === 'unknown.custom.throws'
       );
       expect(customResult?.outcome).toEqual({
         status: 'failure',
@@ -326,15 +390,17 @@ describe('verifyCredential', () => {
 
       // Default crypto services: their `canVerify` rejects an unsigned
       // credential, which used to surface as a second, misleading failure.
-      const result = await verifyCredential({ credential, verbose: true });
+      const result = await verifyCredential({ credential });
 
       expect(result.verified).toBe(false);
       const proofExists = result.results.find(
-        r => r.check === 'core.proof-exists'
+        r => r.id === 'cryptographic.core.proof-exists'
       );
       expect(proofExists?.outcome.status).toBe('failure');
 
-      const signature = result.results.find(r => r.check === 'proof.signature');
+      const signature = result.results.find(
+        r => r.id === 'cryptographic.proof.signature'
+      );
       expect(signature?.outcome).toEqual(notRunOutcome('core.proof-exists'));
 
       const noServiceRows = result.results.filter(
@@ -364,7 +430,7 @@ describe('verifyCredential', () => {
         credential: { id: 'not-a-valid-url' }
       });
 
-      const result = await verifyCredential({ credential, verbose: true });
+      const result = await verifyCredential({ credential });
 
       const core = result.summary.find(s => s.suite === 'core');
       expect(core?.message).toBe(
@@ -391,11 +457,11 @@ describe('verifyCredential', () => {
       expect(result.results.length).toBeGreaterThan(0);
       for (const checkResult of result.results) {
         expect(checkResult.suite).toBeTypeOf('string');
-        expect(checkResult.check).toBeTypeOf('string');
+        expect(checkResult.id).toBeTypeOf('string');
         const st = checkResult.outcome.status;
         if (st !== 'success' && st !== 'failure' && st !== 'skipped') {
           throw new Error(
-            `Unexpected outcome status for ${checkResult.suite}/${checkResult.check}: ${String(st)}`
+            `Unexpected outcome status for ${checkResult.suite}/${checkResult.id}: ${String(st)}`
           );
         }
       }
@@ -460,8 +526,8 @@ describe('verifyCredential', () => {
       const credential = CredentialFactory({ credential: {} });
       const result = await verifyCredential({ credential, ...fakeVerified });
 
-      const obResults = result.results.filter(
-        r => r.suite === 'schema.obv3' || r.suite.startsWith('openbadges')
+      const obResults = result.results.filter(r =>
+        r.suite.startsWith('openbadges')
       );
       expect(obResults).toHaveLength(0);
     });
@@ -526,12 +592,16 @@ describe('verifyCredential', () => {
       );
       expect(verified).toBe(false);
 
-      const statusResult = results.find(r => r.check === 'status.bitstring');
+      const statusResult = results.find(
+        r => r.id === 'cryptographic.status.bitstring'
+      );
       expect(statusResult, 'status.bitstring result present').toBeDefined();
       expect(statusResult?.outcome.status).toBe('failure');
       expect(statusResult?.fatal).toBe(true);
 
-      const proofResult = results.find(r => r.check === 'proof.signature');
+      const proofResult = results.find(
+        r => r.id === 'cryptographic.proof.signature'
+      );
       expect(proofResult?.outcome.status).toBe('success');
     });
   });
@@ -557,17 +627,32 @@ describe('verifyCredential', () => {
     });
   });
 
-  describe('folded vs verbose shape', () => {
+  describe('result shape', () => {
     const cryptoOnly = {
       cryptoServices: [FakeCryptoService({ verified: true })]
     };
 
-    it('default (verbose unset): folds successes; results[] has only failures + explicit skips', async () => {
+    it('default options: results[] carries passes and reasoned skips alike', async () => {
       const credential = CredentialFactory({ version: 'v1', credential: {} });
       const result = await verifyCredential({ credential, ...cryptoOnly });
 
       expect(result.verified).toBe(true);
-      expect(result.results).toEqual([]);
+      expect(result.results.length).toBeGreaterThan(0);
+
+      // A credential with no `credentialStatus`: the signature passed and
+      // the bitstring check was skipped, and both say so.
+      const signature = result.results.find(
+        r => r.id === 'cryptographic.proof.signature'
+      );
+      expect(signature?.outcome.status).toBe('success');
+      const bitstring = result.results.find(
+        r => r.id === 'cryptographic.status.bitstring'
+      );
+      expect(bitstring?.outcome).toEqual({
+        status: 'skipped',
+        reason: 'Credential has no credentialStatus.'
+      });
+
       expect(result.summary.length).toBeGreaterThan(0);
       expect(result.summary.every(s => s.verified)).toBe(true);
       const ids = new Set(result.summary.map(s => s.id));
@@ -575,27 +660,18 @@ describe('verifyCredential', () => {
       expect(ids).toContain('cryptographic.proof');
     });
 
-    it('verbose: true: results[] carries every check, summary[] identical to folded mode', async () => {
+    it('default options: an unmatched recognizer leaves a skipped recognition row', async () => {
       const credential = CredentialFactory({ version: 'v1', credential: {} });
-      const folded = await verifyCredential({ credential, ...cryptoOnly });
-      const verbose = await verifyCredential({
-        credential,
-        ...cryptoOnly,
-        verbose: true
-      });
+      const result = await verifyCredential({ credential, ...cryptoOnly });
 
-      expect(verbose.results.length).toBeGreaterThan(0);
-      expect(verbose.results.every(r => r.id !== undefined)).toBe(true);
-      expect(verbose.summary.map(s => s.id)).toEqual(
-        folded.summary.map(s => s.id)
+      const recognition = result.results.find(
+        r => r.id === 'recognition.profile'
       );
-      expect(verbose.summary.map(s => s.status)).toEqual(
-        folded.summary.map(s => s.status)
-      );
-      expect(verbose.verified).toBe(folded.verified);
+      expect(recognition?.outcome.status).toBe('skipped');
+      expect(result.recognizedProfile).toBeUndefined();
     });
 
-    it('failure path (folded): results[] surfaces just the proof failure; summary marks proof as failure', async () => {
+    it('failure path: results[] carries the proof failure alongside the passes', async () => {
       const credential = CredentialFactory({ version: 'v1', credential: {} });
       const result = await verifyCredential({
         credential,
@@ -603,7 +679,12 @@ describe('verifyCredential', () => {
       });
 
       expect(result.verified).toBe(false);
-      expect(result.results.every(r => r.outcome.status === 'failure')).toBe(
+      const failures = result.results.filter(
+        r => r.outcome.status === 'failure'
+      );
+      expect(failures.length).toBeGreaterThan(0);
+      expect(failures.every(r => r.suite === 'proof')).toBe(true);
+      expect(result.results.some(r => r.outcome.status === 'success')).toBe(
         true
       );
       const proofSummary = result.summary.find(s => s.suite === 'proof');
@@ -665,7 +746,7 @@ describe('verifyCredential', () => {
         { [STATUS_LIST_URL]: statusListE5Fixture },
         { fallback: defaultDocumentLoaderFor(defaultHttpGetService()) }
       );
-      const verifier = createVerifier({ verbose: true, documentLoader });
+      const verifier = createVerifier({ documentLoader });
       const result = await verifier.verifyCredential({
         credential: v2WithValidStatus
       });
@@ -682,7 +763,9 @@ describe('verifyCredential', () => {
       expect(proofSummary?.status).toBe('success');
       expect(statusSummary?.status).toBe('success');
 
-      const sigCheck = result.results.find(r => r.check === 'proof.signature');
+      const sigCheck = result.results.find(
+        r => r.id === 'cryptographic.proof.signature'
+      );
       expect(sigCheck?.outcome.status).toBe('success');
     });
   });

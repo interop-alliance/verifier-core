@@ -3,8 +3,8 @@ import { ProblemDetail } from '../../types/problem-detail.js';
 import { VerificationSubject } from '../../types/subject.js';
 import { VerificationContext } from '../../types/context.js';
 import { ProblemTypes } from '../../problem-types.js';
-import { dispatchProofVerification } from '../../crypto-dispatch.js';
 import { documentHasProof } from '../../util/document-has-proof.js';
+import { beginProofRun, verifyProofSet } from './proof-set-verification.js';
 
 const NO_APPLICABLE_SERVICE: ProblemDetail = {
   type: ProblemTypes.PROOF_VERIFICATION_ERROR,
@@ -57,12 +57,22 @@ const UNSIGNED_PRESENTATION_ACCEPTED =
  * proof. `verifyPresentation` rejects a `domain` without a `challenge` before
  * any suite runs.
  *
- * The credential's validity dates are judged here too, at
- * {@link VerificationContext.now}, because the crypto service reads them
- * once the signature has verified. The default service reports an expired
- * or not-yet-valid credential as `CREDENTIAL_EXPIRED` /
- * `CREDENTIAL_NOT_YET_VALID` rather than `INVALID_SIGNATURE`: authentic,
- * but still a fatal failure, since the credential is not currently usable.
+ * A document carrying a proof set passes only when every proof a
+ * registered suite can check verified (VC Data Integrity section 4.5).
+ * Each proof is verified on its own (see `verifyProofSet`), and a failing
+ * proof's problems name it: "Proof 2 of 2 (DataIntegrityProof,
+ * eddsa-rdfc-2022): ...". Proofs no suite can check, beside one that
+ * verified, do not fail this check. `proof.unsupported-proofs` reports
+ * them.
+ *
+ * The credential's validity dates belong to `proof.validity-period`,
+ * which runs after this check. A crypto service may still reject for
+ * them: the default one judges the dates at
+ * {@link VerificationContext.now}, and only once the proof has verified.
+ * It says so with `proofVerified` on its result, and such a rejection
+ * reads as success here. So an out-of-date credential is not reported as
+ * forged, and does not halt the checks after it. The flag is the
+ * service's word; this check does not infer it from the problem types.
  */
 export const signatureCheck: VerificationCheck = {
   id: 'proof.signature',
@@ -103,16 +113,8 @@ export const signatureCheck: VerificationCheck = {
       return { status: 'failure', problems: [NO_PROOF] };
     }
 
-    const dispatched = await dispatchProofVerification({
-      services: context.cryptoServices,
-      subject,
-      options: {
-        documentLoader: context.documentLoader,
-        challenge: context.challenge,
-        domain: context.domain,
-        now: context.now
-      }
-    });
+    beginProofRun(context);
+    const dispatched = (await verifyProofSet(subject, context)).combined;
 
     switch (dispatched.kind) {
       case 'verified':
@@ -121,6 +123,12 @@ export const signatureCheck: VerificationCheck = {
           message: dispatched.message ?? 'Signature verified successfully.'
         };
       case 'rejected':
+        if (dispatched.proofVerified) {
+          return {
+            status: 'success',
+            message: 'Signature verified successfully.'
+          };
+        }
         return { status: 'failure', problems: dispatched.problems };
       case 'no-service':
         return { status: 'failure', problems: [NO_APPLICABLE_SERVICE] };

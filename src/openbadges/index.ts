@@ -2,23 +2,24 @@
  * Public submodule entry point: `@interop/verifier-core/openbadges`.
  *
  * Curated re-exports for OpenBadges 3.0 verification. Importing this
- * submodule does **not** affect the default verifier behavior — every
+ * submodule does **not** affect the default verifier behavior -- every
  * suite, check, and helper exported here is opt-in and must be
  * passed explicitly via a verify call's `additionalSuites` (or
  * composed into a custom suite).
  *
- * Surface follows the design in
- * `docs/plans/2026-04-18-openbadges-module/00-design.md`:
+ * Nothing here loads AJV or the bundled Open Badges JSON Schemas.
+ * JSON Schema validation -- `openBadgesSuite`, `openBadgesSchemaSuite`,
+ * `obv3SchemaCheck` and `obv3DeclaredSchemaCheck` -- lives in the
+ * `@interop/verifier-core/openbadges/schema` submodule.
  *
- * - **Suites** (most common entry point):
- *   {@link openBadgesSuite}, {@link openBadgesSemanticSuite},
- *   {@link openBadgesSchemaSuite}.
+ * The surface is:
+ *
+ * - **Suite**: {@link openBadgesSemanticSuite}.
  * - **Individual checks** for callers who want to compose their own
  *   suites a la carte: {@link obv3ResultRefCheck},
  *   {@link obv3AchievedLevelCheck},
  *   {@link obv3MissingResultStatusCheck},
- *   {@link obv3UnknownAchievementTypeCheck},
- *   {@link obv3SchemaCheck}.
+ *   {@link obv3UnknownAchievementTypeCheck}.
  * - **Factory** for the achievement-type check with a caller-supplied
  *   vocab augment: {@link createObv3UnknownAchievementTypeCheck}.
  * - **Recognition helpers** for branching on credential shape:
@@ -33,11 +34,7 @@
  *   prefix in their own logic or UI.
  */
 
-export {
-  openBadgesSuite,
-  openBadgesSemanticSuite,
-  openBadgesSchemaSuite
-} from './openbadges-suite.js';
+export { openBadgesSemanticSuite } from './openbadges-suite.js';
 
 export { obv3ResultRefCheck } from './result-ref-check.js';
 export { obv3AchievedLevelCheck } from './achieved-level-check.js';
@@ -47,8 +44,6 @@ export {
   createObv3UnknownAchievementTypeCheck
 } from './unknown-achievement-type-check.js';
 export type { CreateObv3UnknownAchievementTypeCheckOptions } from './unknown-achievement-type-check.js';
-
-export { obv3SchemaCheck } from '../suites/schema/obv3/obv3-schema-check.js';
 
 export { isOpenBadgeCredential, isEndorsementCredential } from './recognize.js';
 

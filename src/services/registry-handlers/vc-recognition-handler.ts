@@ -1,5 +1,9 @@
-import type { VcRecognitionEntityIdentityRegistry } from '../../types/registry.js';
+import type {
+  RegistryEntity,
+  VcRecognitionEntityIdentityRegistry
+} from '../../types/registry.js';
 import type { HttpGetService } from '../http-get-service/http-get-service.js';
+import { klona } from 'klona';
 import { credentialIssuerId } from '../../util/issuer-id.js';
 import { DEFAULT_TTL_MS, resolveTtl, ttlFromValidUntil } from './cache-ttl.js';
 import type {
@@ -77,10 +81,11 @@ async function lookupVcRecognitionForRegistry(
     credential = loaded;
   }
 
-  if (!subjectContainsDid(credential, did)) {
+  const entry = findSubjectEntry(credential, did);
+  if (entry === undefined) {
     return { status: 'not-found' };
   }
-  return { status: 'found' };
+  return { status: 'found', entity: entityFromEntry(entry) };
 }
 
 function cacheKeyForVcRecognitionUrl(url: string): string {
@@ -107,24 +112,39 @@ async function fetchRecognitionCredentialJson(
   return json as Record<string, unknown>;
 }
 
-function subjectContainsDid(
+/**
+ * The `credentialSubject` entry whose `id` is `did`, or `undefined`. The
+ * subject is one object or an array of them.
+ */
+function findSubjectEntry(
   credential: Record<string, unknown>,
   did: string
-): boolean {
+): Record<string, unknown> | undefined {
   const subject = credential.credentialSubject;
-  if (subject === undefined || subject === null) {
-    return false;
+  const entries = Array.isArray(subject) ? subject : [subject];
+  return entries.find(
+    (entry): entry is Record<string, unknown> =>
+      entry !== null &&
+      typeof entry === 'object' &&
+      !Array.isArray(entry) &&
+      (entry as { id?: unknown }).id === did
+  );
+}
+
+/**
+ * The recognition credential's record of the issuer: its name and homepage
+ * when they are plain strings, plus the whole entry, so a consumer can read
+ * fields this shape does not name. A `name` that is a language map stays in
+ * `raw` only. `raw` is a copy: the entry belongs to the cached recognition
+ * credential, which every later lookup sharing the cache reads.
+ */
+function entityFromEntry(entry: Record<string, unknown>): RegistryEntity {
+  const entity: RegistryEntity = { raw: klona(entry) };
+  if (typeof entry.name === 'string') {
+    entity.name = entry.name;
   }
-  if (Array.isArray(subject)) {
-    return subject.some(
-      entry =>
-        entry !== null &&
-        typeof entry === 'object' &&
-        (entry as { id?: unknown }).id === did
-    );
+  if (typeof entry.url === 'string') {
+    entity.url = entry.url;
   }
-  if (typeof subject === 'object') {
-    return (subject as { id?: unknown }).id === did;
-  }
-  return false;
+  return entity;
 }

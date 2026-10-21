@@ -9,7 +9,8 @@ import { statusListIssuerCheck } from './list-issuer-check.js';
  * revocation and suspension status via BitstringStatusList with the
  * **fatal** {@link bitstringStatusCheck}, then reports a status list not
  * issued by the credential's issuer with the non-fatal
- * {@link statusListIssuerCheck}.
+ * {@link statusListIssuerCheck}. The status check sets `halts: false`, so
+ * the list issuer is reported after a status failure too.
  *
  * Both checks sit in the `cryptographic` phase although the issuer
  * comparison is a trust judgement: `status.list-issuer` reads the lists

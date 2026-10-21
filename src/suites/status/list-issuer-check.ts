@@ -17,8 +17,9 @@ export const STATUS_LIST_ISSUER_SKIP_CODES = {
   /** No `BitstringStatusListEntry` for revocation or suspension to check. */
   noListChecked: 'no-list-checked',
   /**
-   * A checked entry's list was not verified before this check ran:
-   * `status.bitstring` did not run in this pass, or never recorded it.
+   * A checked entry's list was not established before this check ran:
+   * `status.bitstring` did not run in this pass, could not load the list,
+   * or its proof did not verify.
    */
   listNotVerified: 'list-not-verified'
 } as const;
@@ -42,9 +43,16 @@ export const STATUS_LIST_ISSUER_SKIP_CODES = {
  * of the verification method, so with it a list's `issuer` is the proven
  * signer. A custom `CryptoService` that checks only the signature leaves
  * the list's `issuer` a self-claim, and this check then compares that
- * claim. When `status.bitstring` fails it is fatal and this check is
- * reported as not run. When it did not run at all, or never recorded a
- * list this check needs, the check is skipped with the
+ * claim.
+ *
+ * `status.bitstring` does not halt, so this check also runs after a
+ * status failure. A list rejected only for its validity dates is recorded
+ * too, since the dates are judged only once the proof verified. So a list
+ * that marks the credential revoked, or has expired, is still checked for
+ * who signed it. Every recorded list is compared, and a mismatch fails
+ * the check. When some list was not recorded (`status.bitstring` did not
+ * run in this pass, could not load it, or its proof did not verify) and
+ * no recorded list mismatched, the check is skipped with the
  * `listNotVerified` code from {@link STATUS_LIST_ISSUER_SKIP_CODES}.
  *
  * This is a warning (`fatal: false`): `verified` is unchanged. Some
@@ -86,14 +94,12 @@ export const statusListIssuerCheck: VerificationCheck = {
     const credentialIssuer = credentialIssuerId(credential);
     const lists = takeVerifiedStatusLists(context);
     const problems: ProblemDetail[] = [];
+    let unestablished = false;
     for (const url of urls) {
       const list = lists.get(url);
       if (list === undefined) {
-        return {
-          status: 'skipped',
-          reason: `The proof of status list ${url} was not verified before this check ran.`,
-          code: STATUS_LIST_ISSUER_SKIP_CODES.listNotVerified
-        };
+        unestablished = true;
+        continue;
       }
       const listIssuer = credentialIssuerId(list);
       if (listIssuer === undefined || listIssuer !== credentialIssuer) {
@@ -107,6 +113,15 @@ export const statusListIssuerCheck: VerificationCheck = {
 
     if (problems.length > 0) {
       return { status: 'failure', problems };
+    }
+
+    if (unestablished) {
+      return {
+        status: 'skipped',
+        reason:
+          'A status list could not be loaded or its proof did not verify; status.bitstring reports why.',
+        code: STATUS_LIST_ISSUER_SKIP_CODES.listNotVerified
+      };
     }
 
     return {

@@ -111,8 +111,7 @@ describe('verification method errors (signed offline, did:key)', () => {
   const verifier = () =>
     createVerifier({
       httpGetService: offlineHttpGetService,
-      documentLoader,
-      verbose: true
+      documentLoader
     });
 
   it('reports an issuer that is not the verification method controller as ISSUER_PROOF_MISMATCH', async () => {
@@ -220,8 +219,7 @@ describe('verification method errors (signed offline, did:web)', () => {
 
     const result = await createVerifier({
       httpGetService,
-      documentLoader: loader,
-      verbose: true
+      documentLoader: loader
     }).verifyCredential({ credential: signed, phases: ['cryptographic'] });
 
     expect(result.verified).toBe(false);
